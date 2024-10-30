@@ -47,7 +47,7 @@ class Fishing(commands.Cog):
             await ctx.send(f"🚫 {user.name}, you need bait to fish! Visit the (!)shop to purchase some.")
             return
 
-        # Select a bait type (for this example, we'll just use the first available bait)
+        # Select a bait type
         bait_type = next((bait_name for bait_name in bait if bait[bait_name] > 0), None)
 
         # Catch fish
@@ -80,8 +80,8 @@ class Fishing(commands.Cog):
             "5": {"name": "Advanced Rod", "cost": 100},
         }
 
-        shop_str = "\n".join(f"{index}. {item['name']} - {item['cost']} coins" for index, item in shop_items.items())
-        await ctx.send(f"🛒 Shop:\n{shop_str}")
+        shop_str = "🛒 **Shop:**\n" + "\n".join(f"**{index}.** {item['name']} - {item['cost']} coins" for index, item in shop_items.items())
+        await ctx.send(shop_str)
 
     @shop.command(name="buy")
     async def buy(self, ctx, item_index: int):
@@ -135,7 +135,7 @@ class Fishing(commands.Cog):
         inventory_str = "\n".join(f"- {fish} x {count}" for fish, count in Counter(inventory).items()) if inventory else "empty"
         bait_str = "\n".join(f"- {bait_name} x {amount}" for bait_name, amount in bait.items()) if bait else "no bait"
 
-        await ctx.send(f"🎒 {user.name}'s Inventory:\nFish:\n{inventory_str}\nBait:\n{bait_str}")
+        await ctx.send(f"🎒 **{user.name}'s Inventory:**\n**Fish:**\n{inventory_str}\n**Bait:**\n{bait_str}")
 
     @commands.command(name="sellfish")
     async def sell_fish(self, ctx):
@@ -173,7 +173,7 @@ class Fishing(commands.Cog):
             return
 
         fisherboard_str = "\n".join(f"{ctx.guild.get_member(user_id).name}: {value} coins" for user_id, value in sorted_fisherboard)
-        await ctx.send(f"📊 Fisherboard:\n{fisherboard_str}")
+        await ctx.send(f"📊 **Fisherboard:**\n{fisherboard_str}")
 
     async def _catch_fish(self, user, bait_type):
         """Determines the fish catch based on rarity chances, including bait bonuses."""
