@@ -23,8 +23,7 @@ class Fishing(commands.Cog):
             "Intermediate Rod": {"chance": 0.1, "value_increase": 5},
             "Advanced Rod": {"chance": 0.2, "value_increase": 10},
         }
-        self.event_fish = ["Legendary Fish"]
-        self.current_event = None
+        self.current_event = None  # Keeping the event logic ready for future use
 
     @commands.command(name="fish")
     async def fish(self, ctx):
@@ -37,9 +36,9 @@ class Fishing(commands.Cog):
             fish_value = catch["value"]
             await self._add_to_inventory(user, fish_name)
             await self._update_total_value(user, fish_value)
-            await ctx.send(f"🎣 {user.mention} caught a {fish_name} worth {fish_value} coins!")
+            await ctx.send(f"🎣 {user.name} caught a {fish_name} worth {fish_value} coins!")
         else:
-            await ctx.send(f"🎣 {user.mention} went fishing but didn't catch anything this time.")
+            await ctx.send(f"🎣 {user.name} went fishing but didn't catch anything this time.")
 
     @commands.command(name="inventory")
     async def inventory(self, ctx):
@@ -50,9 +49,9 @@ class Fishing(commands.Cog):
         if inventory:
             fish_counts = Counter(inventory)
             inventory_str = "\n".join(f"- {fish} x {count}" for fish, count in fish_counts.items())
-            await ctx.send(f"🎒 {user.mention}'s Inventory:\n{inventory_str}")
+            await ctx.send(f"🎒 {user.name}'s Inventory:\n{inventory_str}")
         else:
-            await ctx.send(f"🎒 {user.mention}, your inventory is empty. Go catch some fish!")
+            await ctx.send(f"🎒 {user.name}, your inventory is empty. Go catch some fish!")
 
     @commands.command(name="sellfish")
     async def sell_fish(self, ctx):
@@ -61,14 +60,14 @@ class Fishing(commands.Cog):
         inventory = await self.config.user(user).inventory()
 
         if not inventory:
-            await ctx.send(f"💰 {user.mention}, you have no fish to sell.")
+            await ctx.send(f"💰 {user.name}, you have no fish to sell.")
             return
 
         total_value = sum(self.fish_types[fish]["value"] for fish in inventory if fish in self.fish_types)
         await bank.deposit_credits(user, total_value)
         await self.config.user(user).inventory.set([])  # Clear inventory after selling
 
-        await ctx.send(f"💰 {user.mention} sold all their fish for {total_value} coins!")
+        await ctx.send(f"💰 {user.name} sold all their fish for {total_value} coins!")
 
     @commands.command(name="upgrade")
     async def upgrade_rod(self, ctx, rod_name: str):
@@ -77,15 +76,15 @@ class Fishing(commands.Cog):
         current_rod = await self.config.user(user).rod()
 
         if rod_name not in self.rod_upgrades:
-            await ctx.send(f"🚫 {user.mention}, that's not a valid rod name.")
+            await ctx.send(f"🚫 {user.name}, that's not a valid rod name.")
             return
         
         if current_rod == rod_name:
-            await ctx.send(f"🚫 {user.mention}, you already have the {rod_name}.")
+            await ctx.send(f"🚫 {user.name}, you already have the {rod_name}.")
             return
         
         await self.config.user(user).rod.set(rod_name)
-        await ctx.send(f"🔧 {user.mention} upgraded to a {rod_name}!")
+        await ctx.send(f"🔧 {user.name} upgraded to a {rod_name}!")
 
     @commands.command(name="fisherboard")
     async def fisherboard(self, ctx):
@@ -106,7 +105,10 @@ class Fishing(commands.Cog):
             await ctx.send("📊 The fisherboard is empty.")
             return
 
-        fisherboard_str = "\n".join(f"{ctx.guild.get_member(user_id).mention}: {value} coins" for user_id, value in sorted_fisherboard)
+        fisherboard_str = "\n".join(
+            f"{ctx.guild.get_member(user_id).name if ctx.guild.get_member(user_id) else user_id}: {value} coins"
+            for user_id, value in sorted_fisherboard
+        )
         await ctx.send(f"📊 Fishing Fisherboard:\n{fisherboard_str}")
 
     @commands.command(name="dailyquest")
@@ -118,14 +120,13 @@ class Fishing(commands.Cog):
         if last_quest:
             last_quest = datetime.datetime.fromisoformat(last_quest)
 
-        if last_quest and (datetime.datetime.now() - last_quest).days > 0:
-            await self.config.user(user).daily_quest.set(datetime.datetime.now().isoformat())
-            await ctx.send(f"🎯 {user.mention}, your new daily quest is to catch a **Legendary Fish**!")
-        elif last_quest:
-            await ctx.send(f"🎯 {user.mention}, you have already completed your daily quest. Come back tomorrow!")
-        else:
-            await self.config.user(user).daily_quest.set(datetime.datetime.now().isoformat())
-            await ctx.send(f"🎯 {user.mention}, your new daily quest is to catch a **Legendary Fish**!")
+        # Check if a new quest can be given
+        if last_quest and (datetime.datetime.now() - last_quest).days < 1:
+            await ctx.send(f"🎯 {user.name}, you have already completed your daily quest. Come back tomorrow!")
+            return
+
+        await self.config.user(user).daily_quest.set(datetime.datetime.now().isoformat())
+        await ctx.send(f"🎯 {user.name}, your new daily quest is to catch a **Legendary Fish**!")
 
     async def _catch_fish(self, user):
         """Determines the fish catch based on rarity chances."""
@@ -137,7 +138,10 @@ class Fishing(commands.Cog):
         for fish_name, fish_data in self.fish_types.items():
             cumulative += fish_data["chance"] + rod_bonus
             if roll < cumulative:
-                return {"name": fish_name, "value": fish_data["value"] + self.rod_upgrades[rod]["value_increase"]}
+                return {
+                    "name": fish_name,
+                    "value": fish_data["value"] + self.rod_upgrades[rod]["value_increase"]
+                }
         return None
 
     async def _add_to_inventory(self, user, fish_name):
