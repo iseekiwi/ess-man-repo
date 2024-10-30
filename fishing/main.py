@@ -16,6 +16,8 @@ class Fishing(commands.Cog):
             rod="Basic Rod",
             total_value=0,
             daily_quest=None,
+        )
+        self.config.register_user(  # Separate registration for bait and purchased rods
             bait={},  # Register bait inventory as a dictionary
             purchased_rods=[],  # Track purchased rods
         )
@@ -190,12 +192,10 @@ class Fishing(commands.Cog):
         user = ctx.author
         last_quest = await self.config.user(user).daily_quest()
 
-        if last_quest:
-            last_quest = datetime.datetime.fromisoformat(last_quest)
-
-        if last_quest and (datetime.datetime.now() - last_quest).days > 0:
-            await self.config.user(user).daily_quest.set(datetime.datetime.now().isoformat())
-            await ctx.send(f"🎯 {user.name}, your new daily quest is to catch a **Legendary Fish**!")
+        if last_quest is None or (datetime.datetime.now() - last_quest).days >= 1:
+            # Set the new quest and update the timestamp
+            await self.config.user(user).daily_quest.set(datetime.datetime.now())
+            await ctx.send("✅ You have claimed your daily fishing quest!")
         else:
             await ctx.send("🎯 You can claim a new daily quest after 24 hours.")
 
