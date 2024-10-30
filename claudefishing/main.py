@@ -329,7 +329,7 @@ class Fishing(commands.Cog):
         
         for rod_name in self.rod_types.keys():
             if rod_name == "Basic Rod" or rod_name in purchased_rods:
-                equipped = "📌 " if rod_name == current_equipped = "📌 " if rod_name == current_rod else "  "
+                equipped = "📌 " if rod_name == current_rod else "  "
                 inventory_str += f"{equipped}{rod_name}\n"
 
         # Display stats
