@@ -1,10 +1,10 @@
 {
     "author" : ["kiwi"],
-    "install_msg" : "cog bonering successful",
-    "name" : "fishing",
-    "short" : "fishing cog of hell",
-    "description" : "fish fish",
+    "install_msg" : "epic cogs",
+    "name" : "xman-cogs",
+    "short" : "many cogs",
+    "description" : "cogs",
 	"tags": [
-		"fishing"
+		"cog"
 	]
 }
