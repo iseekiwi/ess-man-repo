@@ -25,14 +25,14 @@ class Fishing(commands.Cog):
             "Legendary Fish": {"rarity": "legendary", "value": 100, "chance": 0.05},
         }
         self.rod_upgrades = {
-            "Basic Rod": {"chance": 0.0, "value_increase": 0},
-            "Intermediate Rod": {"chance": 0.1, "value_increase": 5},
-            "Advanced Rod": {"chance": 0.2, "value_increase": 10},
+            "Basic Rod": {"chance": 0.0, "value_increase": 0, "cost": 0},
+            "Intermediate Rod": {"chance": 0.1, "value_increase": 5, "cost": 100},
+            "Advanced Rod": {"chance": 0.2, "value_increase": 10, "cost": 200},
         }
         self.bait_types = {
-            "Worm": {"value": 1, "catch_bonus": 0.1},
-            "Shrimp": {"value": 2, "catch_bonus": 0.2},
-            "Cricket": {"value": 3, "catch_bonus": 0.3},
+            "Worm": {"value": 1, "catch_bonus": 0.1, "cost": 10},
+            "Shrimp": {"value": 2, "catch_bonus": 0.2, "cost": 20},
+            "Cricket": {"value": 3, "catch_bonus": 0.3, "cost": 30},
         }
 
     @commands.command(name="fish")
@@ -43,7 +43,7 @@ class Fishing(commands.Cog):
 
         # Check if user has any bait
         if not bait or sum(bait.values()) == 0:
-            await ctx.send(f"🚫 {user.name}, you need bait to fish! Use `!addbait <bait_type> <amount>` to purchase some.")
+            await ctx.send(f"🚫 {user.name}, you need bait to fish! Use `!shop` to purchase some.")
             return
 
         # Select a bait type (for this example, we'll just use the first available bait)
@@ -68,21 +68,65 @@ class Fishing(commands.Cog):
         else:
             await ctx.send(f"🎣 {user.name} went fishing but didn't catch anything this time.")
 
-    @commands.command(name="addbait")
-    async def add_bait(self, ctx, bait_type: str, amount: int):
-        """Add bait to your inventory."""
+    @commands.command(name="shop")
+    async def shop(self, ctx):
+        """View the fishing shop to purchase bait and upgrades."""
+        shop_items = []
+        
+        # Bait items
+        for bait_name, bait_info in self.bait_types.items():
+            shop_items.append(f"{bait_name}: {bait_info['cost']} coins (Catch bonus: +{bait_info['catch_bonus'] * 100}%)")
+
+        # Rod upgrades
+        for rod_name, rod_info in self.rod_upgrades.items():
+            shop_items.append(f"{rod_name}: {rod_info['cost']} coins (Chance increase: +{rod_info['chance'] * 100}%)")
+
+        shop_list = "\n".join(shop_items)
+        await ctx.send(f"🛒 Fishing Shop:\n{shop_list}")
+
+    @commands.command(name="buybait")
+    async def buy_bait(self, ctx, bait_type: str, amount: int):
+        """Purchase bait from the shop."""
         user = ctx.author
+
         if bait_type not in self.bait_types:
             await ctx.send(f"🚫 {user.name}, that's not a valid bait type.")
             return
+        
+        cost = self.bait_types[bait_type]["cost"] * amount
+        user_balance = await bank.get_balance(user)
+
+        if user_balance < cost:
+            await ctx.send(f"🚫 {user.name}, you don't have enough coins to buy {amount} {bait_type}(s).")
+            return
+
+        # Deduct the cost from user's balance and add bait to inventory
+        await bank.withdraw_credits(user, cost)
 
         bait = await self.config.user(user).bait()
-        if bait_type not in bait:
-            bait[bait_type] = 0
-        
-        bait[bait_type] += amount
+        bait[bait_type] = bait.get(bait_type, 0) + amount
         await self.config.user(user).bait.set(bait)  # Update user's bait inventory
-        await ctx.send(f"🎣 {user.name} added {amount} {bait_type}(s) to their bait inventory!")
+        await ctx.send(f"🎣 {user.name} purchased {amount} {bait_type}(s) for {cost} coins!")
+
+    @commands.command(name="buyrod")
+    async def buy_rod(self, ctx, rod_name: str):
+        """Purchase a rod upgrade from the shop."""
+        user = ctx.author
+        if rod_name not in self.rod_upgrades:
+            await ctx.send(f"🚫 {user.name}, that's not a valid rod name.")
+            return
+        
+        cost = self.rod_upgrades[rod_name]["cost"]
+        user_balance = await bank.get_balance(user)
+
+        if user_balance < cost:
+            await ctx.send(f"🚫 {user.name}, you don't have enough coins to buy the {rod_name}.")
+            return
+        
+        # Deduct the cost from user's balance and set the new rod
+        await bank.withdraw_credits(user, cost)
+        await self.config.user(user).rod.set(rod_name)
+        await ctx.send(f"🔧 {user.name} purchased the {rod_name} for {cost} coins!")
 
     @commands.command(name="inventory")
     async def inventory(self, ctx):
@@ -111,23 +155,6 @@ class Fishing(commands.Cog):
         await self.config.user(user).inventory.set([])  # Clear inventory after selling
 
         await ctx.send(f"💰 {user.name} sold all their fish for {total_value} coins!")
-
-    @commands.command(name="upgrade")
-    async def upgrade_rod(self, ctx, rod_name: str):
-        """Upgrade your fishing rod to increase catch chances."""
-        user = ctx.author
-        current_rod = await self.config.user(user).rod()
-
-        if rod_name not in self.rod_upgrades:
-            await ctx.send(f"🚫 {user.name}, that's not a valid rod name.")
-            return
-        
-        if current_rod == rod_name:
-            await ctx.send(f"🚫 {user.name}, you already have the {rod_name}.")
-            return
-        
-        await self.config.user(user).rod.set(rod_name)
-        await ctx.send(f"🔧 {user.name} upgraded to a {rod_name}!")
 
     @commands.command(name="fisherboard")
     async def fisherboard(self, ctx):
