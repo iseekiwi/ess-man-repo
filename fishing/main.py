@@ -72,10 +72,10 @@ class Fishing(commands.Cog):
         # Retrieve all user data directly from config
         users = await self.config.all_users()  # This gives us a list of user IDs
         for user_id in users:  # Iterate over user IDs
-            user_data = await self.config.user(str(user_id)).all()  # Get all user data using the user_id as a string
+            user_data = await self.config.user(user_id).all()  # Get all user data using the user_id directly as an int
             total_value = user_data.get("total_value", 0)  # Get the total value
             if total_value > 0:
-                user = self.bot.get_user(int(user_id))  # Ensure user_id is converted to int for get_user
+                user = self.bot.get_user(user_id)  # Get user object by ID
                 username = user.name if user else str(user_id)  # Fallback to user_id if user not found
                 leaderboard.append((username, total_value))
 
