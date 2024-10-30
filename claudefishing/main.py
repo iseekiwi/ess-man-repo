@@ -227,71 +227,70 @@ class Fishing(commands.Cog):
                 description=location_data["description"],
                 color=discord.Color.blue()
             )
-        
-        # Requirements section
-        if location_data["requirements"]:
-            req = location_data["requirements"]
-            req_met = (
-                user_data["level"] >= req["level"] and 
-                user_data["fish_caught"] >= req["fish_caught"]
-            )
-            status = "✅ Met" if req_met else "❌ Not Met"
+
+            # Requirements section
+            if location_data["requirements"]:
+                req = location_data["requirements"]
+                req_met = (
+                    user_data["level"] >= req["level"] and 
+                    user_data["fish_caught"] >= req["fish_caught"]
+                )
+                status = "✅ Met" if req_met else "❌ Not Met"
+                
+                embed.add_field(
+                    name="Requirements",
+                    value=f"Level {req['level']}\n{req['fish_caught']} fish caught\nStatus: {status}",
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="Requirements",
+                    value="None",
+                    inline=False
+                )
+
+            # Fish chances section
+            chances = []
+            for fish_type, modifier in location_data["fish_modifiers"].items():
+                base_chance = self.data["fish"][fish_type]["chance"] * 100
+                modified_chance = base_chance * modifier
+                difference = modified_chance - base_chance
+                
+                chances.append(
+                    f"**{fish_type}**\n"
+                    f"Base: {base_chance:.1f}%\n"
+                    f"Modified: {modified_chance:.1f}% ({difference:+.1f}%)"
+                )
             
             embed.add_field(
-                name="Requirements",
-                value=f"Level {req['level']}\n{req['fish_caught']} fish caught\nStatus: {status}",
+                name="Fish Chances",
+                value="\n\n".join(chances),
                 inline=False
             )
-        else:
-            embed.add_field(
-                name="Requirements",
-                value="None",
-                inline=False
-            )
-
+            
+            # Weather effects section
+            if location_data["weather_effects"]:
+                weather_info = []
+                for weather, data in self.data["weather"].items():
+                    if location_name in data.get("affects_locations", []):
+                        effects = []
+                        if "catch_bonus" in data:
+                            effects.append(f"Catch rate: {data['catch_bonus']*100:+.0f}%")
+                        if "rare_bonus" in data:
+                            effects.append(f"Rare fish bonus: {data['rare_bonus']*100:+.0f}%")
+                        weather_info.append(f"**{weather}**\n{', '.join(effects)}")
+                
+                embed.add_field(
+                    name="Weather Effects",
+                    value="\n\n".join(weather_info) if weather_info else "No specific weather effects",
+                    inline=False
+                )
+            
             await ctx.send(embed=embed)
+            
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}\nPlease try again or contact an administrator.")
             raise
-        
-        # Fish chances section
-        chances = []
-        for fish_type, modifier in location_data["fish_modifiers"].items():
-            base_chance = self.data["fish"][fish_type]["chance"] * 100
-            modified_chance = base_chance * modifier
-            difference = modified_chance - base_chance
-            
-            chances.append(
-                f"**{fish_type}**\n"
-                f"Base: {base_chance:.1f}%\n"
-                f"Modified: {modified_chance:.1f}% ({difference:+.1f}%)"
-            )
-        
-        embed.add_field(
-            name="Fish Chances",
-            value="\n\n".join(chances),
-            inline=False
-        )
-        
-        # Weather effects section
-        if location_data["weather_effects"]:
-            weather_info = []
-            for weather, data in self.data["weather"].items():
-                if location_name in data.get("affects_locations", []):
-                    effects = []
-                    if "catch_bonus" in data:
-                        effects.append(f"Catch rate: {data['catch_bonus']*100:+.0f}%")
-                    if "rare_bonus" in data:
-                        effects.append(f"Rare fish bonus: {data['rare_bonus']*100:+.0f}%")
-                    weather_info.append(f"**{weather}**\n{', '.join(effects)}")
-            
-            embed.add_field(
-                name="Weather Effects",
-                value="\n\n".join(weather_info) if weather_info else "No specific weather effects",
-                inline=False
-            )
-        
-        await ctx.send(embed=embed)
 
     async def check_requirements(self, user_data: dict, requirements: dict) -> tuple[bool, str]:
         """Check if user meets requirements."""
