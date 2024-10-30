@@ -44,7 +44,7 @@ class Fishing(commands.Cog):
 
         # Check if user has any bait
         if not bait or sum(bait.values()) == 0:
-            await ctx.send(f"🚫 {user.name}, you need bait to fish! Use `!addbait <bait_type> <amount>` to purchase some.")
+            await ctx.send(f"🚫 {user.name}, you need bait to fish! Visit the (!)shop to purchase some.")
             return
 
         # Select a bait type (for this example, we'll just use the first available bait)
