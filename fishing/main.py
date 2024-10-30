@@ -1,6 +1,7 @@
 import discord
 import asyncio
-from redbot.core import commands, Config, bank, tasks
+from redbot.core import commands, Config, bank
+from redbot.core import tasks
 from redbot.core.bot import Red
 import random
 import datetime
