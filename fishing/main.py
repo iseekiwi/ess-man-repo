@@ -89,22 +89,22 @@ class Fishing(commands.Cog):
         await self.config.user(user).rod.set(rod_name)
         await ctx.send(f"🔧 {user.mention} upgraded to a {rod_name}!")
 
-    @commands.command(name="leaderboard")
-    async def leaderboard(self, ctx):
-        """Show the leaderboard for fishing earnings."""
-        leaderboard = {}
+    @commands.command(name="fisherboard")
+    async def fisherboard(self, ctx):
+        """Show the fisherboard for fishing earnings."""
+        fisherboard = {}
         for member in await self.config.all_users():
             total_value = member.get("total_value", 0)
             if total_value > 0:
-                leaderboard[member["user"]] = total_value
+                fisherboard[member["user"]] = total_value
         
-        sorted_leaderboard = sorted(leaderboard.items(), key=lambda x: x[1], reverse=True)
-        if not sorted_leaderboard:
-            await ctx.send("📊 The leaderboard is empty.")
+        sorted_fisherboard = sorted(fisherboard.items(), key=lambda x: x[1], reverse=True)
+        if not sorted_fisherboard:
+            await ctx.send("📊 The fisherboard is empty.")
             return
 
-        leaderboard_str = "\n".join(f"{ctx.guild.get_member(user_id).mention}: {value} coins" for user_id, value in sorted_leaderboard)
-        await ctx.send(f"📊 Fishing Leaderboard:\n{leaderboard_str}")
+        fisherboard_str = "\n".join(f"{ctx.guild.get_member(user_id).mention}: {value} coins" for user_id, value in sorted_fisherboard)
+        await ctx.send(f"📊 Fishing Fisherboard:\n{fisherboard_str}")
 
     @commands.command(name="dailyquest")
     async def daily_quest(self, ctx):
