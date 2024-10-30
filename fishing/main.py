@@ -2,7 +2,7 @@ import discord
 from redbot.core import commands, Config, bank
 from redbot.core.bot import Red
 import random
-import asyncio
+import datetime
 from collections import Counter
 
 class Fishing(commands.Cog):
@@ -47,26 +47,13 @@ class Fishing(commands.Cog):
 
         # Check if user has any bait
         if not bait or sum(bait.values()) == 0:
-            await ctx.send(f"🚫 {user.name}, you need bait to fish! Visit the `!shop` to purchase some.")
+            await ctx.send(f"🚫 {user.name}, you need bait to fish! Visit the (!)shop to purchase some.")
             return
 
         # Select a bait type
         bait_type = next((bait_name for bait_name in bait if bait[bait_name] > 0), None)
 
-        # Notify user of the fishing attempt
-        await ctx.send(f"🎣 {user.name} is fishing using {bait_type}! React with ✅ to catch the fish within 10 seconds!")
-
-        def check(reaction, user_reaction):
-            return user_reaction == user and str(reaction.emoji) == "✅"
-
-        try:
-            # Wait for the user's reaction for 10 seconds
-            reaction, user_reaction = await self.bot.wait_for("reaction_add", timeout=10.0, check=check)
-        except asyncio.TimeoutError:
-            await ctx.send(f"⏳ {user.name}, you missed your chance to catch a fish!")
-            return
-
-        # Catch fish after successful reaction
+        # Catch fish
         catch = await self._catch_fish(user, bait_type)
 
         # Use one bait item
@@ -182,49 +169,156 @@ class Fishing(commands.Cog):
         inventory = await self.config.user(user).inventory()
 
         if not inventory:
-            await ctx.send(f"💰 {user.name}, you have no fish to sell!")
+            await ctx.send(f"💰 {user.name}, you have no fish to sell.")
             return
 
-        total_value = 0
-        for fish in inventory:
-            total_value += self.fish_types[fish]["value"]
+        total_value = sum(self.fish_types[fish]["value"] for fish in inventory if fish in self.fish_types)
+        await bank.deposit_credits(user, total_value)
+        await self.config.user(user).inventory.set([])  # Clear inventory after selling
 
-        await self.config.user(user).total_value.set(total_value)
         await ctx.send(f"💰 {user.name} sold all their fish for {total_value} coins!")
 
-        # Clear the inventory after selling
-        await self.config.user(user).inventory.set([])
+    @commands.command(name="fisherboard")
+    async def fisherboard(self, ctx):
+        """Show the fisherboard for fishing earnings."""
+        fisherboard = {}
+
+        # Fetch all user configurations
+        users = await self.config.all_users()  # Await here to get all user data
+
+        for user_id, user_data in users.items():
+            total_value = user_data.get("total_value", 0)
+            if total_value > 0:
+                user = await self.bot.fetch_user(user_id)
+                fisherboard[user.name] = total_value  # Store user name and total value
+
+        sorted_fisherboard = sorted(fisherboard.items(), key=lambda x: x[1], reverse=True)
+
+        if not sorted_fisherboard:
+            await ctx.send("🏆 The fisherboard is empty!")
+            return
+
+        fisherboard_str = "\n".join(f"**{name}:** {value} coins" for name, value in sorted_fisherboard)
+        await ctx.send(f"🏆 **Fisherboard:**\n{fisherboard_str}")
+    
+    @commands.command(name="dailyquest")
+    async def daily_quest(self, ctx):
+        """Get a daily quest."""
+        user = ctx.author
+        now = datetime.datetime.utcnow()
+
+        # Check if user has a daily quest set
+        daily_quest = await self.config.user(user).daily_quest()
+        if daily_quest and daily_quest["date"] == now.date().isoformat():
+            await ctx.send(f"🎯 {user.name}, you already have a daily quest: {daily_quest['task']}.")
+            return
+
+        # Set a new daily quest
+        tasks = ["Catch 5 Common Fish", "Sell 2 Rare Fish", "Catch 1 Legendary Fish"]
+        task = random.choice(tasks)
+        await self.config.user(user).daily_quest.set({"task": task, "date": now.date().isoformat()})
+
+        await ctx.send(f"🎯 {user.name}, your new daily quest is: **{task}**!")
 
     async def _catch_fish(self, user, bait_type):
-        """Determine if a fish is caught and return the fish type."""
-        bait_info = self.bait_types[bait_type]
-        bait_value = bait_info["value"]
-        chance = random.random() + bait_info["catch_bonus"]
-
-        # Determine if a fish is caught based on chance
-        if chance < 0.1:
-            return None  # Missed catch
-
-        fish_rarity_roll = random.random()
-        cumulative_chance = 0
-
-        for fish, attributes in self.fish_types.items():
-            cumulative_chance += attributes["chance"]
-            if fish_rarity_roll < cumulative_chance:
-                return {"name": fish, "value": attributes["value"] + bait_value}
-
+        """Internal method to determine if a fish is caught and its type."""
+        rod = await self.config.user(user).rod()
+        chance = self.rod_upgrades[rod]["chance"] + self.bait_types[bait_type]["catch_bonus"]
+        
+        if random.random() < chance:
+            fish = random.choices(
+                list(self.fish_types.keys()),
+                weights=[self.fish_types[f]["chance"] for f in self.fish_types],
+                k=1
+            )[0]
+            return {"name": fish, "value": self.fish_types[fish]["value"]}
         return None
 
     async def _add_to_inventory(self, user, fish_name):
-        """Add fish to the user's inventory."""
+        """Add fish to user's inventory."""
         inventory = await self.config.user(user).inventory()
         inventory.append(fish_name)
         await self.config.user(user).inventory.set(inventory)
 
-    async def _update_total_value(self, user, fish_value):
-        """Update total value of fish sold for the user."""
-        current_value = await self.config.user(user).total_value()
-        await self.config.user(user).total_value.set(current_value + fish_value)
+    async def _update_total_value(self, user, value):
+        """Update total value of user's caught fish."""
+        total_value = await self.config.user(user).total_value()
+        total_value += value
+        await self.config.user(user).total_value.set(total_value)
 
-def setup(bot):
+    @commands.group(name="manage", invoke_without_command=True)
+    @commands.is_owner()
+    async def manage(self, ctx):
+        """Administrative management commands."""
+        await ctx.send("Use `!manage add` or `!manage remove` followed by `fish`, `bait`, or `rod`.")
+
+    @manage.command(name="add")
+    @commands.is_owner()
+    async def add_item(self, ctx, item_type: str, member: discord.Member, item_name: str, amount: int):
+        """Add an item to a user's inventory."""
+        if item_type.lower() == "fish":
+            inventory = await self.config.user(member).inventory()
+            for _ in range(amount):
+                inventory.append(item_name)
+            await self.config.user(member).inventory.set(inventory)
+            await ctx.send(f"✅ Added {amount} {item_name}(s) to {member.name}'s inventory.")
+        
+        elif item_type.lower() == "bait":
+            bait = await self.config.user(member).bait()
+            bait[item_name] = bait.get(item_name, 0) + amount
+            await self.config.user(member).bait.set(bait)
+            await ctx.send(f"✅ Added {amount} {item_name}(s) to {member.name}'s bait inventory.")
+        
+        elif item_type.lower() == "rod":
+            purchased_rods = await self.config.user(member).purchased_rods()
+            purchased_rods[item_name] = True
+            await self.config.user(member).purchased_rods.set(purchased_rods)
+            await ctx.send(f"✅ Added {item_name} to {member.name}'s purchased rods.")
+        
+        else:
+            await ctx.send("🚫 Invalid item type. Use `fish`, `bait`, or `rod`.")
+
+    @manage.command(name="remove")
+    @commands.is_owner()
+    async def remove_item(self, ctx, item_type: str, member: discord.Member, item_name: str, amount: int):
+        """Remove an item from a user's inventory."""
+        if item_type.lower() == "fish":
+            inventory = await self.config.user(member).inventory()
+            fish_count = inventory.count(item_name)
+
+            if fish_count < amount:
+                await ctx.send(f"🚫 {member.name} does not have enough {item_name} to remove.")
+                return
+
+            for _ in range(amount):
+                inventory.remove(item_name)
+            await self.config.user(member).inventory.set(inventory)
+            await ctx.send(f"✅ Removed {amount} {item_name}(s) from {member.name}'s inventory.")
+
+        elif item_type.lower() == "bait":
+            bait = await self.config.user(member).bait()
+            if bait.get(item_name, 0) < amount:
+                await ctx.send(f"🚫 {member.name} does not have enough {item_name} to remove.")
+                return
+
+            bait[item_name] -= amount
+            if bait[item_name] <= 0:
+                del bait[item_name]
+            await self.config.user(member).bait.set(bait)
+            await ctx.send(f"✅ Removed {amount} {item_name}(s) from {member.name}'s bait inventory.")
+        
+        elif item_type.lower() == "rod":
+            purchased_rods = await self.config.user(member).purchased_rods()
+            if item_name not in purchased_rods:
+                await ctx.send(f"🚫 {member.name} does not have a {item_name} to remove.")
+                return
+
+            del purchased_rods[item_name]
+            await self.config.user(member).purchased_rods.set(purchased_rods)
+            await ctx.send(f"✅ Removed {item_name} from {member.name}'s purchased rods.")
+        
+        else:
+            await ctx.send("🚫 Invalid item type. Use `fish`, `bait`, or `rod`.")
+
+def setup(bot: Red):
     bot.add_cog(Fishing(bot))
