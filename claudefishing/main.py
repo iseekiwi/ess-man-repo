@@ -15,7 +15,7 @@ from .data.fishing_data import (
     EVENTS
 )
 
-class CFishing(commands.Cog):
+class Fishing(commands.Cog):
     """A fishing game cog for Redbot"""
 
     def __init__(self, bot: Red):
