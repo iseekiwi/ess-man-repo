@@ -65,7 +65,7 @@ class Fishing(commands.Cog):
         await self.config.user(user).equipped_bait.set(original_key)  # Set equipped bait using the exact name
         await ctx.send(f"✅ {user.name} equipped {original_key}!")
 
-     @commands.command(name="fish")
+    @commands.command(name="fish")
     async def fish(self, ctx):
         """Go fishing and try to catch a fish using a minigame!"""
         user = ctx.author
