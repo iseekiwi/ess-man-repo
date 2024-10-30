@@ -336,86 +336,126 @@ class Fishing(commands.Cog):
     @commands.command(name="fish")
     async def fish(self, ctx):
         """Go fishing with a minigame challenge."""
-        user_data = await self.config.user(ctx.author).all()
-        
-        # Validate bait
-        if not user_data["equipped_bait"]:
-            await ctx.send(f"🚫 {ctx.author.name}, you need to equip bait first! Use `!equipbait` to equip some bait.")
-            return
-
-        bait = user_data["bait"]
-        equipped_bait = user_data["equipped_bait"]
-        
-        if not bait.get(equipped_bait, 0):
-            await ctx.send(f"🚫 {ctx.author.name}, you need bait to fish! Visit the `!shop` to purchase some.")
-            return
-
-        # Get current conditions
-        current_weather = await self.config.current_weather()
-        hour = datetime.datetime.now().hour
-        time_of_day = (
-            "Dawn" if 5 <= hour < 7 
-            else "Day" if 7 <= hour < 17 
-            else "Dusk" if 17 <= hour < 19 
-            else "Night"
-        )
-
-        # Run fishing minigame
-        msg = await ctx.send("🎣 Fishing...")
-        await asyncio.sleep(random.uniform(3, 7))
-        
-        keyword = random.choice(["catch", "grab", "snag", "hook", "reel"])
-        await msg.edit(content=f"🎣 Quick! Type **{keyword}** to catch the fish!")
-
         try:
-            await self.bot.wait_for(
-                'message',
-                check=lambda m: m.author == ctx.author and m.content.lower() == keyword and m.channel == ctx.channel,
-                timeout=5.0
+            # Ensure user data is properly initialized
+            user_data = await self._ensure_user_data(ctx.author)
+            if not user_data:
+                await ctx.send("Error initializing user data. Please try again.")
+                return
+            
+            # Validate bait
+            if not user_data["equipped_bait"]:
+                await ctx.send(f"🚫 {ctx.author.name}, you need to equip bait first! Use `!equipbait` to equip some bait.")
+                return
+
+            bait = user_data.get("bait", {})  # Use .get() with default empty dict
+            equipped_bait = user_data["equipped_bait"]
+            
+            if not bait.get(equipped_bait, 0):
+                await ctx.send(f"🚫 {ctx.author.name}, you need bait to fish! Visit the `!shop` to purchase some.")
+                return
+
+            # Get current conditions
+            current_weather = await self.config.current_weather()
+            hour = datetime.datetime.now().hour
+            time_of_day = (
+                "Dawn" if 5 <= hour < 7 
+                else "Day" if 7 <= hour < 17 
+                else "Dusk" if 17 <= hour < 19 
+                else "Night"
             )
-        except asyncio.TimeoutError:
-            await ctx.send(f"⏰ {ctx.author.name}, you took too long! The fish got away!")
-            return
 
-        # Process catch
-        catch = await self._catch_fish(
-            user_data,
-            equipped_bait,
-            user_data["current_location"],
-            current_weather,
-            time_of_day
-        )
-
-        # Update bait inventory
-        bait[equipped_bait] -= 1
-        if bait[equipped_bait] <= 0:
-            del bait[equipped_bait]
-        await self.config.user(ctx.author).bait.set(bait)
-
-        if catch:
-            fish_name = catch["name"]
-            fish_value = catch["value"]
-            variant = random.choice(self.data["fish"][fish_name]["variants"])
+            # Run fishing minigame
+            msg = await ctx.send("🎣 Fishing...")
+            await asyncio.sleep(random.uniform(3, 7))
             
-            # Update user data
-            await self._add_to_inventory(ctx.author, fish_name)
-            await self._update_total_value(ctx.author, fish_value)
-            
-            fish_caught = user_data["fish_caught"] + 1
-            await self.config.user(ctx.author).fish_caught.set(fish_caught)
+            keyword = random.choice(["catch", "grab", "snag", "hook", "reel"])
+            await msg.edit(content=f"🎣 Quick! Type **{keyword}** to catch the fish!")
 
-            # Format message
-            location = user_data["current_location"]
-            weather_effect = self.data["weather"][current_weather]["description"]
-            location_effect = self.data["locations"][location]["description"]
-            
-            await ctx.send(
-                f"🎣 {ctx.author.name} caught a {variant} ({fish_name}) worth {fish_value} coins!\n"
-                f"Location: {location} - {location_effect}\n"
-                f"Weather: {current_weather} - {weather_effect}"
+            try:
+                await self.bot.wait_for(
+                    'message',
+                    check=lambda m: m.author == ctx.author and m.content.lower() == keyword and m.channel == ctx.channel,
+                    timeout=5.0
+                )
+            except asyncio.TimeoutError:
+                await ctx.send(f"⏰ {ctx.author.name}, you took too long! The fish got away!")
+                return
+
+            # Process catch
+            catch = await self._catch_fish(
+                user_data,
+                equipped_bait,
+                user_data["current_location"],
+                current_weather,
+                time_of_day
             )
-        else:
-            await ctx.send(f"🎣 {ctx.author.name} went fishing but didn't catch anything this time.")
+
+            # Update bait inventory
+            async with self.config.user(ctx.author).bait() as bait:
+                bait[equipped_bait] = bait.get(equipped_bait, 0) - 1
+                if bait[equipped_bait] <= 0:
+                    del bait[equipped_bait]
+                    await self.config.user(ctx.author).equipped_bait.set(None)
+
+            if catch:
+                fish_name = catch["name"]
+                fish_value = catch["value"]
+                variant = random.choice(self.data["fish"][fish_name]["variants"])
+                
+                # Update user data
+                await self._add_to_inventory(ctx.author, fish_name)
+                await self._update_total_value(ctx.author, fish_value)
+                
+                # Update fish count
+                async with self.config.user(ctx.author).all() as user_data:
+                    user_data["fish_caught"] += 1
+                
+                # Format message
+                location = user_data["current_location"]
+                weather_effect = self.data["weather"][current_weather]["description"]
+                location_effect = self.data["locations"][location]["description"]
+                
+                await ctx.send(
+                    f"🎣 {ctx.author.name} caught a {variant} ({fish_name}) worth {fish_value} coins!\n"
+                    f"Location: {location} - {location_effect}\n"
+                    f"Weather: {current_weather} - {weather_effect}"
+                )
+            else:
+                await ctx.send(f"🎣 {ctx.author.name} went fishing but didn't catch anything this time.")
+                
+        except Exception as e:
+            await ctx.send(f"An error occurred while fishing: {str(e)}\nPlease try again.")
+            raise
+
+    async def _ensure_user_data(self, user):
+        """Ensure user data exists and is properly initialized."""
+        try:
+            user_data = await self.config.user(user).all()
+            if not user_data:
+                # Initialize with default values
+                default_user = {
+                    "inventory": [],
+                    "rod": "Basic Rod",
+                    "total_value": 0,
+                    "daily_quest": None,
+                    "bait": {},
+                    "purchased_rods": {"Basic Rod": True},
+                    "equipped_bait": None,
+                    "current_location": "Pond",
+                    "fish_caught": 0,
+                    "level": 1,
+                    "settings": {
+                        "notifications": True,
+                        "auto_sell": False
+                    }
+                }
+                await self.config.user(user).set(default_user)
+                user_data = default_user
+            return user_data
+        except Exception as e:
+            print(f"Error ensuring user data: {e}")
+            return None
 
     @commands.group(name="shop", invoke_without_command=True)
     async def shop(self, ctx):
