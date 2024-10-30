@@ -18,7 +18,7 @@ from .data.fishing_data import (
 class Fishing(commands.Cog):
     """A fishing game cog for Redbot"""
 
-def __init__(self, bot: Red):
+    def __init__(self, bot: Red):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=123456789)
             
