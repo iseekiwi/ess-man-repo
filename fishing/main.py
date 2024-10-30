@@ -19,6 +19,9 @@ class Fishing(commands.Cog):
             bait={},  # Register bait inventory as a dictionary
             purchased_rods={}  # Track purchased rods
         )
+        self.config.register_global(
+            bait_stock={"Worm": 10, "Shrimp": 10, "Cricket": 10}  # Daily stock for each bait type
+        )
         self.fish_types = {
             "Common Fish": {"rarity": "common", "value": 10, "chance": 0.6},
             "Uncommon Fish": {"rarity": "uncommon", "value": 20, "chance": 0.25},
@@ -80,7 +83,11 @@ class Fishing(commands.Cog):
             "5": {"name": "Advanced Rod", "cost": 100},
         }
 
-        shop_str = "🛒 **Shop:**\n" + "\n".join(f"**{index}.** {item['name']} - {item['cost']} coins" for index, item in shop_items.items())
+        bait_stock = await self.config.bait_stock.all()  # Get current bait stock
+        shop_str = "🛒 **Shop:**\n" + "\n".join(
+            f"**{index}.** {item['name']} - {item['cost']} coins (Stock: {bait_stock[item['name']]})"
+            for index, item in shop_items.items()
+        )
         await ctx.send(shop_str)
 
     @shop.command(name="buy")
@@ -100,6 +107,12 @@ class Fishing(commands.Cog):
             return
         
         item = shop_items[item_index]
+        bait_stock = await self.config.bait_stock()  # Get current bait stock
+
+        # Check stock
+        if item["name"] in bait_stock and bait_stock[item["name"]] <= 0:
+            await ctx.send(f"🚫 {user.name}, the {item['name']} is out of stock.")
+            return
 
         if item["name"] in ["Intermediate Rod", "Advanced Rod"]:
             purchased_rods = await self.config.user(user).purchased_rods()
@@ -113,6 +126,11 @@ class Fishing(commands.Cog):
             return
 
         await bank.withdraw_credits(user, item["cost"])
+
+        # Update bait stock
+        if item["name"] in bait_stock:
+            bait_stock[item["name"]] -= 1
+            await self.config.bait_stock.set(bait_stock)
 
         if item["name"] in ["Intermediate Rod", "Advanced Rod"]:
             purchased_rods[item["name"]] = True
@@ -173,7 +191,29 @@ class Fishing(commands.Cog):
             return
 
         fisherboard_str = "\n".join(f"{ctx.guild.get_member(user_id).name}: {value} coins" for user_id, value in sorted_fisherboard)
-        await ctx.send(f"📊 **Fisherboard:**\n{fisherboard_str}")
+        await ctx.send(f"📊 Fisherboard:\n{fisherboard_str}")
+
+    @commands.command(name="setbaitstock")
+    @commands.is_owner()
+    async def set_bait_stock(self, ctx, bait_name: str, amount: int):
+        """Set the stock for a specific bait type."""
+        bait_stock = await self.config.bait_stock()  # Get current bait stock
+
+        if bait_name not in bait_stock:
+            await ctx.send(f"🚫 {bait_name} is not a valid bait type.")
+            return
+
+        bait_stock[bait_name] = amount
+        await self.config.bait_stock.set(bait_stock)  # Update the bait stock
+        await ctx.send(f"✅ {bait_name} stock has been set to {amount}.")
+
+    @commands.command(name="resetbaitstock")
+    @commands.is_owner()
+    async def reset_bait_stock(self, ctx):
+        """Reset the bait stock to the default values."""
+        default_stock = {"Worm": 10, "Shrimp": 10, "Cricket": 10}
+        await self.config.bait_stock.set(default_stock)  # Reset the bait stock
+        await ctx.send("✅ Bait stock has been reset to the default values.")
 
     async def _catch_fish(self, user, bait_type):
         """Determines the fish catch based on rarity chances, including bait bonuses."""
