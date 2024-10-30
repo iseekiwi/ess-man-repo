@@ -197,9 +197,14 @@ class Fishing(commands.Cog):
             await ctx.send("🏆 The fisherboard is empty!")
             return
 
-        fisherboard_str = "\n".join(f"<@{user_id}>: {value} coins" for user_id, value in sorted_fisherboard)
-        await ctx.send(f"🏆 **Fisherboard:**\n{fisherboard_str}")
-
+        # Create a formatted string for the fisherboard
+        fisherboard_str = "🏆 **Fisherboard:**\n" + "\n".join(
+            f"{index + 1}. User ID: `{user_id}` - {value} coins" 
+            for index, (user_id, value) in enumerate(sorted_fisherboard)
+        )
+    
+        await ctx.send(fisherboard_str)
+    
     @commands.command(name="dailyquest")
     async def daily_quest(self, ctx):
         """Get a daily quest."""
