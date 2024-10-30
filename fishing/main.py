@@ -69,18 +69,17 @@ class Fishing(commands.Cog):
     async def fish(self, ctx):
         """Go fishing and try to catch a fish using a minigame!"""
         user = ctx.author
-        equipped_bait = await self.config.user(user).equipped_bait()  # Check equipped bait
+        bait = await self.config.user(user).bait()  # Get user's bait inventory
+        equipped_bait = await self.config.user(user).equipped_bait()  # Get user's equipped bait
 
-        # Check if the user has bait equipped
-        if equipped_bait is None:
-            await ctx.send(f"🚫 {user.name}, you need to equip bait to fish! Use the `equipbait` command.")
+        # Check if user has any bait
+        if not bait or sum(bait.values()) == 0:
+            await ctx.send(f"🚫 {user.name}, you need bait to fish! Visit the (!)shop to purchase some.")
             return
 
-        bait = await self.config.user(user).bait()  # Get user's bait inventory
-
-        # Check if the user has the equipped bait in their inventory
-        if bait.get(equipped_bait, 0) <= 0:
-            await ctx.send(f"🚫 {user.name}, you're out of your equipped bait: {equipped_bait}. Please equip another bait or purchase more.")
+        # Check if user has equipped bait and if there's enough of it
+        if not equipped_bait or bait.get(equipped_bait, 0) <= 0:
+            await ctx.send(f"🚫 {user.name}, you are out of {equipped_bait} bait! Equip another type or buy more in the shop.")
             return
 
         # Define the acceptable keywords
@@ -110,10 +109,10 @@ class Fishing(commands.Cog):
         # Catch fish after a successful reaction
         catch = await self._catch_fish(user, equipped_bait)
 
-        # Use one bait item
+        # Consume one unit of equipped bait
         bait[equipped_bait] -= 1
         if bait[equipped_bait] <= 0:
-            del bait[equipped_bait]  # Remove bait if it's depleted
+            del bait[equipped_bait]
         await self.config.user(user).bait.set(bait)  # Update user's bait inventory
 
         if catch:
