@@ -18,57 +18,57 @@ from .data.fishing_data import (
 class Fishing(commands.Cog):
     """A fishing game cog for Redbot"""
 
-def __init__(self, bot: Red):
-        self.bot = bot
-        self.config = Config.get_conf(self, identifier=123456789)
-        
-        # Consolidated default user settings
-        default_user = {
-            "inventory": [],
-            "rod": "Basic Rod",
-            "total_value": 0,
-            "daily_quest": None,
-            "bait": {},
-            "purchased_rods": {"Basic Rod": True},  # Ensure Basic Rod is always available
-            "equipped_bait": None,
-            "current_location": "Pond",
-            "fish_caught": 0,
-            "level": 1,
-            "settings": {  # Nested settings to prevent None issues
-                "notifications": True,
-                "auto_sell": False
+    def __init__(self, bot: Red):
+            self.bot = bot
+            self.config = Config.get_conf(self, identifier=123456789)
+            
+            # Consolidated default user settings
+            default_user = {
+                "inventory": [],
+                "rod": "Basic Rod",
+                "total_value": 0,
+                "daily_quest": None,
+                "bait": {},
+                "purchased_rods": {"Basic Rod": True},  # Ensure Basic Rod is always available
+                "equipped_bait": None,
+                "current_location": "Pond",
+                "fish_caught": 0,
+                "level": 1,
+                "settings": {  # Nested settings to prevent None issues
+                    "notifications": True,
+                    "auto_sell": False
+                }
             }
-        }
-        
-        # Consolidated default global settings
-        default_global = {
-            "bait_stock": {bait: data["daily_stock"] for bait, data in BAIT_TYPES.items()},
-            "current_weather": "Sunny",
-            "active_events": [],
-            "settings": {  # Nested settings to prevent None issues
-                "daily_reset_hour": 0,
-                "weather_change_interval": 3600
+            
+            # Consolidated default global settings
+            default_global = {
+                "bait_stock": {bait: data["daily_stock"] for bait, data in BAIT_TYPES.items()},
+                "current_weather": "Sunny",
+                "active_events": [],
+                "settings": {  # Nested settings to prevent None issues
+                    "daily_reset_hour": 0,
+                    "weather_change_interval": 3600
+                }
             }
-        }
-        
-        # Register defaults before accessing any config values
-        self.config.register_user(**default_user)
-        self.config.register_global(**default_global)
-
-        # Store data structures as instance variables
-        self.data = {
-            "fish": FISH_TYPES,
-            "rods": ROD_TYPES,
-            "bait": BAIT_TYPES,
-            "locations": LOCATIONS,
-            "weather": WEATHER_TYPES,
-            "time": TIME_EFFECTS,
-            "events": EVENTS
-        }
-
-        # Initialize background tasks
-        self.bg_tasks = []
-        self.start_background_tasks()
+            
+            # Register defaults before accessing any config values
+            self.config.register_user(**default_user)
+            self.config.register_global(**default_global)
+    
+            # Store data structures as instance variables
+            self.data = {
+                "fish": FISH_TYPES,
+                "rods": ROD_TYPES,
+                "bait": BAIT_TYPES,
+                "locations": LOCATIONS,
+                "weather": WEATHER_TYPES,
+                "time": TIME_EFFECTS,
+                "events": EVENTS
+            }
+    
+            # Initialize background tasks
+            self.bg_tasks = []
+            self.start_background_tasks()
 
     def start_background_tasks(self):
         """Initialize and start background tasks."""
