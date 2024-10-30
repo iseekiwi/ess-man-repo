@@ -11,7 +11,15 @@ class Fishing(commands.Cog):
     def __init__(self, bot: Red):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=123456789)
-        self.config.register_user(inventory=[], rod="Basic Rod", total_value=0, daily_quest=None, bait=0)
+
+        # Register user configuration with correct structure
+        self.config.register_user(
+            inventory=[], 
+            rod="Basic Rod", 
+            total_value=0, 
+            daily_quest=None, 
+            bait=0
+        )
         
         # Configuration for fish types and rods
         self.fish_types = {
