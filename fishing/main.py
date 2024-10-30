@@ -55,16 +55,20 @@ class Fishing(commands.Cog):
 
         # Define the acceptable keywords
         catch_keywords = ["catch", "grab", "snag", "hook", "reel"]
+        selected_keyword = random.choice(catch_keywords)  # Randomly select one keyword
 
-        # Randomized delay between 1 to 5 seconds before prompting the user
-        delay = random.uniform(1, 5)
+        # Send the initial message
+        fishing_message = await ctx.send("🎣 Fishing...")
+
+        # Randomized delay between 3 to 7 seconds before prompting the user
+        delay = random.uniform(3, 7)
         await asyncio.sleep(delay)
 
-        # Send the minigame prompt
-        await ctx.send(f"🎣 {user.name}, you're fishing! Type one of the following keywords: {', '.join(catch_keywords)} to try and catch a fish within 5 seconds!")
+        # Edit the fishing message with the keyword prompt
+        await fishing_message.edit(content=f"🎣 {user.name}, you're fishing! Type the keyword: **{selected_keyword}** to try and catch a fish within 5 seconds!")
 
         def check(m):
-            return m.author == user and m.content.lower() in catch_keywords and m.channel == ctx.channel
+            return m.author == user and m.content.lower() == selected_keyword and m.channel == ctx.channel
 
         try:
             # Wait for the user to respond within 5 seconds
