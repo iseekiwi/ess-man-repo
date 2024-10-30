@@ -69,16 +69,17 @@ class Fishing(commands.Cog):
         """Show the leaderboard of total fish value caught."""
         leaderboard = []
 
-        users = await self.config.all_users()  # Await the config call to get all users
-        for user_id in users:  # Iterate over the list of user IDs
-            user_data = await self.config.user(user_id).all()  # Get all user data using the user_id
-            total_value = user_data.get("total_value", 0)  # Use user_data to get the total value
+        # Retrieve all user data directly from config
+        users = await self.config.all_users()  # This gives us a list of user IDs
+        for user_id in users:  # Iterate over user IDs
+            user_data = await self.config.user(str(user_id)).all()  # Get all user data using the user_id as a string
+            total_value = user_data.get("total_value", 0)  # Get the total value
             if total_value > 0:
-                user = self.bot.get_user(int(user_id))  # Ensure user_id is an int for get_user
+                user = self.bot.get_user(int(user_id))  # Ensure user_id is converted to int for get_user
                 username = user.name if user else str(user_id)  # Fallback to user_id if user not found
                 leaderboard.append((username, total_value))
 
-        leaderboard.sort(key=lambda x: x[1], reverse=True)
+        leaderboard.sort(key=lambda x: x[1], reverse=True)  # Sort leaderboard by total value
 
         if leaderboard:
             embed = discord.Embed(title="Fisherboard", color=discord.Color.blue())
