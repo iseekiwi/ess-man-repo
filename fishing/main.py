@@ -2,7 +2,6 @@ import discord
 from redbot.core import commands, Config, bank
 from redbot.core.bot import Red
 import random
-import datetime
 from collections import Counter
 
 class Fishing(commands.Cog):
@@ -79,14 +78,11 @@ class Fishing(commands.Cog):
         bait = await self.config.user(user).bait()
 
         # Format inventory
-        inventory_str = "\n".join(f"• **{fish}** x {count}" for fish, count in Counter(inventory).items()) if inventory else "empty"
-        bait_str = "\n".join(f"• **{bait_name}** x {amount}" for bait_name, amount in bait.items()) if bait else "no bait"
+        inventory_str = "\n".join(f"• **{fish}** x {count}" for fish, count in Counter(inventory).items()) if inventory else "No fish in inventory."
+        bait_str = "\n".join(f"• **{bait_name}** x {amount}" for bait_name, amount in bait.items()) if bait else "No bait."
 
-        # Create an embed for better visual presentation
-        embed = discord.Embed(title=f"{user.name}'s Fishing Inventory", color=discord.Color.blue())
-        embed.add_field(name="Fish:", value=inventory_str, inline=False)
-        embed.add_field(name="Bait:", value=bait_str, inline=False)
-        await ctx.send(embed=embed)
+        # Send the formatted inventory as a message
+        await ctx.send(f"**{user.name}'s Fishing Inventory:**\n\n**Fish:**\n{inventory_str}\n\n**Bait:**\n{bait_str}")
 
     @commands.command(name="sellfish")
     async def sell_fish(self, ctx):
@@ -116,10 +112,8 @@ class Fishing(commands.Cog):
         ]
         items_list = "\n".join([f"**{index + 1}. {name}** - {cost} coins" for index, (name, cost) in enumerate(items)])
 
-        # Create an embed for shop items
-        embed = discord.Embed(title="🛒 Fishing Shop", description="Use `!shop buy <index>` to purchase an item.", color=discord.Color.green())
-        embed.add_field(name="Available Items:", value=items_list, inline=False)
-        await ctx.send(embed=embed)
+        # Send the formatted shop items as a message
+        await ctx.send(f"**🛒 Fishing Shop:**\nUse `!shop buy <index>` to purchase an item.\n\n**Available Items:**\n{items_list}")
 
     @shop.command(name="buy")
     async def shop_buy(self, ctx, index: int):
@@ -200,9 +194,7 @@ class Fishing(commands.Cog):
         # Format fisherboard for display
         fisherboard_str = "\n".join(f"**{ctx.guild.get_member(user_id).name}:** {value} coins" for user_id, value in sorted_fisherboard)
         
-        # Create an embed for the fisherboard
-        embed = discord.Embed(title="🏆 Fisherboard", description=fisherboard_str, color=discord.Color.gold())
-        await ctx.send(embed=embed)
+        await ctx.send(f"**🏆 Fisherboard:**\n{fisherboard_str}")
 
     async def _catch_fish(self, user, bait_type):
         """Determine if the user catches a fish and return its details."""
