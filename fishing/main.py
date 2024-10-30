@@ -81,52 +81,40 @@ class Fishing(commands.Cog):
         for rod_name, rod_info in self.rod_upgrades.items():
             shop_items.append(f"{rod_name}: {rod_info['cost']} coins (Chance increase: +{rod_info['chance'] * 100}%)")
 
-        shop_list = "\n".join(shop_items)
+        shop_list = "\n".join(f"{index + 1}. {item}" for index, item in enumerate(shop_items))
         await ctx.send(f"🛒 Fishing Shop:\n{shop_list}")
 
-    @commands.command(name="buybait")
-    async def buy_bait(self, ctx, bait_type: str, amount: int):
-        """Purchase bait from the shop."""
+    @shop.command(name="buy")
+    async def buy(self, ctx, item_index: int):
+        """Purchase an item from the shop by index."""
         user = ctx.author
+        shop_items = list(self.bait_types.keys()) + list(self.rod_upgrades.keys())
 
-        if bait_type not in self.bait_types:
-            await ctx.send(f"🚫 {user.name}, that's not a valid bait type.")
+        if item_index < 1 or item_index > len(shop_items):
+            await ctx.send(f"🚫 {user.name}, that's not a valid item index.")
             return
+
+        item_name = shop_items[item_index - 1]  # Adjust for 0-based index
+        cost = self.bait_types[item_name]["cost"] if item_name in self.bait_types else self.rod_upgrades[item_name]["cost"]
         
-        cost = self.bait_types[bait_type]["cost"] * amount
         user_balance = await bank.get_balance(user)
 
         if user_balance < cost:
-            await ctx.send(f"🚫 {user.name}, you don't have enough coins to buy {amount} {bait_type}(s).")
+            await ctx.send(f"🚫 {user.name}, you don't have enough coins to buy {item_name}.")
             return
 
-        # Deduct the cost from user's balance and add bait to inventory
+        # Deduct the cost from user's balance
         await bank.withdraw_credits(user, cost)
 
-        bait = await self.config.user(user).bait()
-        bait[bait_type] = bait.get(bait_type, 0) + amount
-        await self.config.user(user).bait.set(bait)  # Update user's bait inventory
-        await ctx.send(f"🎣 {user.name} purchased {amount} {bait_type}(s) for {cost} coins!")
-
-    @commands.command(name="buyrod")
-    async def buy_rod(self, ctx, rod_name: str):
-        """Purchase a rod upgrade from the shop."""
-        user = ctx.author
-        if rod_name not in self.rod_upgrades:
-            await ctx.send(f"🚫 {user.name}, that's not a valid rod name.")
-            return
-        
-        cost = self.rod_upgrades[rod_name]["cost"]
-        user_balance = await bank.get_balance(user)
-
-        if user_balance < cost:
-            await ctx.send(f"🚫 {user.name}, you don't have enough coins to buy the {rod_name}.")
-            return
-        
-        # Deduct the cost from user's balance and set the new rod
-        await bank.withdraw_credits(user, cost)
-        await self.config.user(user).rod.set(rod_name)
-        await ctx.send(f"🔧 {user.name} purchased the {rod_name} for {cost} coins!")
+        # Add the item to the user's inventory
+        if item_name in self.bait_types:
+            bait = await self.config.user(user).bait()
+            bait[item_name] = bait.get(item_name, 0) + 1  # Increase bait count
+            await self.config.user(user).bait.set(bait)
+            await ctx.send(f"🎣 {user.name} purchased 1 {item_name} for {cost} coins!")
+        elif item_name in self.rod_upgrades:
+            await self.config.user(user).rod.set(item_name)  # Set the new rod
+            await ctx.send(f"🔧 {user.name} purchased the {item_name} for {cost} coins!")
 
     @commands.command(name="inventory")
     async def inventory(self, ctx):
