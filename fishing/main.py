@@ -13,6 +13,7 @@ class Fishing(commands.Cog):
         self.config = Config.get_conf(self, identifier=123456789)
         self.config.register_user(inventory=[], rod="Basic Rod", total_value=0, daily_quest=None, bait=0)
         
+        # Configuration for fish types and rods
         self.fish_types = {
             "Common Fish": {"rarity": "common", "value": 10, "chance": 0.6},
             "Uncommon Fish": {"rarity": "uncommon", "value": 20, "chance": 0.25},
@@ -193,4 +194,4 @@ class Fishing(commands.Cog):
 
 # The setup function to load the cog
 async def setup(bot: Red):
-    bot.add_cog(Fishing(bot))
+    await bot.add_cog(Fishing(bot))
