@@ -145,7 +145,3 @@ class Fishing(commands.Cog):
         """Updates the user's total value of fish caught."""
         current_total = await self.config.user(user).total_value()
         await self.config.user(user).total_value.set(current_total + fish_value)
-
-# The setup function to load the cog
-async def setup(bot: Red):
-    bot.add_cog(Fishing(bot))
