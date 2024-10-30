@@ -50,13 +50,20 @@ class Fishing(commands.Cog):
         # Convert the bait_name to lowercase for case-insensitive comparison
         bait_name_lower = bait_name.lower()
 
-        # Check if the bait exists in the inventory
-        if bait_name_lower not in (key.lower() for key in bait) or bait[bait_name_lower] <= 0:
+        # Check if the bait exists in the inventory using a lowercase comparison
+        bait_keys_lower = {key.lower(): key for key in bait.keys()}  # Map lowercase keys to original keys
+
+        if bait_name_lower not in bait_keys_lower:
             await ctx.send(f"🚫 {user.name}, you don't have any {bait_name} to equip.")
             return
 
-        await self.config.user(user).equipped_bait.set(bait_name_lower)  # Set equipped bait
-        await ctx.send(f"✅ {user.name} equipped {bait_name_lower.capitalize()}!")
+        original_key = bait_keys_lower[bait_name_lower]  # Get the original key for access
+        if bait[original_key] <= 0:
+            await ctx.send(f"🚫 {user.name}, you don't have any {bait_name} to equip.")
+            return
+
+        await self.config.user(user).equipped_bait.set(original_key.lower())  # Set equipped bait (keeping it lowercase)
+        await ctx.send(f"✅ {user.name} equipped {original_key}!")
 
     @commands.command(name="fish")
     async def fish(self, ctx):
