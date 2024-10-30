@@ -9,6 +9,17 @@ from collections import Counter
 class Fishing(commands.Cog):
     """A fishing game cog for Redbot"""
 
+    import discord
+import asyncio
+from redbot.core import commands, Config, bank
+from redbot.core.bot import Red
+import random
+import datetime
+from collections import Counter
+
+class Fishing(commands.Cog):
+    """A fishing game cog for Redbot"""
+
     def __init__(self, bot: Red):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=123456789)
@@ -40,6 +51,23 @@ class Fishing(commands.Cog):
             "Shrimp": {"value": 2, "catch_bonus": 0.2},
             "Cricket": {"value": 3, "catch_bonus": 0.3},
         }
+
+        # Start daily stock reset task
+        self.bot.loop.create_task(self.daily_stock_reset())
+
+    async def daily_stock_reset(self):
+        """Reset the daily stock of shop items at midnight each day."""
+        while True:
+            now = datetime.datetime.now()
+            midnight = datetime.datetime.combine(now.date(), datetime.time(0, 0)) + datetime.timedelta(days=1)
+            seconds_until_midnight = (midnight - now).total_seconds()
+
+            # Wait until midnight
+            await asyncio.sleep(seconds_until_midnight)
+
+            # Reset the stock
+            default_stock = {"Worm": 10, "Shrimp": 10, "Cricket": 10}
+            await self.config.bait_stock.set(default_stock)
 
     @commands.command(name="equipbait")
     async def equip_bait(self, ctx, bait_name: str):
