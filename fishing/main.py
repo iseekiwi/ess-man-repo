@@ -105,11 +105,19 @@ class Fishing(commands.Cog):
             await ctx.send("📊 The fisherboard is empty.")
             return
 
-        fisherboard_str = "\n".join(
-            f"{ctx.guild.get_member(user_id).name if ctx.guild.get_member(user_id) else user_id}: {value} coins"
-            for user_id, value in sorted_fisherboard
-        )
-        await ctx.send(f"📊 Fishing Fisherboard:\n{fisherboard_str}")
+        # Create a header for the fisherboard
+        fisherboard_str = "🎣 **Fishing Fisherboard** 🎣\n"
+        fisherboard_str += "```"
+        fisherboard_str += f"{'User':<20} {'Earnings':<10}\n"  # Align headers
+        fisherboard_str += "-" * 30 + "\n"  # Separator line
+
+        # Format each entry
+        for user_id, value in sorted_fisherboard:
+            user_name = ctx.guild.get_member(user_id).name if ctx.guild.get_member(user_id) else user_id
+            fisherboard_str += f"{user_name:<20} {value:<10} coins\n"  # Align user name and value
+
+        fisherboard_str += "```"  # Close code block
+        await ctx.send(fisherboard_str)
 
     @commands.command(name="dailyquest")
     async def daily_quest(self, ctx):
