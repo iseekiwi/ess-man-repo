@@ -125,22 +125,6 @@ class Fishing(commands.Cog):
 
         await ctx.send(f"✅ {user.name} bought a {item['name']}!")
 
-    @commands.command(name="addbait")
-    async def add_bait(self, ctx, bait_type: str, amount: int):
-        """Add bait to your inventory."""  # This command is no longer necessary if we use the shop to purchase bait.
-        user = ctx.author
-        if bait_type not in self.bait_types:
-            await ctx.send(f"🚫 {user.name}, that's not a valid bait type.")
-            return
-
-        bait = await self.config.user(user).bait()
-        if bait_type not in bait:
-            bait[bait_type] = 0
-        
-        bait[bait_type] += amount
-        await self.config.user(user).bait.set(bait)  # Update user's bait inventory
-        await ctx.send(f"🎣 {user.name} added {amount} {bait_type}(s) to their bait inventory!")
-
     @commands.command(name="inventory")
     async def inventory(self, ctx):
         """Check your fishing inventory."""
