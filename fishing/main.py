@@ -43,7 +43,7 @@ class Fishing(commands.Cog):
 
         # Check if user has any bait
         if not bait or sum(bait.values()) == 0:
-            await ctx.send(f"🚫 {user.name}, you need bait to fish! Use `!buybait` to purchase some.")
+            await ctx.send(f"🚫 {user.name}, you need bait to fish! Use `!addbait <bait_type> <amount>` to purchase some.")
             return
 
         # Select a bait type (for this example, we'll just use the first available bait)
@@ -183,4 +183,17 @@ class Fishing(commands.Cog):
                 return {"name": fish_name, "value": fish_data["value"] + self.rod_upgrades[rod]["value_increase"]}
         return None
 
-    async def _add
+    async def _add_to_inventory(self, user, fish_name):
+        """Adds a fish to the user's inventory."""
+        inventory = await self.config.user(user).inventory()
+        inventory.append(fish_name)
+        await self.config.user(user).inventory.set(inventory)
+
+    async def _update_total_value(self, user, value):
+        """Updates the user's total value of caught fish."""
+        total_value = await self.config.user(user).total_value()
+        total_value += value
+        await self.config.user(user).total_value.set(total_value)
+
+def setup(bot: Red):
+    bot.add_cog(Fishing(bot))
