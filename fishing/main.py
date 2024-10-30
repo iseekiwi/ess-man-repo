@@ -209,9 +209,12 @@ class Fishing(commands.Cog):
 
         # Check if user has a daily quest set
         daily_quest = await self.config.user(user).daily_quest()
-        if daily_quest and daily_quest["date"] == now.date().isoformat():
-            await ctx.send(f"🎯 {user.name}, you already have a daily quest: {daily_quest['task']}.")
-            return
+    
+        # Check if daily_quest is a dictionary and if it contains the expected key
+        if isinstance(daily_quest, dict) and "date" in daily_quest:
+            if daily_quest["date"] == now.date().isoformat():
+                await ctx.send(f"🎯 {user.name}, you already have a daily quest: {daily_quest['task']}.")
+                return
 
         # Set a new daily quest
         tasks = ["Catch 5 Common Fish", "Sell 2 Rare Fish", "Catch 1 Legendary Fish"]
