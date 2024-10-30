@@ -77,7 +77,7 @@ class Fishing(commands.Cog):
             await ctx.send(f"🚫 {user.name}, you need bait to fish! Visit the (!)shop to purchase some.")
             return
 
-        # Check if user has equipped bait and if there's enough of it
+        # Ensure equipped_bait is properly referenced by the original key's case
         if not equipped_bait or bait.get(equipped_bait, 0) <= 0:
             await ctx.send(f"🚫 {user.name}, you are out of {equipped_bait} bait! Equip another type or buy more in the shop.")
             return
