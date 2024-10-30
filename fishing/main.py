@@ -91,15 +91,17 @@ class Fishing(commands.Cog):
     async def fisherboard(self, ctx):
         """Show the fisherboard for fishing earnings."""
         fisherboard = {}
-        
+
         # Fetch all user configurations
-        async for user in self.config.all_users():
-            total_value = user.get("total_value", 0)
+        users = await self.config.all_users()  # Await here to get all user data
+
+        for user_id, user_data in users.items():
+            total_value = user_data.get("total_value", 0)
             if total_value > 0:
-                fisherboard[user["user"]] = total_value  # Make sure to use the correct user ID
+                fisherboard[user_id] = total_value  # Store user ID and total value
 
         sorted_fisherboard = sorted(fisherboard.items(), key=lambda x: x[1], reverse=True)
-        
+
         if not sorted_fisherboard:
             await ctx.send("📊 The fisherboard is empty.")
             return
