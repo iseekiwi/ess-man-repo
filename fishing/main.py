@@ -97,7 +97,7 @@ class Fishing(commands.Cog):
         await ctx.send(shop_str)
 
     @shop.command(name="buy")
-    async def buy(self, ctx, item_index: int):
+    async def buy(self, ctx, item_index: int, amount: int = 1):
         """Buy an item from the shop by index."""
         user = ctx.author
         shop_items = {
@@ -116,8 +116,8 @@ class Fishing(commands.Cog):
         bait_stock = await self.config.bait_stock()  # Get current bait stock
 
         # Check stock
-        if item["name"] in bait_stock and bait_stock[item["name"]] <= 0:
-            await ctx.send(f"🚫 {user.name}, the {item['name']} is out of stock.")
+        if item["name"] in bait_stock and bait_stock[item["name"]] < amount:
+            await ctx.send(f"🚫 {user.name}, not enough stock for {item['name']} (Requested: {amount}, Available: {bait_stock[item['name']]})")
             return
 
         if item["name"] in ["Intermediate Rod", "Advanced Rod"]:
@@ -126,16 +126,17 @@ class Fishing(commands.Cog):
                 await ctx.send(f"🚫 {user.name}, you already purchased a {item['name']}.")
                 return
 
+        total_cost = item["cost"] * amount
         balance = await bank.get_balance(user)
-        if balance < item["cost"]:
-            await ctx.send(f"🚫 {user.name}, you don't have enough coins to buy a {item['name']}.")
+        if balance < total_cost:
+            await ctx.send(f"🚫 {user.name}, you don't have enough coins to buy {amount} of {item['name']}.")
             return
 
-        await bank.withdraw_credits(user, item["cost"])
+        await bank.withdraw_credits(user, total_cost)
 
         # Update bait stock
         if item["name"] in bait_stock:
-            bait_stock[item["name"]] -= 1
+            bait_stock[item["name"]] -= amount
             await self.config.bait_stock.set(bait_stock)
 
         if item["name"] in ["Intermediate Rod", "Advanced Rod"]:
@@ -144,10 +145,10 @@ class Fishing(commands.Cog):
 
         if item["name"] in self.bait_types:
             bait = await self.config.user(user).bait()
-            bait[item["name"]] = bait.get(item["name"], 0) + 1
+            bait[item["name"]] = bait.get(item["name"], 0) + amount
             await self.config.user(user).bait.set(bait)  # Update user's bait inventory
 
-        await ctx.send(f"✅ {user.name} bought a {item['name']}!")
+        await ctx.send(f"✅ {user.name} bought {amount} {item['name']}(s)!")
 
     @commands.command(name="inventory")
     async def inventory(self, ctx):
@@ -188,64 +189,42 @@ class Fishing(commands.Cog):
         for user_id, user_data in users.items():
             total_value = user_data.get("total_value", 0)
             if total_value > 0:
-                fisherboard[user_id] = total_value  # Store user ID and total value
+                fisherboard[await self.bot.fetch_user(user_id)] = total_value
 
-        sorted_fisherboard = sorted(fisherboard.items(), key=lambda x: x[1], reverse=True)
+        # Sort the fisherboard by total value in descending order
+        sorted_fisherboard = sorted(fisherboard.items(), key=lambda item: item[1], reverse=True)
 
         if not sorted_fisherboard:
-            await ctx.send("📊 The fisherboard is empty.")
+            await ctx.send("📈 The fisherboard is empty!")
             return
 
-        fisherboard_str = "\n".join(f"{ctx.guild.get_member(user_id).name}: {value} coins" for user_id, value in sorted_fisherboard)
-        await ctx.send(f"📊 Fisherboard:\n{fisherboard_str}")
-
-    @commands.command(name="setbaitstock")
-    @commands.is_owner()
-    async def set_bait_stock(self, ctx, bait_name: str, amount: int):
-        """Set the stock for a specific bait type."""
-        bait_stock = await self.config.bait_stock()  # Get current bait stock
-
-        if bait_name not in bait_stock:
-            await ctx.send(f"🚫 {bait_name} is not a valid bait type.")
-            return
-
-        bait_stock[bait_name] = amount
-        await self.config.bait_stock.set(bait_stock)  # Update the bait stock
-        await ctx.send(f"✅ {bait_name} stock has been set to {amount}.")
-
-    @commands.command(name="resetbaitstock")
-    @commands.is_owner()
-    async def reset_bait_stock(self, ctx):
-        """Reset the bait stock to the default values."""
-        default_stock = {"Worm": 10, "Shrimp": 10, "Cricket": 10}
-        await self.config.bait_stock.set(default_stock)  # Reset the bait stock
-        await ctx.send("✅ Bait stock has been reset to the default values.")
+        # Build the leaderboard string
+        leaderboard_str = "🏆 **Fisherboard:**\n" + "\n".join(
+            f"{i + 1}. {user} - {value} coins" for i, (user, value) in enumerate(sorted_fisherboard)
+        )
+        await ctx.send(leaderboard_str)
 
     async def _catch_fish(self, user, bait_type):
-        """Determines the fish catch based on rarity chances, including bait bonuses."""
-        roll = random.random()
-        cumulative = 0.0
-        rod = await self.config.user(user).rod()  # Corrected to be awaitable
-        rod_bonus = self.rod_upgrades[rod]["chance"]
-        bait_bonus = self.bait_types[bait_type]["catch_bonus"] if bait_type and bait_type in self.bait_types else 0
+        """Randomly determine if a user catches a fish."""
+        catch_chance = random.random()
+        bait_bonus = self.bait_types[bait_type]["catch_bonus"] if bait_type in self.bait_types else 0
+        cumulative_chance = 0
 
-        for fish_name, fish_data in self.fish_types.items():
-            cumulative += fish_data["chance"] + rod_bonus + bait_bonus
-            if roll < cumulative:
-                return {"name": fish_name, "value": fish_data["value"] + self.rod_upgrades[rod]["value_increase"]}
+        for fish_name, fish_info in self.fish_types.items():
+            cumulative_chance += fish_info["chance"] + bait_bonus
+            if catch_chance <= cumulative_chance:
+                return {"name": fish_name, "value": fish_info["value"]}
+
         return None
 
     async def _add_to_inventory(self, user, fish_name):
-        """Adds a fish to the user's inventory."""
+        """Add caught fish to the user's inventory."""
         inventory = await self.config.user(user).inventory()
         inventory.append(fish_name)
         await self.config.user(user).inventory.set(inventory)
 
     async def _update_total_value(self, user, value):
-        """Updates the user's total value of caught fish."""
+        """Update the user's total fishing earnings."""
         total_value = await self.config.user(user).total_value()
         total_value += value
         await self.config.user(user).total_value.set(total_value)
-
-def setup(bot: Red):
-    bot.add_cog(Fishing(bot))
