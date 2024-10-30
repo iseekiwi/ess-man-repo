@@ -18,7 +18,8 @@ class Fishing(commands.Cog):
             total_value=0,
             daily_quest=None,
             bait={},  # Register bait inventory as a dictionary
-            purchased_rods={}  # Track purchased rods
+            purchased_rods={},  # Track purchased rods
+            equipped_bait=None  # Register equipped bait
         )
         self.config.register_global(
             bait_stock={"Worm": 10, "Shrimp": 10, "Cricket": 10}  # Daily stock for each bait type
@@ -39,6 +40,23 @@ class Fishing(commands.Cog):
             "Shrimp": {"value": 2, "catch_bonus": 0.2},
             "Cricket": {"value": 3, "catch_bonus": 0.3},
         }
+
+    @commands.command(name="equipbait")
+    async def equip_bait(self, ctx, bait_name: str):
+        """Equip a specific bait for fishing."""
+        user = ctx.author
+        bait = await self.config.user(user).bait()
+
+        # Convert the bait_name to lowercase for case-insensitive comparison
+        bait_name_lower = bait_name.lower()
+
+        # Check if the bait exists in the inventory
+        if bait_name_lower not in (key.lower() for key in bait) or bait[bait_name_lower] <= 0:
+            await ctx.send(f"🚫 {user.name}, you don't have any {bait_name} to equip.")
+            return
+
+        await self.config.user(user).equipped_bait.set(bait_name_lower)  # Set equipped bait
+        await ctx.send(f"✅ {user.name} equipped {bait_name_lower.capitalize()}!")
 
     @commands.command(name="fish")
     async def fish(self, ctx):
