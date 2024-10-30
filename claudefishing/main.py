@@ -18,8 +18,8 @@ from .data.fishing_data import (
 class Fishing(commands.Cog):
     """A fishing game cog for Redbot"""
 
-    def __init__(self, bot: Red):
-            self.bot = bot
+def __init__(self, bot: Red):
+        self.bot = bot
             self.config = Config.get_conf(self, identifier=123456789)
             
             # Consolidated default user settings
@@ -72,31 +72,40 @@ class Fishing(commands.Cog):
 
     def start_background_tasks(self):
         """Initialize and start background tasks."""
-        if self.bg_tasks:  # Cancel any existing tasks
-            for task in self.bg_tasks:
-                task.cancel()
+        try:
+            if self.bg_tasks:  # Cancel any existing tasks
+                for task in self.bg_tasks:
+                    task.cancel()
             self.bg_tasks = []
 
-        # Create new tasks
-        self.bg_tasks.append(self.bot.loop.create_task(self.daily_stock_reset()))
-        self.bg_tasks.append(self.bot.loop.create_task(self.weather_change_task()))
+            # Create new tasks
+            self.bg_tasks.append(self.bot.loop.create_task(self.daily_stock_reset()))
+            self.bg_tasks.append(self.bot.loop.create_task(self.weather_change_task()))
+        except Exception as e:
+            print(f"Error starting background tasks: {e}")
 
     def cog_unload(self):
         """Clean up background tasks when cog is unloaded."""
-        for task in self.bg_tasks:
-            task.cancel()
+        try:
+            for task in self.bg_tasks:
+                task.cancel()
+        except Exception as e:
+            print(f"Error in cog_unload: {e}")
 
     async def weather_change_task(self):
         """Periodically change the weather."""
-        try:
-            while True:
+        while True:
+            try:
                 await asyncio.sleep(3600)  # Change weather every hour
                 weather = random.choice(list(self.data["weather"].keys()))
                 await self.config.current_weather.set(weather)
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            print(f"Error in weather_change_task: {e}")
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                print(f"Error in weather_change_task: {e}")
+                # Wait a bit before retrying
+                await asyncio.sleep(60)
 
     async def daily_stock_reset(self):
         """Reset the daily stock of shop items at midnight."""
@@ -203,20 +212,21 @@ class Fishing(commands.Cog):
     @location.command(name="info")
     async def location_info(self, ctx, location_name: str = None):
         """Display detailed information about a specific location."""
-        if not location_name:
-            location_name = await self.config.user(ctx.author).current_location()
-        elif location_name not in self.data["locations"]:
-            await ctx.send("🚫 Invalid location name! Use `!location list` to see available locations.")
-            return
+        try:
+            if not location_name:
+                location_name = await self.config.user(ctx.author).current_location()
+            elif location_name not in self.data["locations"]:
+                await ctx.send("🚫 Invalid location name! Use `!location list` to see available locations.")
+                return
+                
+            location_data = self.data["locations"][location_name]
+            user_data = await self.config.user(ctx.author).all()
             
-        location_data = self.data["locations"][location_name]
-        user_data = await self.config.user(ctx.author).all()
-        
-        embed = discord.Embed(
-            title=f"📍 {location_name}",
-            description=location_data["description"],
-            color=discord.Color.blue()
-        )
+            embed = discord.Embed(
+                title=f"📍 {location_name}",
+                description=location_data["description"],
+                color=discord.Color.blue()
+            )
         
         # Requirements section
         if location_data["requirements"]:
@@ -238,6 +248,11 @@ class Fishing(commands.Cog):
                 value="None",
                 inline=False
             )
+
+            await ctx.send(embed=embed)
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}\nPlease try again or contact an administrator.")
+            raise
         
         # Fish chances section
         chances = []
@@ -620,35 +635,49 @@ class Fishing(commands.Cog):
 
     async def _catch_fish(self, user_data: dict, bait_type: str, location: str, weather: str, time_of_day: str) -> dict:
         """Calculate catch results with all modifiers."""
-        # Calculate catch chance
-        base_chance = self.data["rods"][user_data["rod"]]["chance"]
-        bait_bonus = self.data["bait"][bait_type]["catch_bonus"]
-        weather_bonus = self.data["weather"][weather].get("catch_bonus", 0)
-        time_bonus = self.data["time"][time_of_day].get("catch_bonus", 0)
-        
-        if random.random() >= (base_chance + bait_bonus + weather_bonus + time_bonus):
+        try:
+            # Calculate catch chance
+            base_chance = self.data["rods"][user_data["rod"]]["chance"]
+            bait_bonus = self.data["bait"][bait_type]["catch_bonus"]
+            weather_bonus = self.data["weather"][weather].get("catch_bonus", 0)
+            time_bonus = self.data["time"][time_of_day].get("catch_bonus", 0)
+            
+            if random.random() >= (base_chance + bait_bonus + weather_bonus + time_bonus):
+                return None
+
+            # Calculate fish weights with modifiers
+            location_mods = self.data["locations"][location]["fish_modifiers"]
+            weather_rare_bonus = (
+                self.data["weather"][weather].get("rare_bonus", 0)
+                if weather in self.data["weather"]
+                else 0
+            )
+
+            weighted_fish = []
+            weights = []
+            
+            for fish, data in self.data["fish"].items():
+                # Validate fish data
+                if "variants" not in data:
+                    print(f"Warning: Fish type {fish} missing variants!")
+                    continue
+                    
+                weight = data["chance"] * location_mods[fish]
+                if weather_rare_bonus and data["rarity"] in ["rare", "legendary"]:
+                    weight *= (1 + weather_rare_bonus)
+                weighted_fish.append(fish)
+                weights.append(weight)
+
+            if not weighted_fish:  # Ensure we have valid fish to choose from
+                print("Warning: No valid fish types found!")
+                return None
+
+            caught_fish = random.choices(weighted_fish, weights=weights, k=1)[0]
+            return {"name": caught_fish, "value": self.data["fish"][caught_fish]["value"]}
+            
+        except Exception as e:
+            print(f"Error in _catch_fish: {e}")
             return None
-
-        # Calculate fish weights with modifiers
-        location_mods = self.data["locations"][location]["fish_modifiers"]
-        weather_rare_bonus = (
-            self.data["weather"][weather].get("rare_bonus", 0)
-            if weather in self.data["weather"]
-            else 0
-        )
-
-        weighted_fish = []
-        weights = []
-        
-        for fish, data in self.data["fish"].items():
-            weight = data["chance"] * location_mods[fish]
-            if weather_rare_bonus and data["rarity"] in ["rare", "legendary"]:
-                weight *= (1 + weather_rare_bonus)
-            weighted_fish.append(fish)
-            weights.append(weight)
-
-        caught_fish = random.choices(weighted_fish, weights=weights, k=1)[0]
-        return {"name": caught_fish, "value": self.data["fish"][caught_fish]["value"]}
 
     async def _add_to_inventory(self, user, fish_name: str):
         """Add fish to user's inventory."""
