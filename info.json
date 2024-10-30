@@ -1,0 +1,10 @@
+{
+    "author" : ["kiwi"],
+    "install_msg" : "cog bonering successful",
+    "name" : "fishing",
+    "short" : "fishing cog of hell",
+    "description" : "fish fish",
+	"tags": [
+		"fishing"
+	]
+}
