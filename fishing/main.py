@@ -69,8 +69,9 @@ class Fishing(commands.Cog):
         """Show the leaderboard of total fish value caught."""
         leaderboard = []
 
-        async for user in self.config.all_users():
-            total_value = user.get("total_value", 0)
+        async for user in self.config.all_users():  # This line now needs to be awaited correctly
+            user_data = await self.config.user(user).all()  # Get all user data
+            total_value = user_data.get("total_value", 0)  # Use user_data instead of user
             if total_value > 0:
                 leaderboard.append((str(user), total_value))
 
