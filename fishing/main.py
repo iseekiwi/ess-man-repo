@@ -62,10 +62,10 @@ class Fishing(commands.Cog):
             await ctx.send(f"🚫 {user.name}, you don't have any {bait_name} to equip.")
             return
 
-        await self.config.user(user).equipped_bait.set(original_key.lower())  # Set equipped bait (keeping it lowercase)
+        await self.config.user(user).equipped_bait.set(original_key)  # Set equipped bait using the exact name
         await ctx.send(f"✅ {user.name} equipped {original_key}!")
 
-    @commands.command(name="fish")
+     @commands.command(name="fish")
     async def fish(self, ctx):
         """Go fishing and try to catch a fish using a minigame!"""
         user = ctx.author
@@ -77,7 +77,7 @@ class Fishing(commands.Cog):
             await ctx.send(f"🚫 {user.name}, you need bait to fish! Visit the (!)shop to purchase some.")
             return
 
-        # Ensure equipped_bait is properly referenced by the original key's case
+        # Ensure equipped_bait is properly referenced by the exact case-sensitive name
         if not equipped_bait or bait.get(equipped_bait, 0) <= 0:
             await ctx.send(f"🚫 {user.name}, you are out of {equipped_bait} bait! Equip another type or buy more in the shop.")
             return
@@ -123,7 +123,7 @@ class Fishing(commands.Cog):
             await ctx.send(f"🎣 {user.name} caught a {fish_name} worth {fish_value} coins using {equipped_bait}!")
         else:
             await ctx.send(f"🎣 {user.name} went fishing but didn't catch anything this time.")
-
+        
     @commands.group(name="shop", invoke_without_command=True)
     async def shop(self, ctx):
         """Check the shop for available items."""
