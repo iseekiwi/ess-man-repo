@@ -17,7 +17,7 @@ class Fishing(commands.Cog):
             "Legendary Fish": {"rarity": "legendary", "value": 100, "chance": 0.05},
         }
 
-    @commands.command(name="fish", help="Go fishing and try to catch a fish!")
+    @commands.command(name="fish")
     async def fish(self, ctx):
         """Go fishing and try to catch a fish!"""
         user = ctx.author
@@ -32,7 +32,7 @@ class Fishing(commands.Cog):
         else:
             await ctx.send(f"🎣 {user.mention} went fishing but didn't catch anything this time.")
 
-    @commands.command(name="inventory", help="Check your fishing inventory.")
+    @commands.command(name="inventory")
     async def inventory(self, ctx):
         """Check your fishing inventory."""
         user = ctx.author
@@ -44,7 +44,7 @@ class Fishing(commands.Cog):
         else:
             await ctx.send(f"🎒 {user.mention}, your inventory is empty. Go catch some fish!")
 
-    @commands.command(name="sellfish", help="Sell all fish in your inventory for currency.")
+    @commands.command(name="sellfish")
     async def sell_fish(self, ctx):
         """Sell all fish in your inventory for currency."""
         user = ctx.author
@@ -76,7 +76,3 @@ class Fishing(commands.Cog):
         inventory = await self.config.user(user).inventory()
         inventory.append(fish_name)
         await self.config.user(user).inventory.set(inventory)
-
-# The setup function to load the cog
-async def setup(bot: Red):
-    bot.add_cog(Fishing(bot))
