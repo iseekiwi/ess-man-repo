@@ -101,32 +101,7 @@ class Fishing(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}\nPlease try again or contact an administrator.")
             raise
-
-    async def check_requirements(self, user_data: dict, requirements: dict) -> tuple[bool, str]:
-        """Check if user meets requirements."""
-        if not requirements:
-            return True, ""
-            
-        # Ensure user_data has required fields
-        level = user_data.get("level", 1)
-        fish_caught = user_data.get("fish_caught", 0)
-            
-        if level < requirements["level"]:
-            return False, f"🚫 You need to be level {requirements['level']}!"
-        if fish_caught < requirements["fish_caught"]:
-            return False, f"🚫 You need to catch {requirements['fish_caught']} fish first!"
-            
-        return True, ""
-
-    async def _ensure_user_data(self, user):
-        """Ensure user data exists and is properly initialized."""
-        user_data = await self.config.user(user).all()
-        if not user_data:
-            await self.config.user(user).clear()
-            user_data = await self.config.user(user).all()
-        return user_data
-    
-            @location.command(name="list")
+        @location.command(name="list")
             async def location_list(self, ctx):
                 """Display detailed information about all fishing locations."""
                 user_data = await self.config.user(ctx.author).all()
@@ -262,6 +237,30 @@ class Fishing(commands.Cog):
                     )
             
             await ctx.send(embed=embed)
+
+    async def check_requirements(self, user_data: dict, requirements: dict) -> tuple[bool, str]:
+        """Check if user meets requirements."""
+        if not requirements:
+            return True, ""
+            
+        # Ensure user_data has required fields
+        level = user_data.get("level", 1)
+        fish_caught = user_data.get("fish_caught", 0)
+            
+        if level < requirements["level"]:
+            return False, f"🚫 You need to be level {requirements['level']}!"
+        if fish_caught < requirements["fish_caught"]:
+            return False, f"🚫 You need to catch {requirements['fish_caught']} fish first!"
+            
+        return True, ""
+
+    async def _ensure_user_data(self, user):
+        """Ensure user data exists and is properly initialized."""
+        user_data = await self.config.user(user).all()
+        if not user_data:
+            await self.config.user(user).clear()
+            user_data = await self.config.user(user).all()
+        return user_data
 
     @commands.command(name="equipbait")
     async def equip_bait(self, ctx, bait_name: str):
