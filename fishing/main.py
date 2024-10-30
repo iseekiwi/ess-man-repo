@@ -48,7 +48,6 @@ class Fishing(commands.Cog):
         inventory = await self.config.user(user).inventory()
 
         if inventory:
-            # Count the occurrences of each fish type
             fish_counts = Counter(inventory)
             inventory_str = "\n".join(f"- {fish} x {count}" for fish, count in fish_counts.items())
             await ctx.send(f"🎒 {user.mention}'s Inventory:\n{inventory_str}")
@@ -76,7 +75,7 @@ class Fishing(commands.Cog):
         """Upgrade your fishing rod to increase catch chances."""
         user = ctx.author
         current_rod = await self.config.user(user).rod()
-        
+
         if rod_name not in self.rod_upgrades:
             await ctx.send(f"🚫 {user.mention}, that's not a valid rod name.")
             return
@@ -85,7 +84,6 @@ class Fishing(commands.Cog):
             await ctx.send(f"🚫 {user.mention}, you already have the {rod_name}.")
             return
         
-        # Upgrade the rod
         await self.config.user(user).rod.set(rod_name)
         await ctx.send(f"🔧 {user.mention} upgraded to a {rod_name}!")
 
@@ -112,14 +110,16 @@ class Fishing(commands.Cog):
         user = ctx.author
         last_quest = await self.config.user(user).daily_quest()
 
-        # Reset quest if last quest was over 24 hours ago
+        if last_quest:
+            last_quest = datetime.datetime.fromisoformat(last_quest)
+
         if last_quest and (datetime.datetime.now() - last_quest).days > 0:
-            await self.config.user(user).daily_quest.set(datetime.datetime.now())
+            await self.config.user(user).daily_quest.set(datetime.datetime.now().isoformat())
             await ctx.send(f"🎯 {user.mention}, your new daily quest is to catch a **Legendary Fish**!")
         elif last_quest:
             await ctx.send(f"🎯 {user.mention}, you have already completed your daily quest. Come back tomorrow!")
         else:
-            await self.config.user(user).daily_quest.set(datetime.datetime.now())
+            await self.config.user(user).daily_quest.set(datetime.datetime.now().isoformat())
             await ctx.send(f"🎯 {user.mention}, your new daily quest is to catch a **Legendary Fish**!")
 
     async def _catch_fish(self, user):
