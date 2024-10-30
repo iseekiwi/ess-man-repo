@@ -30,7 +30,7 @@ class Fishing(commands.Cog):
     async def fish(self, ctx):
         """Go fishing and try to catch a fish!"""
         user = ctx.author
-        catch = self._catch_fish(user)
+        catch = await self._catch_fish(user)
 
         if catch:
             fish_name = catch["name"]
@@ -122,11 +122,11 @@ class Fishing(commands.Cog):
             await self.config.user(user).daily_quest.set(datetime.datetime.now())
             await ctx.send(f"🎯 {user.mention}, your new daily quest is to catch a **Legendary Fish**!")
 
-    def _catch_fish(self, user):
+    async def _catch_fish(self, user):
         """Determines the fish catch based on rarity chances."""
         roll = random.random()
         cumulative = 0.0
-        rod = await self.config.user(user).rod()
+        rod = await self.config.user(user).rod()  # Corrected to be awaitable
         rod_bonus = self.rod_upgrades[rod]["chance"]
 
         for fish_name, fish_data in self.fish_types.items():
@@ -145,3 +145,7 @@ class Fishing(commands.Cog):
         """Updates the user's total value of fish caught."""
         current_total = await self.config.user(user).total_value()
         await self.config.user(user).total_value.set(current_total + fish_value)
+
+# The setup function to load the cog
+async def setup(bot: Red):
+    bot.add_cog(Fishing(bot))
