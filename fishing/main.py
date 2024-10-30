@@ -41,7 +41,7 @@ class Fishing(commands.Cog):
 
     @commands.command(name="fish")
     async def fish(self, ctx):
-        """Go fishing and try to catch a fish!"""
+        """Go fishing and try to catch a fish using a minigame!"""
         user = ctx.author
         bait = await self.config.user(user).bait()  # Get user's bait inventory
 
@@ -50,10 +50,29 @@ class Fishing(commands.Cog):
             await ctx.send(f"🚫 {user.name}, you need bait to fish! Visit the (!)shop to purchase some.")
             return
 
-        # Select a bait type
         bait_type = next((bait_name for bait_name in bait if bait[bait_name] > 0), None)
 
-        # Catch fish
+        # Define the acceptable keywords
+        catch_keywords = ["catch", "grab", "snag", "hook", "reel"]
+
+        # Randomized delay between 1 to 5 seconds before prompting the user
+        delay = random.uniform(1, 5)
+        await asyncio.sleep(delay)
+
+        # Send the minigame prompt
+        await ctx.send(f"🎣 {user.name}, you're fishing! Type one of the following keywords: {', '.join(catch_keywords)} to try and catch a fish within 5 seconds!")
+
+        def check(m):
+            return m.author == user and m.content.lower() in catch_keywords and m.channel == ctx.channel
+
+        try:
+            # Wait for the user to respond within 5 seconds
+            msg = await self.bot.wait_for('message', check=check, timeout=5.0)
+        except asyncio.TimeoutError:
+            await ctx.send(f"⏰ {user.name}, you took too long! No fish caught.")
+            return
+
+        # Catch fish after a successful reaction
         catch = await self._catch_fish(user, bait_type)
 
         # Use one bait item
