@@ -29,20 +29,29 @@ class Fishing(commands.Cog):
             "total_value": 0,
             "daily_quest": None,
             "bait": {},
-            "purchased_rods": {},
+            "purchased_rods": {"Basic Rod": True},  # Ensure Basic Rod is always available
             "equipped_bait": None,
             "current_location": "Pond",
             "fish_caught": 0,
-            "level": 1
+            "level": 1,
+            "settings": {  # Nested settings to prevent None issues
+                "notifications": True,
+                "auto_sell": False
+            }
         }
         
         # Consolidated default global settings
         default_global = {
             "bait_stock": {bait: data["daily_stock"] for bait, data in BAIT_TYPES.items()},
             "current_weather": "Sunny",
-            "active_events": []
+            "active_events": [],
+            "settings": {  # Nested settings to prevent None issues
+                "daily_reset_hour": 0,
+                "weather_change_interval": 3600
+            }
         }
         
+        # Register defaults before accessing any config values
         self.config.register_user(**default_user)
         self.config.register_global(**default_global)
 
@@ -60,63 +69,62 @@ class Fishing(commands.Cog):
         # Start background tasks
         self._start_background_tasks()
 
-    def _start_background_tasks(self):
-        """Initialize background tasks."""
-        self.bot.loop.create_task(self.daily_stock_reset())
-        self.bot.loop.create_task(self.weather_change_task())
-
-    async def weather_change_task(self):
-        """Periodically change the weather."""
-        while True:
-            await asyncio.sleep(3600)  # Change weather every hour
-            weather = random.choice(list(self.data["weather"].keys()))
-            await self.config.current_weather.set(weather)
-
-    async def daily_stock_reset(self):
-        """Reset the daily stock of shop items at midnight."""
-        while True:
-            now = datetime.datetime.now()
-            midnight = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time())
-            await asyncio.sleep((midnight - now).total_seconds())
-            
-            default_stock = {bait: data["daily_stock"] for bait, data in self.data["bait"].items()}
-            await self.config.bait_stock.set(default_stock)
-
-    async def check_requirements(self, user_data: dict, requirements: dict) -> tuple[bool, str]:
-        """Check if user meets requirements."""
-        if not requirements:
-            return True, ""
-            
-        if user_data["level"] < requirements["level"]:
-            return False, f"🚫 You need to be level {requirements['level']}!"
-        if user_data["fish_caught"] < requirements["fish_caught"]:
-            return False, f"🚫 You need to catch {requirements['fish_caught']} fish first!"
-            
-        return True, ""
-
     @commands.group(name="location", invoke_without_command=True)
     async def location(self, ctx, new_location: str = None):
-            """Commands for managing fishing locations."""
+        """Commands for managing fishing locations."""
+        try:
             if ctx.invoked_subcommand is None:
                 if new_location is None:
                     await ctx.send("📍 Please specify a location or use `!location list` to see available locations.")
                     return
-                    
+
                 if new_location not in self.data["locations"]:
                     locations = "\n".join(f"- {loc}" for loc in self.data["locations"].keys())
                     await ctx.send(f"🌍 Available locations:\n{locations}")
                     return
-    
+
+                # Safely get user data with defaults
                 user_data = await self.config.user(ctx.author).all()
+                if not user_data:  # If somehow user data is None, initialize it
+                    await self.config.user(ctx.author).clear()
+                    user_data = await self.config.user(ctx.author).all()
+
                 location_data = self.data["locations"][new_location]
                 
                 meets_req, msg = await self.check_requirements(user_data, location_data["requirements"])
                 if not meets_req:
                     await ctx.send(msg)
                     return
-    
+
                 await self.config.user(ctx.author).current_location.set(new_location)
                 await ctx.send(f"🌍 {ctx.author.name} is now fishing at: {new_location}\n{location_data['description']}")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}\nPlease try again or contact an administrator.")
+            raise
+
+    async def check_requirements(self, user_data: dict, requirements: dict) -> tuple[bool, str]:
+        """Check if user meets requirements."""
+        if not requirements:
+            return True, ""
+            
+        # Ensure user_data has required fields
+        level = user_data.get("level", 1)
+        fish_caught = user_data.get("fish_caught", 0)
+            
+        if level < requirements["level"]:
+            return False, f"🚫 You need to be level {requirements['level']}!"
+        if fish_caught < requirements["fish_caught"]:
+            return False, f"🚫 You need to catch {requirements['fish_caught']} fish first!"
+            
+        return True, ""
+
+    async def _ensure_user_data(self, user):
+        """Ensure user data exists and is properly initialized."""
+        user_data = await self.config.user(user).all()
+        if not user_data:
+            await self.config.user(user).clear()
+            user_data = await self.config.user(user).all()
+        return user_data
     
             @location.command(name="list")
             async def location_list(self, ctx):
