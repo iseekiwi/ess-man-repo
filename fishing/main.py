@@ -9,17 +9,6 @@ from collections import Counter
 class Fishing(commands.Cog):
     """A fishing game cog for Redbot"""
 
-    import discord
-import asyncio
-from redbot.core import commands, Config, bank
-from redbot.core.bot import Red
-import random
-import datetime
-from collections import Counter
-
-class Fishing(commands.Cog):
-    """A fishing game cog for Redbot"""
-
     def __init__(self, bot: Red):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=123456789)
