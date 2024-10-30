@@ -1,11 +1,10 @@
 {
     "name": "fishing",
-    "short": "A small minigame where you catch virtual fishes",
-    "description": "This cog is just a small minigame where you catch virtual fishes with chances of the fish being common, uncommon or rare",
-    "end_user_data_statement": "This cog does not store any user data persistently.",
-    "install_msg": "Thanks for installing fishing!\nPlease report any bugs/log output in *#support_other-cogs* on the cog support server (https://discord.gg/GET4DVk).",
+    "short": "catch fish",
+    "description": "fish for fish",
+    "install_msg": "you have a virus now",
     "author": [
-        "crayyy_zee"
+        "kiwi"
     ],
     "required_cogs": {},
     "requirements": [],
