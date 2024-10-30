@@ -189,7 +189,8 @@ class Fishing(commands.Cog):
         for user_id, user_data in users.items():
             total_value = user_data.get("total_value", 0)
             if total_value > 0:
-                fisherboard[user_id] = total_value  # Store user ID and total value
+                user = await self.bot.fetch_user(user_id)
+                fisherboard[user.name] = total_value  # Store user name and total value
 
         sorted_fisherboard = sorted(fisherboard.items(), key=lambda x: x[1], reverse=True)
 
@@ -197,13 +198,8 @@ class Fishing(commands.Cog):
             await ctx.send("🏆 The fisherboard is empty!")
             return
 
-        # Create a formatted string for the fisherboard
-        fisherboard_str = "🏆 **Fisherboard:**\n" + "\n".join(
-            f"{index + 1}. User ID: `{user_id}` - {value} coins" 
-            for index, (user_id, value) in enumerate(sorted_fisherboard)
-        )
-    
-        await ctx.send(fisherboard_str)
+        fisherboard_str = "\n".join(f"**{name}:** {value} coins" for name, value in sorted_fisherboard)
+        await ctx.send(f"🏆 **Fisherboard:**\n{fisherboard_str}")
     
     @commands.command(name="dailyquest")
     async def daily_quest(self, ctx):
