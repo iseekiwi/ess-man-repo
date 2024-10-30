@@ -1,5 +1,5 @@
-from .main import CFishing
+from .main import Fishing
 
 
 async def setup(bot):
-    await bot.add_cog(CFishing(bot))
+    await bot.add_cog(Fishing(bot))
