@@ -253,7 +253,7 @@ async def location(self, ctx, new_location: str = None):
                     inline=False
                 )
         
-            await ctx.send(embed=embed)
+        await ctx.send(embed=embed)
 
     @commands.command(name="equipbait")
     async def equip_bait(self, ctx, bait_name: str):
