@@ -10,16 +10,17 @@ class Fishing(commands.Cog):
     def __init__(self, bot: Red):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=123456789)
+        
+        # Register user configuration with combined attributes
         self.config.register_user(
             inventory=[],
             rod="Basic Rod",
             total_value=0,
             daily_quest=None,
-        )
-        self.config.register_user(  # Separate registration for bait and purchased rods
-            bait={},  # Register bait inventory as a dictionary
+            bait={},  # User's bait inventory
             purchased_rods=[],  # Track purchased rods
         )
+
         self.fish_types = {
             "Common Fish": {"rarity": "common", "value": 10, "chance": 0.6},
             "Uncommon Fish": {"rarity": "uncommon", "value": 20, "chance": 0.25},
@@ -193,8 +194,7 @@ class Fishing(commands.Cog):
 
         # Format fisherboard for display
         fisherboard_str = "\n".join(f"**{ctx.guild.get_member(user_id).name}:** {value} coins" for user_id, value in sorted_fisherboard)
-        
-        await ctx.send(f"**🏆 Fisherboard:**\n{fisherboard_str}")
+        await ctx.send(f"**Fisherboard:**\n{fisherboard_str}")
 
     async def _catch_fish(self, user, bait_type):
         """Determine if the user catches a fish and return its details."""
