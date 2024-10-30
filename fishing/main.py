@@ -1,6 +1,6 @@
 import discord
 import asyncio
-from redbot.core import commands, Config, bank
+from redbot.core import commands, Config, bank, tasks
 from redbot.core.bot import Red
 import random
 import datetime
@@ -22,7 +22,7 @@ class Fishing(commands.Cog):
             equipped_bait=None  # Register equipped bait
         )
         self.config.register_global(
-            bait_stock={"Worm": 10, "Shrimp": 10, "Cricket": 10}  # Daily stock for each bait type
+            bait_stock={"Worm": 10, "Shrimp": 10, "Cricket": 10}  # Default daily stock for each bait type
         )
         self.fish_types = {
             "Common Fish": {"rarity": "common", "value": 10, "chance": 0.6},
@@ -40,6 +40,22 @@ class Fishing(commands.Cog):
             "Shrimp": {"value": 2, "catch_bonus": 0.2},
             "Cricket": {"value": 3, "catch_bonus": 0.3},
         }
+    
+        # Start the daily stock reset task
+        self.daily_stock_reset.start()
+
+    @tasks.loop(hours=24)
+    async def daily_stock_reset(self):
+        """Reset the daily stock of shop items each day."""
+        default_stock = {"Worm": 10, "Shrimp": 10, "Cricket": 10}
+        await self.config.bait_stock.set(default_stock)
+
+    @daily_stock_reset.before_loop
+    async def before_daily_stock_reset(self):
+        await self.bot.wait_until_ready()  # Wait until the bot is ready before starting the loop
+
+    def cog_unload(self):
+        self.daily_stock_reset.cancel()  # Cancel the loop when the cog is unloaded
 
     @commands.command(name="equipbait")
     async def equip_bait(self, ctx, bait_name: str):
