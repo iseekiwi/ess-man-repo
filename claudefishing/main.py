@@ -95,7 +95,7 @@ class Fishing(commands.Cog):
         return True, ""
 
 @commands.group(name="location", invoke_without_command=True)
-    async def location(self, ctx, new_location: str = None):
+async def location(self, ctx, new_location: str = None):
         """Commands for managing fishing locations."""
         if ctx.invoked_subcommand is None:
             if new_location is None:
