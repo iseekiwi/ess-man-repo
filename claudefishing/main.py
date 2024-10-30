@@ -101,142 +101,143 @@ class Fishing(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}\nPlease try again or contact an administrator.")
             raise
+            
         @location.command(name="list")
-            async def location_list(self, ctx):
-                """Display detailed information about all fishing locations."""
-                user_data = await self.config.user(ctx.author).all()
-                current_location = user_data["current_location"]
+        async def location_list(self, ctx):
+            """Display detailed information about all fishing locations."""
+            user_data = await self.config.user(ctx.author).all()
+            current_location = user_data["current_location"]
             
-                # Create embed for better formatting
-                embed = discord.Embed(
-                    title="🗺️ Fishing Locations",
-                    description="Detailed information about available fishing spots",
-                    color=discord.Color.blue()
-                )
+            # Create embed for better formatting
+            embed = discord.Embed(
+                title="🗺️ Fishing Locations",
+                description="Detailed information about available fishing spots",
+                color=discord.Color.blue()
+            )
             
-                for location_name, location_data in self.data["locations"].items():
-                    # Format requirements
-                    if location_data["requirements"]:
-                        req = location_data["requirements"]
-                        req_text = f"Level {req['level']}, {req['fish_caught']} fish caught"
-                    else:
-                        req_text = "No requirements"
-                
-                    # Format fish modifiers
-                    modifiers = []
-                    for fish_type, modifier in location_data["fish_modifiers"].items():
-                        percentage = int((modifier - 1) * 100) if modifier > 1 else int((1 - modifier) * -100)
-                        if percentage != 0:
-                            modifiers.append(f"{fish_type}: {percentage:+d}%")
-                
-                    # Determine if location is locked or current
-                    status = ""
-                    if location_name == current_location:
-                        status = "📍 Currently here"
-                    elif location_data["requirements"] and (
-                        user_data["level"] < location_data["requirements"]["level"] or
-                        user_data["fish_caught"] < location_data["requirements"]["fish_caught"]
-                    ):
-                        status = "🔒 Locked"
-                
-                    # Build location description
-                    description = [
-                        f"**Description:** {location_data['description']}",
-                        f"**Requirements:** {req_text}",
-                        f"**Fish Chances:**\n" + "\n".join(f"• {mod}" for mod in modifiers)
-                    ]
-                    if status:
-                        description.append(f"**Status:** {status}")
-                
-                    # Add field to embed
-                    embed.add_field(
-                        name=f"📍 {location_name}",
-                        value="\n".join(description),
-                        inline=False
-                    )
-            
-                # Add footer with helpful tip
-                embed.set_footer(text="Use !location <name> to travel to a location")
-            
-                await ctx.send(embed=embed)
-    
-            @location.command(name="info")
-            async def location_info(self, ctx, location_name: str = None):
-                """Display detailed information about a specific location."""
-                if not location_name:
-                    location_name = await self.config.user(ctx.author).current_location()
-                elif location_name not in self.data["locations"]:
-                    await ctx.send("🚫 Invalid location name! Use `!location list` to see available locations.")
-                    return
-                
-                location_data = self.data["locations"][location_name]
-                user_data = await self.config.user(ctx.author).all()
-            
-                embed = discord.Embed(
-                    title=f"📍 {location_name}",
-                    description=location_data["description"],
-                    color=discord.Color.blue()
-                )
-            
-                # Requirements section
+            for location_name, location_data in self.data["locations"].items():
+                # Format requirements
                 if location_data["requirements"]:
                     req = location_data["requirements"]
-                    req_met = (
-                        user_data["level"] >= req["level"] and 
-                        user_data["fish_caught"] >= req["fish_caught"]
-                    )
-                    status = "✅ Met" if req_met else "❌ Not Met"
-                
-                    embed.add_field(
-                        name="Requirements",
-                        value=f"Level {req['level']}\n{req['fish_caught']} fish caught\nStatus: {status}",
-                        inline=False
-                    )
+                    req_text = f"Level {req['level']}, {req['fish_caught']} fish caught"
                 else:
-                    embed.add_field(
-                        name="Requirements",
-                        value="None",
-                        inline=False
-                    )
-            
-                # Fish chances section
-                chances = []
-                for fish_type, modifier in location_data["fish_modifiers"].items():
-                    base_chance = self.data["fish"][fish_type]["chance"] * 100
-                    modified_chance = base_chance * modifier
-                    difference = modified_chance - base_chance
+                    req_text = "No requirements"
                 
-                    chances.append(
-                        f"**{fish_type}**\n"
-                        f"Base: {base_chance:.1f}%\n"
-                        f"Modified: {modified_chance:.1f}% ({difference:+.1f}%)"
-                    )
-            
+                # Format fish modifiers
+                modifiers = []
+                for fish_type, modifier in location_data["fish_modifiers"].items():
+                    percentage = int((modifier - 1) * 100) if modifier > 1 else int((1 - modifier) * -100)
+                    if percentage != 0:
+                        modifiers.append(f"{fish_type}: {percentage:+d}%")
+                
+                # Determine if location is locked or current
+                status = ""
+                if location_name == current_location:
+                    status = "📍 Currently here"
+                elif location_data["requirements"] and (
+                    user_data["level"] < location_data["requirements"]["level"] or
+                    user_data["fish_caught"] < location_data["requirements"]["fish_caught"]
+                ):
+                    status = "🔒 Locked"
+                
+                # Build location description
+                description = [
+                    f"**Description:** {location_data['description']}",
+                    f"**Requirements:** {req_text}",
+                    f"**Fish Chances:**\n" + "\n".join(f"• {mod}" for mod in modifiers)
+                ]
+                if status:
+                    description.append(f"**Status:** {status}")
+                
+                # Add field to embed
                 embed.add_field(
-                    name="Fish Chances",
-                    value="\n\n".join(chances),
+                    name=f"📍 {location_name}",
+                    value="\n".join(description),
                     inline=False
                 )
             
-                # Weather effects section
-                if location_data["weather_effects"]:
-                    weather_info = []
-                    for weather, data in self.data["weather"].items():
-                        if location_name in data.get("affects_locations", []):
-                            effects = []
-                            if "catch_bonus" in data:
-                                effects.append(f"Catch rate: {data['catch_bonus']*100:+.0f}%")
-                            if "rare_bonus" in data:
-                                effects.append(f"Rare fish bonus: {data['rare_bonus']*100:+.0f}%")
-                            weather_info.append(f"**{weather}**\n{', '.join(effects)}")
-                
-                    embed.add_field(
-                        name="Weather Effects",
-                        value="\n\n".join(weather_info) if weather_info else "No specific weather effects",
-                        inline=False
-                    )
+            # Add footer with helpful tip
+            embed.set_footer(text="Use !location <name> to travel to a location")
             
             await ctx.send(embed=embed)
+    
+        @location.command(name="info")
+        async def location_info(self, ctx, location_name: str = None):
+            """Display detailed information about a specific location."""
+            if not location_name:
+                location_name = await self.config.user(ctx.author).current_location()
+            elif location_name not in self.data["locations"]:
+                await ctx.send("🚫 Invalid location name! Use `!location list` to see available locations.")
+                return
+                
+            location_data = self.data["locations"][location_name]
+            user_data = await self.config.user(ctx.author).all()
+            
+            embed = discord.Embed(
+                title=f"📍 {location_name}",
+                description=location_data["description"],
+                color=discord.Color.blue()
+            )
+            
+            # Requirements section
+            if location_data["requirements"]:
+                req = location_data["requirements"]
+                req_met = (
+                    user_data["level"] >= req["level"] and 
+                    user_data["fish_caught"] >= req["fish_caught"]
+                )
+                status = "✅ Met" if req_met else "❌ Not Met"
+                
+                embed.add_field(
+                    name="Requirements",
+                    value=f"Level {req['level']}\n{req['fish_caught']} fish caught\nStatus: {status}",
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="Requirements",
+                    value="None",
+                    inline=False
+                )
+            
+            # Fish chances section
+            chances = []
+            for fish_type, modifier in location_data["fish_modifiers"].items():
+                base_chance = self.data["fish"][fish_type]["chance"] * 100
+                modified_chance = base_chance * modifier
+                difference = modified_chance - base_chance
+                
+                chances.append(
+                    f"**{fish_type}**\n"
+                    f"Base: {base_chance:.1f}%\n"
+                    f"Modified: {modified_chance:.1f}% ({difference:+.1f}%)"
+                )
+            
+            embed.add_field(
+                name="Fish Chances",
+                value="\n\n".join(chances),
+                inline=False
+            )
+            
+            # Weather effects section
+            if location_data["weather_effects"]:
+                weather_info = []
+                for weather, data in self.data["weather"].items():
+                    if location_name in data.get("affects_locations", []):
+                        effects = []
+                        if "catch_bonus" in data:
+                            effects.append(f"Catch rate: {data['catch_bonus']*100:+.0f}%")
+                        if "rare_bonus" in data:
+                            effects.append(f"Rare fish bonus: {data['rare_bonus']*100:+.0f}%")
+                        weather_info.append(f"**{weather}**\n{', '.join(effects)}")
+                
+                embed.add_field(
+                    name="Weather Effects",
+                    value="\n\n".join(weather_info) if weather_info else "No specific weather effects",
+                    inline=False
+                )
+            
+        await ctx.send(embed=embed)
 
     async def check_requirements(self, user_data: dict, requirements: dict) -> tuple[bool, str]:
         """Check if user meets requirements."""
