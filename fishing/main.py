@@ -84,10 +84,16 @@ class Fishing(commands.Cog):
         }
 
         bait_stock = await self.config.bait_stock.all()  # Get current bait stock
-        shop_str = "🛒 **Shop:**\n" + "\n".join(
-            f"**{index}.** {item['name']} - {item['cost']} coins (Stock: {bait_stock[item['name']]})"
-            for index, item in shop_items.items()
-        )
+        shop_str = "🛒 **Shop:**\n"
+    
+        for index, item in shop_items.items():
+            if item['name'] in bait_stock:
+                stock_info = f"(Stock: {bait_stock[item['name']]})"
+            else:
+                stock_info = "(No stock info)"  # Or you can skip this line for rods
+
+            shop_str += f"**{index}.** {item['name']} - {item['cost']} coins {stock_info}\n"
+
         await ctx.send(shop_str)
 
     @shop.command(name="buy")
