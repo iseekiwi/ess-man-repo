@@ -68,7 +68,7 @@ class Fishing(commands.Cog):
         else:
             await ctx.send(f"🎣 {user.name} went fishing but didn't catch anything this time.")
 
-    @commands.command(name="shop")
+    @commands.group(name="shop", invoke_without_command=True)
     async def shop(self, ctx):
         """View the fishing shop to purchase bait and upgrades."""
         shop_items = []
@@ -179,7 +179,7 @@ class Fishing(commands.Cog):
             await self.config.user(user).daily_quest.set(datetime.datetime.now().isoformat())
             await ctx.send(f"🎯 {user.name}, your new daily quest is to catch a **Legendary Fish**!")
         elif last_quest:
-            await ctx.send(f"🎯 {user.name}, you have already completed your daily quest. Come back tomorrow!")
+            await ctx.send(f"🎯 {user.name}, you have already completed today's quest!")
         else:
             await self.config.user(user).daily_quest.set(datetime.datetime.now().isoformat())
             await ctx.send(f"🎯 {user.name}, your new daily quest is to catch a **Legendary Fish**!")
