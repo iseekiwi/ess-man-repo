@@ -245,44 +245,79 @@ class Fishing(commands.Cog):
         total_value += value
         await self.config.user(user).total_value.set(total_value)
 
-    @commands.command(name="viewinventory")
+    @commands.group(name="manage", invoke_without_command=True)
     @commands.is_owner()
-    async def view_inventory(self, ctx, member: discord.Member = None):
-        """View a user's inventory."""
-        member = member or ctx.author
-        inventory = await self.config.user(member).inventory()
-        bait = await self.config.user(member).bait()
+    async def manage(self, ctx):
+        """Administrative management commands."""
+        await ctx.send("Use `!manage add` or `!manage remove` followed by `fish`, `bait`, or `rod`.")
 
-        inventory_str = "\n".join(f"- {fish} x {count}" for fish, count in Counter(inventory).items()) if inventory else "empty"
-        bait_str = "\n".join(f"- {bait_name} x {amount}" for bait_name, amount in bait.items()) if bait else "no bait"
-
-        await ctx.send(f"🎒 **{member.name}'s Inventory:**\n**Fish:**\n{inventory_str}\n**Bait:**\n{bait_str}")
-
-    @commands.command(name="addfish")
+    @manage.command(name="add")
     @commands.is_owner()
-    async def add_fish(self, ctx, member: discord.Member, fish_name: str, amount: int):
-        """Add fish to a user's inventory."""
-        inventory = await self.config.user(member).inventory()
-        for _ in range(amount):
-            inventory.append(fish_name)
-        await self.config.user(member).inventory.set(inventory)
-        await ctx.send(f"✅ Added {amount} {fish_name}(s) to {member.name}'s inventory.")
+    async def add_item(self, ctx, item_type: str, member: discord.Member, item_name: str, amount: int):
+        """Add an item to a user's inventory."""
+        if item_type.lower() == "fish":
+            inventory = await self.config.user(member).inventory()
+            for _ in range(amount):
+                inventory.append(item_name)
+            await self.config.user(member).inventory.set(inventory)
+            await ctx.send(f"✅ Added {amount} {item_name}(s) to {member.name}'s inventory.")
+        
+        elif item_type.lower() == "bait":
+            bait = await self.config.user(member).bait()
+            bait[item_name] = bait.get(item_name, 0) + amount
+            await self.config.user(member).bait.set(bait)
+            await ctx.send(f"✅ Added {amount} {item_name}(s) to {member.name}'s bait inventory.")
+        
+        elif item_type.lower() == "rod":
+            purchased_rods = await self.config.user(member).purchased_rods()
+            purchased_rods[item_name] = True
+            await self.config.user(member).purchased_rods.set(purchased_rods)
+            await ctx.send(f"✅ Added {item_name} to {member.name}'s purchased rods.")
+        
+        else:
+            await ctx.send("🚫 Invalid item type. Use `fish`, `bait`, or `rod`.")
 
-    @commands.command(name="removefish")
+    @manage.command(name="remove")
     @commands.is_owner()
-    async def remove_fish(self, ctx, member: discord.Member, fish_name: str, amount: int):
-        """Remove fish from a user's inventory."""
-        inventory = await self.config.user(member).inventory()
-        fish_count = inventory.count(fish_name)
+    async def remove_item(self, ctx, item_type: str, member: discord.Member, item_name: str, amount: int):
+        """Remove an item from a user's inventory."""
+        if item_type.lower() == "fish":
+            inventory = await self.config.user(member).inventory()
+            fish_count = inventory.count(item_name)
 
-        if fish_count < amount:
-            await ctx.send(f"🚫 {member.name} does not have enough {fish_name} to remove.")
-            return
+            if fish_count < amount:
+                await ctx.send(f"🚫 {member.name} does not have enough {item_name} to remove.")
+                return
 
-        for _ in range(amount):
-            inventory.remove(fish_name)
-        await self.config.user(member).inventory.set(inventory)
-        await ctx.send(f"✅ Removed {amount} {fish_name}(s) from {member.name}'s inventory.")
+            for _ in range(amount):
+                inventory.remove(item_name)
+            await self.config.user(member).inventory.set(inventory)
+            await ctx.send(f"✅ Removed {amount} {item_name}(s) from {member.name}'s inventory.")
+
+        elif item_type.lower() == "bait":
+            bait = await self.config.user(member).bait()
+            if bait.get(item_name, 0) < amount:
+                await ctx.send(f"🚫 {member.name} does not have enough {item_name} to remove.")
+                return
+
+            bait[item_name] -= amount
+            if bait[item_name] <= 0:
+                del bait[item_name]
+            await self.config.user(member).bait.set(bait)
+            await ctx.send(f"✅ Removed {amount} {item_name}(s) from {member.name}'s bait inventory.")
+        
+        elif item_type.lower() == "rod":
+            purchased_rods = await self.config.user(member).purchased_rods()
+            if item_name not in purchased_rods:
+                await ctx.send(f"🚫 {member.name} does not have a {item_name} to remove.")
+                return
+
+            del purchased_rods[item_name]
+            await self.config.user(member).purchased_rods.set(purchased_rods)
+            await ctx.send(f"✅ Removed {item_name} from {member.name}'s purchased rods.")
+        
+        else:
+            await ctx.send("🚫 Invalid item type. Use `fish`, `bait`, or `rod`.")
 
 def setup(bot: Red):
     bot.add_cog(Fishing(bot))
