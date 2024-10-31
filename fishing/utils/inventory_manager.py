@@ -7,7 +7,7 @@ from ..utils.logging_config import setup_logging
 logger = setup_logging('inventory_manager')
 
 class InventoryManager:
-"""Centralized inventory management system"""
+    """Centralized inventory management system"""
     def __init__(self, bot: Red, config: Config, data: Dict):
         self.bot = bot
         self.config = config
