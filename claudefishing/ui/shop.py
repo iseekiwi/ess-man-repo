@@ -146,7 +146,7 @@ class ShopView(BaseView):
                 self.add_item(quantity_select)
 
                 # Add purchase buttons for each bait type
-                for bait_name, bait_data in self.cog.BAIT_TYPES.items():
+                for bait_name, bait_data in self.cog.data["bait"].items():
                     if self.cog._bait_stock.get(bait_name, 0) > 0:
                         purchase_button = discord.ui.Button(
                             label=f"Buy {bait_name}",
@@ -158,7 +158,7 @@ class ShopView(BaseView):
 
             elif self.current_page == "rods":
                 # Add purchase buttons for rods
-                for rod_name, rod_data in self.cog.ROD_TYPES.items():
+                for rod_name, rod_data in self.cog.data["rods"].items():
                     if rod_name != "Basic Rod" and rod_name not in self.user_data.get("purchased_rods", {}):
                         purchase_button = discord.ui.Button(
                             label=f"Buy {rod_name}",
@@ -195,7 +195,7 @@ class ShopView(BaseView):
         elif self.current_page == "bait":
             embed.title = "🪱 Bait Shop"
             bait_list = ""
-            for bait_name, bait_data in self.cog.BAIT_TYPES.items():
+            for bait_name, bait_data in self.cog.data["bait"].items():
                 stock = self.cog._bait_stock.get(bait_name, 0)
                 if stock <= 0:
                     status = "❌ Out of stock!"
@@ -216,7 +216,7 @@ class ShopView(BaseView):
         elif self.current_page == "rods":
             embed.title = "🎣 Rod Shop"
             rod_list = ""
-            for rod_name, rod_data in self.cog.ROD_TYPES.items():
+            for rod_name, rod_data in self.cog.data["rods"].items():
                 if rod_name == "Basic Rod":
                     continue
                 
@@ -266,11 +266,11 @@ class ShopView(BaseView):
         custom_id = interaction.data["custom_id"]
         item_name = custom_id.replace("buy_", "")
         
-        if item_name in self.cog.BAIT_TYPES:
-            cost = self.cog.BAIT_TYPES[item_name]["cost"]
+        if item_name in self.cog.data["bait"]:
+            cost = self.cog.data["bait"][item_name]["cost"]
             quantity = self.selected_quantity
         else:  # Rod purchase
-            cost = self.cog.ROD_TYPES[item_name]["cost"]
+            cost = self.cog.data["rods"][item_name]["cost"]
             quantity = 1  # Can only buy one rod at a time
             
         confirm_view = PurchaseConfirmView(self.cog, self.ctx, item_name, quantity, cost)
