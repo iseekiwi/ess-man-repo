@@ -22,11 +22,12 @@ class QuantitySelect(discord.ui.Select):
 
 class PurchaseConfirmView(BaseView):
     def __init__(self, cog, ctx, item_name: str, quantity: int, cost_per_item: int):
-        super().__init__(cog, ctx, timeout=60)
+        super().__init__(cog, ctx, timeout=30)
         self.item_name = item_name
         self.quantity = quantity
         self.total_cost = cost_per_item * quantity
         self.value = None
+        self.message = None  # Store message reference
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id == self.ctx.author.id:
@@ -62,16 +63,34 @@ class PurchaseConfirmView(BaseView):
             # Set the confirmation value and stop the view
             self.value = True
             self.stop()
-            
-            # Defer the response to prevent interaction timeout
-            await interaction.response.defer()
 
+            # Delete the confirmation message
+            if self.message:
+                await self.message.delete()
+            
         except Exception as e:
             logger.error(f"Error in purchase confirmation: {e}", exc_info=True)
             await interaction.response.send_message(
                 "An error occurred during purchase confirmation. Please try again.",
                 ephemeral=True
             )
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
+    async def cancel(self, interaction: discord.Interaction, button: Button):
+        logger.debug(f"Cancel button pressed by user {interaction.user.id} for {self.item_name}")
+        self.value = False
+        self.stop()
+        
+        # Delete the confirmation message
+        if self.message:
+            await self.message.delete()
+        else:
+            await interaction.response.defer()
+
+    async def on_timeout(self):
+        logger.info(f"Purchase view timed out for {self.item_name}")
+        if self.message:
+            await self.message.delete()
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
     async def cancel(self, interaction: discord.Interaction, button: Button):
