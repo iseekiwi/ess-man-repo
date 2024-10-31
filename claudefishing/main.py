@@ -587,32 +587,6 @@ class Fishing(commands.Cog):
             logger.error(f"Error in _catch_fish: {e}", exc_info=True)
             return None
 
-    @commands.command(name="equipbait")
-    async def equip_bait(self, ctx, bait_name: str):
-        """Equip a specific bait for fishing."""
-        try:
-            bait_name = bait_name.title()
-            user_data = await self._ensure_user_data(ctx.author)
-            if not user_data:
-                await ctx.send("❌ Error accessing user data. Please try again.")
-                return
-
-            if bait_name not in self.data["bait"]:
-                await ctx.send(f"🚫 {bait_name} is not a valid bait type.")
-                return
-
-            if bait_name not in user_data["bait"] or user_data["bait"][bait_name] <= 0:
-                await ctx.send(f"🚫 {ctx.author.name}, you don't have any {bait_name} to equip.")
-                return
-
-            await self.config.user(ctx.author).equipped_bait.set(bait_name)
-            await ctx.send(f"✅ {ctx.author.name} equipped {bait_name}!")
-            logger.debug(f"User {ctx.author.name} equipped bait: {bait_name}")
-
-        except Exception as e:
-            logger.error(f"Error in equip_bait command: {e}", exc_info=True)
-            await ctx.send("❌ An error occurred while equipping bait. Please try again.")
-
     async def _add_to_inventory(self, user, fish_name: str) -> bool:
         """Add fish to user's inventory."""
         try:
@@ -796,36 +770,76 @@ class Fishing(commands.Cog):
     async def inventory(self, ctx: commands.Context):
         """Display your fishing inventory"""
         try:
-            # Get user data
-            user_data = await self.config.user(ctx.author).all()
+            logger.debug(f"Initializing inventory command for {ctx.author.name}")
             
-            # Create the inventory view
-            view = InventoryView(self, ctx, user_data)
-            
-            # Generate initial embed
-            embed = await view.generate_embed()
-            
-            # Send the message and store it in the view
-            view.message = await ctx.send(embed=embed, view=view)
-            
-        except Exception as exc:
-            log.exception("Error displaying inventory", exc_info=exc)
-            await ctx.send("There was an error displaying your inventory. Please try again.")
-
-    @commands.command(name="sellfish")
-    async def sell_fish(self, ctx):
-        """Sell all fish in inventory."""
-        try:
-            user = ctx.author
-            user_data = await self._ensure_user_data(user)
+            # Ensure user data exists and is properly initialized
+            user_data = await self._ensure_user_data(ctx.author)
             if not user_data:
-                await ctx.send("❌ Error accessing inventory data. Please try again.")
+                logger.error(f"Failed to get user data for {ctx.author.name}")
+                await ctx.send("❌ Error accessing user data. Please try again.")
                 return
+
+            # Create and set up the inventory view
+            try:
+                view = InventoryView(self, ctx, user_data)
+                embed = await view.generate_embed()
+                
+                # Send the initial message and store it in the view
+                view.message = await ctx.send(embed=embed, view=view)
+                logger.debug(f"Inventory view created successfully for {ctx.author.name}")
+                
+            except Exception as e:
+                logger.error(f"Error creating inventory view: {e}", exc_info=True)
+                await ctx.send("❌ An error occurred while displaying your inventory. Please try again.")
+                return
+
+        except Exception as e:
+            logger.error(f"Unexpected error in inventory command: {e}", exc_info=True)
+            await ctx.send("❌ An unexpected error occurred. Please try again later.")
+
+    async def _equip_rod(self, user: discord.Member, rod_name: str) -> tuple[bool, str]:
+        """Helper method to equip a fishing rod"""
+        try:
+            user_data = await self.config.user(user).all()
+            
+            if rod_name not in user_data.get("purchased_rods", {}):
+                return False, "You don't own this rod!"
+                
+            await self.config.user(user).rod.set(rod_name)
+            logger.debug(f"User {user.name} equipped rod: {rod_name}")
+            return True, f"Successfully equipped {rod_name}!"
+            
+        except Exception as e:
+            logger.error(f"Error equipping rod: {e}", exc_info=True)
+            return False, "An error occurred while equipping the rod."
+
+    async def _equip_bait(self, user: discord.Member, bait_name: str) -> tuple[bool, str]:
+        """Helper method to equip bait"""
+        try:
+            user_data = await self.config.user(user).all()
+            
+            if not user_data.get("bait", {}).get(bait_name, 0):
+                return False, "You don't have any of this bait!"
+                
+            await self.config.user(user).equipped_bait.set(bait_name)
+            logger.debug(f"User {user.name} equipped bait: {bait_name}")
+            return True, f"Successfully equipped {bait_name}!"
+            
+        except Exception as e:
+            logger.error(f"Error equipping bait: {e}", exc_info=True)
+            return False, "An error occurred while equipping the bait."
+
+    # Update the sell_fish command to return the amount sold
+    async def sell_fish(self, ctx: commands.Context) -> tuple[bool, int, str]:
+        """Sell all fish in inventory and return status, amount earned, and message"""
+        try:
+            user_data = await self._ensure_user_data(ctx.author)
+            if not user_data:
+                return False, 0, "Error accessing inventory data."
 
             inventory = user_data["inventory"]
             if not inventory:
-                await ctx.send(f"💰 {user.name}, you have no fish to sell.")
-                return
+                return False, 0, "You have no fish to sell."
 
             # Calculate total value with rod bonus
             user_rod = user_data["rod"]
@@ -835,27 +849,26 @@ class Fishing(commands.Cog):
 
             try:
                 # Process sale atomically
-                async with self.config.user(user).inventory() as inventory:
-                    if not inventory:  # Check again inside transaction
-                        return await ctx.send(f"💰 {user.name}, you have no fish to sell.")
+                async with self.config.user(ctx.author).inventory() as inventory:
+                    if not inventory:
+                        return False, 0, "You have no fish to sell."
                     
                     # Process payment first
-                    await bank.deposit_credits(user, total_value)
+                    await bank.deposit_credits(ctx.author, total_value)
                     
                     # Clear inventory after successful payment
                     inventory.clear()
                 
-                await ctx.send(f"💰 {user.name} sold all their fish for {total_value} coins!")
-                logger.info(f"User {user.name} sold {len(inventory)} fish for {total_value} coins")
+                logger.info(f"User {ctx.author.name} sold fish for {total_value} coins")
+                return True, total_value, f"Successfully sold all fish for {total_value} coins!"
 
             except Exception as e:
                 logger.error(f"Error processing fish sale: {e}", exc_info=True)
-                await ctx.send("❌ Error processing sale. Please try again.")
-                return
+                return False, 0, "Error processing sale."
 
         except Exception as e:
-            logger.error(f"Error in sell_fish command: {e}", exc_info=True)
-            await ctx.send("❌ An error occurred while selling fish. Please try again.")
+            logger.error(f"Error in sell_fish: {e}", exc_info=True)
+            return False, 0, "An error occurred while selling fish."
 
     @commands.command(name="fisherboard")
     async def fisherboard(self, ctx):
