@@ -686,15 +686,15 @@ class Fishing(commands.Cog):
             meets_req, msg = await self.check_requirements(user_data, rod_data["requirements"])
             if not meets_req:
                 return False, msg
-
+    
             # Check if already owned
             if rod_name in user_data["purchased_rods"]:
                 return False, f"🚫 You already own a {rod_name}!"
-
+    
             # Check balance
             if not await self._can_afford(user, rod_data["cost"]):
                 return False, f"🚫 You don't have enough coins! Cost: {rod_data['cost']}"
-
+    
             # Process purchase atomically
             async with self.config.user(user).purchased_rods() as purchased_rods:
                 # Verify not purchased during transaction
@@ -708,7 +708,7 @@ class Fishing(commands.Cog):
                 purchased_rods[rod_name] = True
                 
             return True, f"✅ Purchased {rod_name} for {rod_data['cost']} coins!"
-
+    
         except Exception as e:
             logger.error(f"Error in rod purchase: {e}", exc_info=True)
             return False, "❌ An error occurred while processing your purchase."
