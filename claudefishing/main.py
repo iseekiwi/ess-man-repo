@@ -1,7 +1,7 @@
 import discord
 import asyncio
 from .ui.inventory import InventoryView
-from .ui.shop import ShopView, BaitPurchaseView
+from .ui.shop import ShopView, PurchaseConfirmView
 from redbot.core import commands, Config, bank
 from redbot.core.bot import Red
 import random
