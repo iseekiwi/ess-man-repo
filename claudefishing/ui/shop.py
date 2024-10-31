@@ -89,79 +89,116 @@ class PurchaseConfirmView(BaseView):
 class ShopView(BaseView):
     def __init__(self, cog, ctx, user_data: Dict):
         super().__init__(cog, ctx)
+        logger.debug(f"Initializing ShopView for user {ctx.author.name}")
         self.user_data = user_data
         self.current_page = "main"
         self.selected_quantity = 1
-        # Remove direct initialization from __init__
-        # We'll call initialize_view through an async method
 
     async def setup(self):
         """Async setup method to initialize the view"""
-        await self.initialize_view()
-        return self
+        try:
+            logger.debug(f"Setting up ShopView for user {self.ctx.author.name}")
+            
+            # Verify user data
+            if not self.user_data:
+                logger.error(f"User data is empty for {self.ctx.author.name}")
+                raise ValueError("User data is missing")
+                
+            # Verify cog data is accessible
+            if not hasattr(self.cog, 'data'):
+                logger.error("Cog data not accessible")
+                raise ValueError("Cog data not accessible")
+                
+            # Initialize bait stock if needed
+            if not hasattr(self.cog, '_bait_stock'):
+                logger.debug("Initializing bait stock")
+                self.cog._bait_stock = {
+                    bait: data["daily_stock"] 
+                    for bait, data in self.cog.data["bait"].items()
+                }
+            
+            await self.initialize_view()
+            logger.debug("ShopView setup completed successfully")
+            return self
+            
+        except Exception as e:
+            logger.error(f"Error in ShopView setup: {str(e)}", exc_info=True)
+            raise
 
     async def initialize_view(self):
         """Initialize the view based on current page"""
-        self.clear_items()
-        
-        if self.current_page == "main":
-            bait_button = discord.ui.Button(
-                label="Buy Bait",
-                style=discord.ButtonStyle.blurple,
-                custom_id="bait"
-            )
-            bait_button.callback = self.handle_button
-            self.add_item(bait_button)
-
-            rod_button = discord.ui.Button(
-                label="Buy Rods",
-                style=discord.ButtonStyle.blurple,
-                custom_id="rods"
-            )
-            rod_button.callback = self.handle_button
-            self.add_item(rod_button)
-        else:
-            back_button = discord.ui.Button(
-                label="Back",
-                style=discord.ButtonStyle.grey,
-                custom_id="back"
-            )
-            back_button.callback = self.handle_button
-            self.add_item(back_button)
+        try:
+            logger.debug(f"Initializing view for page: {self.current_page}")
+            self.clear_items()
             
-            if self.current_page == "bait":
-                quantity_select = QuantitySelect()
-                quantity_select.callback = self.handle_select
-                self.add_item(quantity_select)
+            if self.current_page == "main":
+                logger.debug("Setting up main page buttons")
+                bait_button = discord.ui.Button(
+                    label="Buy Bait",
+                    style=discord.ButtonStyle.blurple,
+                    custom_id="bait"
+                )
+                bait_button.callback = self.handle_button
+                self.add_item(bait_button)
 
-                # Add purchase buttons for available bait types
-                for bait_name, bait_data in self.cog.data["bait"].items():
-                    stock = self.cog._bait_stock.get(bait_name, 0)
-                    if stock > 0:
-                        purchase_button = discord.ui.Button(
-                            label=f"Buy {bait_name}",
-                            style=discord.ButtonStyle.green,
-                            custom_id=f"buy_{bait_name}"
-                        )
-                        purchase_button.callback = self.handle_purchase
-                        self.add_item(purchase_button)
+                rod_button = discord.ui.Button(
+                    label="Buy Rods",
+                    style=discord.ButtonStyle.blurple,
+                    custom_id="rods"
+                )
+                rod_button.callback = self.handle_button
+                self.add_item(rod_button)
+                
+            else:
+                logger.debug("Setting up back button")
+                back_button = discord.ui.Button(
+                    label="Back",
+                    style=discord.ButtonStyle.grey,
+                    custom_id="back"
+                )
+                back_button.callback = self.handle_button
+                self.add_item(back_button)
+                
+                if self.current_page == "bait":
+                    logger.debug("Setting up bait page")
+                    quantity_select = QuantitySelect()
+                    quantity_select.callback = self.handle_select
+                    self.add_item(quantity_select)
 
-            elif self.current_page == "rods":
-                # Add purchase buttons for available rods
-                for rod_name, rod_data in self.cog.data["rods"].items():
-                    if rod_name != "Basic Rod" and rod_name not in self.user_data.get("purchased_rods", {}):
-                        # Check requirements synchronously using the data we already have
-                        requirements = rod_data.get("requirements", {})
-                        meets_req = True
-                        if requirements:
-                            level_req = requirements.get("level", 1)
-                            fish_req = requirements.get("fish_caught", 0)
-                            meets_req = (
-                                self.user_data.get("level", 1) >= level_req and 
-                                self.user_data.get("fish_caught", 0) >= fish_req
+                    for bait_name, bait_data in self.cog.data["bait"].items():
+                        stock = self.cog._bait_stock.get(bait_name, 0)
+                        logger.debug(f"Bait {bait_name} stock: {stock}")
+                        if stock > 0:
+                            purchase_button = discord.ui.Button(
+                                label=f"Buy {bait_name}",
+                                style=discord.ButtonStyle.green,
+                                custom_id=f"buy_{bait_name}"
                             )
+                            purchase_button.callback = self.handle_purchase
+                            self.add_item(purchase_button)
+
+                elif self.current_page == "rods":
+                    logger.debug("Setting up rods page")
+                    for rod_name, rod_data in self.cog.data["rods"].items():
+                        if rod_name == "Basic Rod":
+                            continue
+                            
+                        if rod_name in self.user_data.get("purchased_rods", {}):
+                            logger.debug(f"Rod {rod_name} already owned")
+                            continue
+
+                        requirements = rod_data.get("requirements", {})
+                        level_req = requirements.get("level", 1)
+                        fish_req = requirements.get("fish_caught", 0)
                         
-                        if meets_req:
+                        user_level = self.user_data.get("level", 1)
+                        user_fish = self.user_data.get("fish_caught", 0)
+                        
+                        logger.debug(f"Checking requirements for {rod_name}: "
+                                   f"Level {user_level}/{level_req}, "
+                                   f"Fish {user_fish}/{fish_req}")
+                        
+                        if user_level >= level_req and user_fish >= fish_req:
                             purchase_button = discord.ui.Button(
                                 label=f"Buy {rod_name}",
                                 style=discord.ButtonStyle.green,
@@ -169,6 +206,12 @@ class ShopView(BaseView):
                             )
                             purchase_button.callback = self.handle_purchase
                             self.add_item(purchase_button)
+
+            logger.debug("View initialization completed successfully")
+            
+        except Exception as e:
+            logger.error(f"Error in initialize_view: {str(e)}", exc_info=True)
+            raise
 
     async def handle_purchase(self, interaction: discord.Interaction):
         """Handle purchase button interactions"""
