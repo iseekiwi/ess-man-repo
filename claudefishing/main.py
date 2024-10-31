@@ -1,5 +1,6 @@
 import discord
 import asyncio
+import os
 from .ui.inventory import InventoryView
 from .ui.shop import ShopView, PurchaseConfirmView
 from redbot.core import commands, Config, bank
@@ -18,12 +19,14 @@ from .data.fishing_data import (
     EVENTS
 )
 
-# Set up logging
+# Define the log file path, saving it in the same directory as your cog files
+log_file_path = os.path.join(os.path.dirname(__file__), "fishing_game.log")
+
 logging.basicConfig(
     level=logging.DEBUG,  # Set this to DEBUG to capture all logs
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("fishing_game.log"),  # Output logs to a file
+        logging.FileHandler(log_file_path),  # Log file path updated here
         logging.StreamHandler()  # Also print logs to the console
     ]
 )
