@@ -623,7 +623,7 @@ class Fishing(commands.Cog):
             if not hasattr(self, '_bait_stock'):
                 self._bait_stock = {
                     bait: data["daily_stock"] 
-                    for bait, data in self.BAIT_TYPES.items()
+                    for bait, data in self.data["bait"].items()
                 }
             
             # Create shop view
