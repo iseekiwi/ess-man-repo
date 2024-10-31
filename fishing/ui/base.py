@@ -17,6 +17,7 @@ class BaseView(View):
         self.ctx = ctx
         self.message: Optional[discord.Message] = None
         self.logger = setup_logging('base.view')
+        self.logger.debug(f"Initializing BaseView for {ctx.author.name}")
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         """Enhanced interaction check with logging"""
