@@ -46,47 +46,77 @@ class PurchaseConfirmView(BaseView):
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
     async def confirm(self, interaction: discord.Interaction, button: Button):
         logger.debug(f"Confirm button pressed by user {interaction.user.id} for {self.item_name}.")
-
+        
         try:
-            currency_name = await bank.get_currency_name(self.ctx.guild)
-
-            # Check if user can afford the item
-            if not await bank.can_spend(self.ctx.author, self.total_cost):
-                await interaction.response.send_message(
-                    f"You don't have enough {currency_name} for this purchase!", ephemeral=True
-                )
-                logger.warning("User cannot afford the purchase.")
+            # Step 1: Get the currency name
+            try:
+                currency_name = await bank.get_currency_name(self.ctx.guild)
+                logger.debug(f"Currency name retrieved: {currency_name}")
+            except Exception as e:
+                logger.error(f"Failed to retrieve currency name: {e}")
+                await interaction.response.send_message("Failed to retrieve currency info. Please try again later.", ephemeral=True)
                 return
-
-            # Check stock for the item
-            if self.item_name in self.cog.BAIT_TYPES:
-                if self.cog._bait_stock.get(self.item_name, 0) < self.quantity:
+    
+            # Step 2: Check if the user can afford the item
+            try:
+                if not await bank.can_spend(self.ctx.author, self.total_cost):
                     await interaction.response.send_message(
-                        "Not enough stock available!", ephemeral=True
+                        f"You don't have enough {currency_name} for this purchase!", ephemeral=True
                     )
-                    logger.warning("Not enough stock for item purchase.")
+                    logger.warning("User cannot afford the purchase.")
                     return
-
-                # Process bait purchase
-                async with self.cog.config.user(self.ctx.author).bait() as bait_data:
-                    bait_data[self.item_name] = bait_data.get(self.item_name, 0) + self.quantity
-
-                # Deduct the cost
-                await bank.withdraw_credits(self.ctx.author, self.total_cost)
-                await interaction.response.send_message(
-                    f"Purchased {self.quantity} {self.item_name} for {self.total_cost} {currency_name}.", ephemeral=True
-                )
-                logger.info(f"User {interaction.user.id} purchased {self.quantity} of {self.item_name} for {self.total_cost}.")
+            except Exception as e:
+                logger.error(f"Error checking user balance: {e}")
+                await interaction.response.send_message("Failed to verify your balance. Please try again later.", ephemeral=True)
+                return
+    
+            # Step 3: Check stock availability for the item
+            if self.item_name in self.cog.BAIT_TYPES:
+                try:
+                    current_stock = self.cog._bait_stock.get(self.item_name, 0)
+                    if current_stock < self.quantity:
+                        await interaction.response.send_message(
+                            "Not enough stock available!", ephemeral=True
+                        )
+                        logger.warning("Not enough stock for item purchase.")
+                        return
+                    logger.debug(f"Sufficient stock available: {current_stock}")
+                except Exception as e:
+                    logger.error(f"Error checking stock for {self.item_name}: {e}")
+                    await interaction.response.send_message("Error checking item stock. Please try again later.", ephemeral=True)
+                    return
+    
+                # Step 4: Update user bait data
+                try:
+                    async with self.cog.config.user(self.ctx.author).bait() as bait_data:
+                        bait_data[self.item_name] = bait_data.get(self.item_name, 0) + self.quantity
+                    logger.debug(f"Bait data updated for user {self.ctx.author.id}")
+                except Exception as e:
+                    logger.error(f"Error updating bait data for {self.item_name}: {e}")
+                    await interaction.response.send_message("Failed to update inventory. Please try again later.", ephemeral=True)
+                    return
+    
+                # Step 5: Deduct the cost from user's balance
+                try:
+                    await bank.withdraw_credits(self.ctx.author, self.total_cost)
+                    await interaction.response.send_message(
+                        f"Purchased {self.quantity} {self.item_name} for {self.total_cost} {currency_name}.", ephemeral=True
+                    )
+                    logger.info(f"User {interaction.user.id} successfully purchased {self.quantity} of {self.item_name} for {self.total_cost}.")
+                except Exception as e:
+                    logger.error(f"Error deducting cost for {self.item_name}: {e}")
+                    await interaction.response.send_message("Error deducting funds. Please try again later.", ephemeral=True)
+                    return
             else:
-                # Handle non-bait purchases if any
                 await interaction.response.send_message(
                     "This item is currently unavailable for purchase.", ephemeral=True
                 )
                 logger.warning(f"Purchase attempt for an invalid item: {self.item_name}.")
+    
         except Exception as e:
-            logger.error(f"Error during purchase: {e}")
+            logger.error(f"Unexpected error during purchase: {e}")
             await interaction.response.send_message(
-                "An error occurred during the purchase. Please try again later.", ephemeral=True
+                "An unexpected error occurred during the purchase. Please try again later.", ephemeral=True
             )
             
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
