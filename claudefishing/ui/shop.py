@@ -239,21 +239,27 @@ class ShopView(BaseView):
 
         return embed
 
-    async def handle_button(self, interaction: discord.Interaction):
-        """Handle button interactions"""
+    async def handle_purchase(self, interaction: discord.Interaction):
+        """Handle purchase button interactions"""
         custom_id = interaction.data["custom_id"]
+        item_name = custom_id.replace("buy_", "")
         
-        if custom_id == "bait":
-            self.current_page = "bait"
-        elif custom_id == "rods":
-            self.current_page = "rods"
-        elif custom_id == "back":
-            self.current_page = "main"
-            self.selected_quantity = 1
+        if item_name in self.cog.data["bait"]:
+            cost = self.cog.data["bait"][item_name]["cost"]
+            quantity = self.selected_quantity
+            success, msg = await self.cog._handle_bait_purchase(self.ctx.author, item_name, quantity, self.user_data)
+        else:  # Rod purchase
+            cost = self.cog.data["rods"][item_name]["cost"]
+            quantity = 1  # Can only buy one rod at a time
+            success, msg = await self.cog._handle_rod_purchase(self.ctx.author, item_name, self.user_data)
+            
+        if success:
+            # Refresh the shop view after successful purchase
+            self.user_data = await self.cog.config.user(self.ctx.author).all()
+            self.initialize_view()
+            await self.update_view()
         
-        self.initialize_view()
-        await interaction.response.defer()
-        await self.update_view()
+        await interaction.response.send_message(msg, ephemeral=True)
 
     async def handle_select(self, interaction: discord.Interaction):
         """Handle quantity selection"""
