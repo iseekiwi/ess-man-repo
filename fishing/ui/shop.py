@@ -459,16 +459,25 @@ class ShopView(BaseView):
                     await self.initialize_view()
                     await self.update_view()
                 
-                # Send the result as a new ephemeral message
-                if not confirm_view.message.deleted:
+                # Try to send the result message
+                try:
                     await interaction.followup.send(msg, ephemeral=True)
+                except discord.NotFound:
+                    # If the original interaction is no longer valid, send a new message
+                    await self.ctx.send(msg, delete_after=5)
             
         except Exception as e:
             self.logger.error(f"Error in handle_purchase: {e}", exc_info=True)
-            await interaction.followup.send(
-                "An error occurred while processing your purchase. Please try again.",
-                ephemeral=True
-            )
+            try:
+                await interaction.followup.send(
+                    "An error occurred while processing your purchase. Please try again.",
+                    ephemeral=True
+                )
+            except discord.NotFound:
+                await self.ctx.send(
+                    "An error occurred while processing your purchase. Please try again.",
+                    delete_after=5
+                )
 
     async def update_view(self):
         """Update the message with current embed and view"""
