@@ -234,28 +234,3 @@ TIME_EFFECTS = {
         "duration_hours": 12
     }
 }
-
-# Special events
-EVENTS = {
-    "Fishing Tournament": {
-        "duration_days": 3,
-        "bonus_rewards": True,
-        "special_fish": ["Tournament Trophy Fish"],
-        "requirements": {
-            "level": 5,
-            "entry_fee": 100
-        }
-    },
-    "Migration Season": {
-        "duration_days": 7,
-        "rare_fish_bonus": 0.2,
-        "special_fish": ["Migratory Fish"],
-        "requirements": None
-    },
-    "Full Moon": {
-        "duration_days": 1,
-        "night_bonus": 0.3,
-        "special_fish": ["Lunar Fish"],
-        "requirements": None
-    }
-}
