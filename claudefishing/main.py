@@ -616,41 +616,28 @@ class Fishing(commands.Cog):
     async def shop(self, ctx: commands.Context):
         """Browse and purchase fishing supplies"""
         try:
+            # Get user data
             user_data = await self.config.user(ctx.author).all()
+            
+            # Initialize bait stock if not exists
+            if not hasattr(self, '_bait_stock'):
+                self._bait_stock = {
+                    bait: data["daily_stock"] 
+                    for bait, data in self.BAIT_TYPES.items()
+                }
+            
+            # Create shop view
             view = ShopView(self, ctx, user_data)
             
-            # Set up interaction handlers
-            view.children[0].callback = view.handle_button
-            view.children[1].callback = view.handle_button
-            
+            # Generate initial embed
             embed = await view.generate_embed()
+            
+            # Send the message and store it in the view
             view.message = await ctx.send(embed=embed, view=view)
             
         except Exception as exc:
-            log.exception("Error displaying shop", exc_info=exc)
+            log.error("Error in shop command", exc_info=exc)
             await ctx.send("There was an error accessing the shop. Please try again.")
-    
-    @commands.command(name="buy")
-    async def buy_item(self, ctx: commands.Context, item_name: str, quantity: int = 1):
-        """Purchase an item from the shop"""
-        try:
-            if item_name.lower() in self.BAIT_TYPES:
-                bait_name = item_name
-                cost = self.BAIT_TYPES[bait_name]["cost"]
-                
-                view = BaitPurchaseView(self, ctx, bait_name, quantity, cost)
-                embed = await view.generate_embed()
-                await ctx.send(embed=embed, view=view)
-                
-            elif item_name.lower() in self.ROD_TYPES:
-                # Handle rod purchases
-                pass
-            else:
-                await ctx.send("Invalid item name!")
-                
-        except Exception as exc:
-            log.exception("Error processing purchase", exc_info=exc)
-            await ctx.send("There was an error processing your purchase. Please try again.")
     
         async def _handle_bait_purchase(self, user, bait_name: str, amount: int, user_data: dict) -> tuple[bool, str]:
             """Handle bait purchase logic."""
