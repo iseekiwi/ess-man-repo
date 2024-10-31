@@ -676,7 +676,7 @@ class Fishing(commands.Cog):
         except Exception as e:
             logger.error(f"Error in bait purchase: {e}", exc_info=True)
             return False, "❌ An error occurred while processing your purchase."
-
+    
     async def _handle_rod_purchase(self, user, rod_name: str, user_data: dict) -> tuple[bool, str]:
         """Handle rod purchase logic."""
         try:
