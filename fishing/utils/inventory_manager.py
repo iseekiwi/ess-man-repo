@@ -54,11 +54,19 @@ class InventoryManager:
         try:
             async with self.config.user_from_id(user_id).all() as user_data:
                 if item_type == "fish":
-                    if not user_data.get("inventory", []).count(item_name) >= amount:
-                        return False, "Not enough fish to remove"
-                    for _ in range(amount):
-                        user_data["inventory"].remove(item_name)
-                        
+                    if item_name is None:
+                        # Special case: remove all fish
+                        if not user_data.get("inventory", []):
+                            return False, "No fish to remove"
+                        user_data["inventory"] = []
+                        return True, "Successfully removed all fish"
+                    else:
+                        # Remove specific fish
+                        if not user_data.get("inventory", []).count(item_name) >= amount:
+                            return False, "Not enough fish to remove"
+                        for _ in range(amount):
+                            user_data["inventory"].remove(item_name)
+                            
                 elif item_type == "bait":
                     if user_data.get("bait", {}).get(item_name, 0) < amount:
                         return False, "Not enough bait to remove"
@@ -78,10 +86,10 @@ class InventoryManager:
                 else:
                     return False, "Invalid item type"
                     
-                return True, f"Successfully removed {amount}x {item_name}"
-                
+                return True, f"Successfully removed {amount}x {item_name}" if item_name else "Successfully removed items"
+                    
         except Exception as e:
-            logger.error(f"Error removing item: {e}", exc_info=True)
+            self.logger.error(f"Error removing item: {e}", exc_info=True)
             return False, "Error processing inventory update"
             
     async def get_inventory_summary(self, user_id: int) -> Optional[Dict]:
