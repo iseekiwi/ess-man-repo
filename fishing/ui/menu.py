@@ -313,11 +313,11 @@ class FishingMenuView(BaseView):
             )
 
     async def start_fishing(self, interaction: discord.Interaction):
-        """Start the fishing process"""
+        """Start the fishing process within the menu embed"""
         try:
             # Check bait
             if not self.user_data["equipped_bait"]:
-                await interaction.followup.send(
+                await interaction.response.send_message(
                     "🚫 You need to equip bait first! Use the Inventory menu to equip some bait.",
                     ephemeral=True
                 )
@@ -326,31 +326,91 @@ class FishingMenuView(BaseView):
             # Set fishing in progress
             self.fishing_in_progress = True
             await self.initialize_view()  # Update view to disable fishing button
-            embed = await self.generate_embed()
-            await self.message.edit(view=self)
+            
+            # Create initial fishing embed
+            fishing_embed = discord.Embed(
+                title="🎣 Fishing in Progress",
+                description="Casting line...",
+                color=discord.Color.blue()
+            )
+            await interaction.response.edit_message(embed=fishing_embed, view=self)
     
-            # Create initial fishing message
-            fishing_msg = await interaction.followup.send("🎣 Starting fishing...", wait=True)
+            # Wait for fish to bite
+            await asyncio.sleep(random.uniform(2, 5))
             
-            # Start fishing process using the cog's method
-            success, result_message = await self.cog.do_fishing(self.ctx, fishing_msg)
-            
-            # Send result
-            if fishing_msg:
-                try:
-                    await fishing_msg.edit(content=result_message)
-                except discord.NotFound:
-                    await self.ctx.send(result_message)
-            
-            # Reset fishing status
+            keyword = random.choice(["catch", "grab", "snag", "hook", "reel"])
+            fishing_embed.description = f"Quick! Type **{keyword}** to catch the fish!"
+            await self.message.edit(embed=fishing_embed)
+    
+            try:
+                await self.cog.bot.wait_for(
+                    'message',
+                    check=lambda m: (
+                        m.author == self.ctx.author and 
+                        m.content.lower() == keyword and 
+                        m.channel == self.ctx.channel
+                    ),
+                    timeout=5.0
+                )
+                
+                # Process catch
+                catch = await self.cog._catch_fish(
+                    self.user_data,
+                    self.user_data["equipped_bait"],
+                    self.user_data["current_location"],
+                    await self.cog.config.current_weather(),
+                    self.get_time_of_day()
+                )
+    
+                # Update bait inventory
+                async with self.cog.config.user(self.ctx.author).bait() as bait:
+                    equipped_bait = self.user_data["equipped_bait"]
+                    bait[equipped_bait] = bait.get(equipped_bait, 0) - 1
+                    if bait[equipped_bait] <= 0:
+                        del bait[equipped_bait]
+                        await self.cog.config.user(self.ctx.author).equipped_bait.set(None)
+    
+                if catch:
+                    fish_name = catch["name"]
+                    fish_value = catch["value"]
+                    variant = random.choice(self.cog.data["fish"][fish_name]["variants"])
+                    
+                    # Update user data
+                    await self.cog._add_to_inventory(self.ctx.author, fish_name)
+                    await self.cog._update_total_value(self.ctx.author, fish_value)
+                    
+                    # Update fish count
+                    async with self.cog.config.user(self.ctx.author).all() as user_data:
+                        user_data["fish_caught"] += 1
+                    
+                    # Show catch result
+                    fishing_embed.title = "🎣 Successful Catch!"
+                    fishing_embed.description = (
+                        f"You caught a {variant} ({fish_name}) worth {fish_value} coins!\n\n"
+                        f"Location: {self.user_data['current_location']}\n"
+                        f"Weather: {await self.cog.config.current_weather()}\n\n"
+                        "Returning to menu..."
+                    )
+                else:
+                    fishing_embed.title = "🎣 Almost Had It!"
+                    fishing_embed.description = "The fish got away!\n\nReturning to menu..."
+    
+                await self.message.edit(embed=fishing_embed)
+                await asyncio.sleep(2)  # Brief pause to show result
+    
+            except asyncio.TimeoutError:
+                fishing_embed.title = "🎣 Too Slow!"
+                fishing_embed.description = "The fish got away!\n\nReturning to menu..."
+                await self.message.edit(embed=fishing_embed)
+                await asyncio.sleep(2)  # Brief pause to show result
+    
+            # Reset and return to main menu
             self.fishing_in_progress = False
-            await self.initialize_view()
-            
-            # Update user data after fishing
             self.user_data = await self.cog.config.user(self.ctx.author).all()
-            embed = await self.generate_embed()
-            await self.message.edit(embed=embed, view=self)
-            
+            await self.initialize_view()
+            main_embed = await self.generate_embed()
+            await self.message.edit(embed=main_embed, view=self)
+    
         except Exception as e:
             self.logger.error(f"Error starting fishing: {e}", exc_info=True)
             self.fishing_in_progress = False
