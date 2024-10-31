@@ -287,40 +287,74 @@ class FishingMenuView(BaseView):
                 ephemeral=True
             )
 
-    async def handle_location_select(self, interaction: discord.Interaction):
-        """Handle location selection"""
+    async def handle_button(self, interaction: discord.Interaction):
+        """Handle button interactions"""
         try:
-            location_name = interaction.data["custom_id"].replace("loc_", "")
+            custom_id = interaction.data["custom_id"]
             
-            # Check requirements
-            location_data = self.cog.data["locations"][location_name]
-            meets_req, msg = await self.cog.check_requirements(
-                self.user_data,
-                location_data["requirements"]
-            )
-            
-            if not meets_req:
-                await interaction.response.send_message(msg, ephemeral=True)
+            if custom_id == "fish":
+                if self.fishing_in_progress:
+                    await interaction.response.send_message(
+                        "You're already fishing!",
+                        ephemeral=True
+                    )
+                    return
+                    
+                # Start fishing process immediately with the interaction
+                self.fishing_in_progress = True
+                await self.initialize_view()
+                
+                # Create initial fishing embed
+                fishing_embed = discord.Embed(
+                    title="🎣 Fishing in Progress",
+                    description="Casting line...",
+                    color=discord.Color.blue()
+                )
+                
+                # Initial response
+                await interaction.response.edit_message(embed=fishing_embed, view=self)
+                await self.do_fishing(interaction)
                 return
-            
-            # Update location
-            await self.cog.config.user(self.ctx.author).current_location.set(location_name)
-            self.user_data["current_location"] = location_name
-            
-            # Return to main menu
-            self.current_page = "main"
-            await self.initialize_view()
-            embed = await self.generate_embed()
-            await interaction.response.edit_message(
-                content=f"📍 Moved to {location_name}!",
-                embed=embed,
-                view=self
-            )
-            
+                
+            elif custom_id == "menu":
+                # Instead of importing FishingMenuView, use cog's create_menu method
+                menu_view = await self.cog.create_menu(self.ctx, self.user_data)
+                embed = await menu_view.generate_embed()
+                await interaction.response.edit_message(embed=embed, view=menu_view)
+                return
+                
+            elif custom_id in ["shop", "inventory"]:
+                # Use dynamic import to avoid circular dependency
+                if custom_id == "shop":
+                    self.shop_view = await ShopView(self.cog, self.ctx, self.user_data).setup()
+                    embed = await self.shop_view.generate_embed()
+                    await interaction.response.edit_message(embed=embed, view=self.shop_view)
+                    self.shop_view.message = await interaction.original_response()
+                else:  # inventory
+                    # Import here to avoid circular import
+                    from .inventory import InventoryView
+                    self.inventory_view = InventoryView(self.cog, self.ctx, self.user_data)
+                    await self.inventory_view.initialize_view()
+                    embed = await self.inventory_view.generate_embed()
+                    await interaction.response.edit_message(embed=embed, view=self.inventory_view)
+                    self.inventory_view.message = await interaction.original_response()
+                
+            elif custom_id in ["location", "weather"]:
+                self.current_page = custom_id
+                await self.initialize_view()
+                embed = await self.generate_embed()
+                await interaction.response.edit_message(embed=embed, view=self)
+                
+            elif custom_id == "back":
+                self.current_page = "main"
+                await self.initialize_view()
+                embed = await self.generate_embed()
+                await interaction.response.edit_message(embed=embed, view=self)
+                
         except Exception as e:
-            self.logger.error(f"Error handling location select: {e}", exc_info=True)
+            self.logger.error(f"Error handling button: {e}", exc_info=True)
             await interaction.response.send_message(
-                "An error occurred while changing location. Please try again.",
+                "An error occurred. Please try again.",
                 ephemeral=True
             )
 
