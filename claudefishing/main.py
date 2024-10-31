@@ -770,28 +770,19 @@ class Fishing(commands.Cog):
     async def inventory(self, ctx: commands.Context):
         """Display your fishing inventory"""
         try:
-            logger.debug(f"Initializing inventory command for {ctx.author.name}")
-            
             # Ensure user data exists and is properly initialized
             user_data = await self._ensure_user_data(ctx.author)
             if not user_data:
-                logger.error(f"Failed to get user data for {ctx.author.name}")
                 await ctx.send("❌ Error accessing user data. Please try again.")
                 return
     
             # Create and start the inventory view
-            try:
-                view = await InventoryView(self, ctx, user_data).start()
-                logger.debug(f"Inventory view created successfully for {ctx.author.name}")
-                
-            except Exception as e:
-                logger.error(f"Error creating inventory view: {e}", exc_info=True)
-                await ctx.send("❌ An error occurred while displaying your inventory. Please try again.")
-                return
+            view = InventoryView(self, ctx, user_data)
+            await view.start()
     
         except Exception as e:
-            logger.error(f"Unexpected error in inventory command: {e}", exc_info=True)
-            await ctx.send("❌ An unexpected error occurred. Please try again later.")
+            logger.error(f"Error in inventory command: {e}", exc_info=True)
+            await ctx.send("❌ An error occurred while displaying your inventory. Please try again.")
 
     async def _equip_rod(self, user: discord.Member, rod_name: str) -> tuple[bool, str]:
         """Helper method to equip a fishing rod"""
