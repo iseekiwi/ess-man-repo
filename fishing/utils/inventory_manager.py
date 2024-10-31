@@ -1,17 +1,18 @@
-from typing import Dict, Optional, Tuple, List
 import logging
+from typing import Dict, Optional, Tuple, List
 from redbot.core.bot import Red
 from redbot.core import Config
+from ..utils.logging_config import setup_logging
 
-logger = logging.getLogger("red.fishing.inventory")
+logger = setup_logging('inventory_manager')
 
 class InventoryManager:
-    """Centralized inventory management system"""
-    
+"""Centralized inventory management system"""
     def __init__(self, bot: Red, config: Config, data: Dict):
         self.bot = bot
         self.config = config
         self.data = data
+        self.logger = logger
         
     async def add_item(self, user_id: int, item_type: str, item_name: str, amount: int = 1) -> Tuple[bool, str]:
         """Add any type of item to user inventory"""
