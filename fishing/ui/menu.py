@@ -252,11 +252,14 @@ class FishingMenuView(BaseView):
                 if custom_id == "shop":
                     self.shop_view = await ShopView(self.cog, self.ctx, self.user_data).setup()
                     embed = await self.shop_view.generate_embed()
+                    # Update the message and store it in the shop view
                     await interaction.response.edit_message(embed=embed, view=self.shop_view)
+                    self.shop_view.message = await interaction.original_response()
                 else:
                     self.inventory_view = InventoryView(self.cog, self.ctx, self.user_data)
                     embed = await self.inventory_view.generate_embed()
                     await interaction.response.edit_message(embed=embed, view=self.inventory_view)
+                    self.inventory_view.message = await interaction.original_response()
                     
             elif custom_id in ["location", "weather"]:
                 self.current_page = custom_id
