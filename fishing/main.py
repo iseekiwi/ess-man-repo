@@ -107,7 +107,7 @@ class Fishing(commands.Cog):
             }
             
             if not user_data:
-                self.self.logger.debug(f"Initializing new user data for {user.name}")
+                self.logger.debug(f"Initializing new user data for {user.name}")
                 await self.config.user(user).set_raw(value=default_user)
                 return default_user
 
@@ -127,13 +127,13 @@ class Fishing(commands.Cog):
                             modified = True
 
             if modified:
-                self.self.logger.debug(f"Updating user data with missing defaults for {user.name}")
+                self.logger.debug(f"Updating user data with missing defaults for {user.name}")
                 await self.config.user(user).set_raw(value=user_data)
 
             return user_data
 
         except Exception as e:
-            self.self.logger.error(f"Error ensuring user data for {user.name}: {e}", exc_info=True)
+            self.logger.error(f"Error ensuring user data for {user.name}: {e}", exc_info=True)
             await self.config.user(user).clear()  # Clear potentially corrupted data
             return None
 
@@ -149,14 +149,14 @@ class Fishing(commands.Cog):
             # Create new tasks
             self.bg_tasks.append(self.bot.loop.create_task(self.daily_stock_reset()))
             self.bg_tasks.append(self.bot.loop.create_task(self.weather_change_task()))
-            self.self.logger.info("Background tasks started successfully")
+            self.logger.info("Background tasks started successfully")
         except Exception as e:
-            self.self.logger.error(f"Error starting background tasks: {e}", exc_info=True)
+            self.logger.error(f"Error starting background tasks: {e}", exc_info=True)
 
     def cog_unload(self):
         """Clean up when cog is unloaded."""
         self.bg_task_manager.cancel_tasks()
-        self.self.logger.info("Cog unloaded, background tasks cancelled")
+        self.logger.info("Cog unloaded, background tasks cancelled")
 
     async def weather_change_task(self):
         """Periodically change the weather."""
@@ -165,13 +165,13 @@ class Fishing(commands.Cog):
                 await asyncio.sleep(3600)  # Change weather every hour
                 weather = random.choice(list(self.data["weather"].keys()))
                 await self.config.current_weather.set(weather)
-                self.self.logger.debug(f"Weather changed to {weather}")
+                self.logger.debug(f"Weather changed to {weather}")
                 
             except asyncio.CancelledError:
-                self.self.logger.info("Weather change task cancelled")
+                self.logger.info("Weather change task cancelled")
                 break
             except Exception as e:
-                self.self.logger.error(f"Error in weather_change_task: {e}", exc_info=True)
+                self.logger.error(f"Error in weather_change_task: {e}", exc_info=True)
                 await asyncio.sleep(60)
 
     async def daily_stock_reset(self):
@@ -184,12 +184,12 @@ class Fishing(commands.Cog):
                 
                 default_stock = {bait: data["daily_stock"] for bait, data in self.data["bait"].items()}
                 await self.config.bait_stock.set(default_stock)
-                self.self.logger.info("Daily stock reset completed")
+                self.logger.info("Daily stock reset completed")
         except asyncio.CancelledError:
-            self.self.logger.info("Daily stock reset task cancelled")
+            self.logger.info("Daily stock reset task cancelled")
             pass
         except Exception as e:
-            self.self.logger.error(f"Error in daily_stock_reset: {e}", exc_info=True)
+            self.logger.error(f"Error in daily_stock_reset: {e}", exc_info=True)
             
     # Location Commands
     @commands.group(name="location", invoke_without_command=True)
@@ -213,7 +213,7 @@ class Fishing(commands.Cog):
                 actual_location = location_map[new_location.lower()]
                 user_data = await self._ensure_user_data(ctx.author)
                 if not user_data:
-                    self.self.logger.error(f"Failed to get user data for {ctx.author.name}")
+                    self.logger.error(f"Failed to get user data for {ctx.author.name}")
                     await ctx.send("❌ Error accessing user data. Please try again.")
                     return
     
@@ -226,10 +226,10 @@ class Fishing(commands.Cog):
     
                 await self.config.user(ctx.author).current_location.set(actual_location)
                 await ctx.send(f"🌍 {ctx.author.name} is now fishing at: {actual_location}\n{location_data['description']}")
-                self.self.logger.debug(f"User {ctx.author.name} moved to location: {actual_location}")
+                self.logger.debug(f"User {ctx.author.name} moved to location: {actual_location}")
     
         except Exception as e:
-            self.self.logger.error(f"Error in location command: {e}", exc_info=True)
+            self.logger.error(f"Error in location command: {e}", exc_info=True)
             await ctx.send(f"An error occurred: {str(e)}\nPlease try again or contact an administrator.")
             raise
 
@@ -292,10 +292,10 @@ class Fishing(commands.Cog):
             
             embed.set_footer(text="Use !location <name> to travel to a location")
             await ctx.send(embed=embed)
-            self.self.logger.debug(f"Location list displayed for {ctx.author.name}")
+            self.logger.debug(f"Location list displayed for {ctx.author.name}")
 
         except Exception as e:
-            self.self.logger.error(f"Error in location list command: {e}", exc_info=True)
+            self.logger.error(f"Error in location list command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while displaying locations. Please try again.")
 
     @location.command(name="info")
@@ -380,10 +380,10 @@ class Fishing(commands.Cog):
                 )
             
             await ctx.send(embed=embed)
-            self.self.logger.debug(f"Location info displayed for {ctx.author.name}: {location_name}")
+            self.logger.debug(f"Location info displayed for {ctx.author.name}: {location_name}")
             
         except Exception as e:
-            self.self.logger.error(f"Error in location info command: {e}", exc_info=True)
+            self.logger.error(f"Error in location info command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while displaying location information. Please try again.")
 
     async def check_requirements(self, user_data: dict, requirements: dict) -> tuple[bool, str]:
@@ -403,7 +403,7 @@ class Fishing(commands.Cog):
                 
             return True, ""
         except Exception as e:
-            self.self.logger.error(f"Error checking requirements: {e}", exc_info=True)
+            self.logger.error(f"Error checking requirements: {e}", exc_info=True)
             return False, "❌ An error occurred while checking requirements."
 
     @commands.command(name="weather")
@@ -448,10 +448,10 @@ class Fishing(commands.Cog):
             embed.set_footer(text="Weather changes every hour")
             
             await ctx.send(embed=embed)
-            self.self.logger.debug(f"Weather check by {ctx.author.name}: {current_weather}")
+            self.logger.debug(f"Weather check by {ctx.author.name}: {current_weather}")
             
         except Exception as e:
-            self.self.logger.error(f"Error in weather command: {e}", exc_info=True)
+            self.logger.error(f"Error in weather command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while checking the weather. Please try again.")
     
     # Core Fishing Commands
@@ -459,12 +459,12 @@ class Fishing(commands.Cog):
     async def fish(self, ctx):
         """Go fishing with a minigame challenge."""
         try:
-            self.self.logger.debug(f"Starting fishing command for {ctx.author.name}")
+            self.logger.debug(f"Starting fishing command for {ctx.author.name}")
             
             # Ensure user data is properly initialized
             user_data = await self._ensure_user_data(ctx.author)
             if not user_data:
-                self.self.logger.error(f"Failed to initialize user data for {ctx.author.name}")
+                self.logger.error(f"Failed to initialize user data for {ctx.author.name}")
                 await ctx.send("❌ Error initializing user data. Please try again.")
                 return
             
