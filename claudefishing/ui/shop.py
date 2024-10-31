@@ -46,9 +46,27 @@ class PurchaseConfirmView(BaseView):
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
     async def confirm(self, interaction: discord.Interaction, button: Button):
         logger.debug(f"Confirm button pressed by user {interaction.user.id} for {self.item_name}.")
-        
+    
         try:
-            # Step 1: Get the currency name
+            # Step 1: Check bank and config readiness before proceeding
+            try:
+                # Verify bank readiness
+                if not await bank.is_global():
+                    raise ValueError("Bank is not configured globally; check bank setup.")
+                logger.debug("Bank system ready and global.")
+    
+                # Verify user data in config
+                user_data = await self.cog.config.user(self.ctx.author).bait()
+                if user_data is None:
+                    raise ValueError(f"User config data not initialized for {self.ctx.author.id}")
+                logger.debug(f"Config data for user {self.ctx.author.id} is accessible.")
+    
+            except Exception as e:
+                logger.error(f"Configuration or bank setup error: {e}")
+                await interaction.response.send_message("Configuration error. Please contact an admin.", ephemeral=True)
+                return
+    
+            # Step 2: Get the currency name
             try:
                 currency_name = await bank.get_currency_name(self.ctx.guild)
                 logger.debug(f"Currency name retrieved: {currency_name}")
@@ -57,7 +75,7 @@ class PurchaseConfirmView(BaseView):
                 await interaction.response.send_message("Failed to retrieve currency info. Please try again later.", ephemeral=True)
                 return
     
-            # Step 2: Check if the user can afford the item
+            # Step 3: Check if the user can afford the item
             try:
                 if not await bank.can_spend(self.ctx.author, self.total_cost):
                     await interaction.response.send_message(
@@ -70,7 +88,7 @@ class PurchaseConfirmView(BaseView):
                 await interaction.response.send_message("Failed to verify your balance. Please try again later.", ephemeral=True)
                 return
     
-            # Step 3: Check stock availability for the item
+            # Step 4: Check stock availability for the item
             if self.item_name in self.cog.BAIT_TYPES:
                 try:
                     current_stock = self.cog._bait_stock.get(self.item_name, 0)
@@ -86,7 +104,7 @@ class PurchaseConfirmView(BaseView):
                     await interaction.response.send_message("Error checking item stock. Please try again later.", ephemeral=True)
                     return
     
-                # Step 4: Update user bait data
+                # Step 5: Update user bait data
                 try:
                     async with self.cog.config.user(self.ctx.author).bait() as bait_data:
                         bait_data[self.item_name] = bait_data.get(self.item_name, 0) + self.quantity
@@ -96,7 +114,7 @@ class PurchaseConfirmView(BaseView):
                     await interaction.response.send_message("Failed to update inventory. Please try again later.", ephemeral=True)
                     return
     
-                # Step 5: Deduct the cost from user's balance
+                # Step 6: Deduct the cost from user's balance
                 try:
                     await bank.withdraw_credits(self.ctx.author, self.total_cost)
                     await interaction.response.send_message(
