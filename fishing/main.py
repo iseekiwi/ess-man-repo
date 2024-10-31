@@ -85,7 +85,7 @@ class Fishing(commands.Cog):
     async def _ensure_user_data(self, user) -> dict:
         """Ensure user data exists and is properly initialized."""
         try:
-            self.self.logger.debug(f"Ensuring user data for {user.name}")
+            self.logger.debug(f"Ensuring user data for {user.name}")
             user_data = await self.config.user(user).all()
             
             # Initialize with default values if data is missing or empty
