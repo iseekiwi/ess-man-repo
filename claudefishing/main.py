@@ -637,8 +637,8 @@ class Fishing(commands.Cog):
                     for bait, data in self.data["bait"].items()
                 }
             
-            # Create shop view
-            view = ShopView(self, ctx, user_data)
+            # Create and setup shop view
+            view = await ShopView(self, ctx, user_data).setup()
             
             # Generate initial embed
             embed = await view.generate_embed()
