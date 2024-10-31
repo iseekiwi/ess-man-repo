@@ -324,27 +324,30 @@ class ShopView(BaseView):
                 menu_view = await FishingMenuView(self.cog, self.ctx, self.user_data).setup()
                 embed = await menu_view.generate_embed()
                 await interaction.response.edit_message(embed=embed, view=menu_view)
-                return
-            
-            if custom_id == "menu":
-                # Create new menu view and switch to it
-                from .menu import FishingMenuView  # Import here to avoid circular imports
-                menu_view = await FishingMenuView(self.cog, self.ctx, self.user_data).setup()
-                embed = await menu_view.generate_embed()
-                await interaction.response.edit_message(embed=embed, view=menu_view)
+                menu_view.message = await interaction.original_response()
                 return
                 
             if custom_id == "bait":
                 self.current_page = "bait"
+                await self.initialize_view()
+                embed = await self.generate_embed()
+                await interaction.response.edit_message(embed=embed, view=self)
+                self.message = await interaction.original_response()
+                
             elif custom_id == "rods":
                 self.current_page = "rods"
+                await self.initialize_view()
+                embed = await self.generate_embed()
+                await interaction.response.edit_message(embed=embed, view=self)
+                self.message = await interaction.original_response()
+                
             elif custom_id == "back":
                 self.current_page = "main"
                 self.selected_quantity = 1
-            
-            await self.initialize_view()
-            await interaction.response.defer()
-            await self.update_view()
+                await self.initialize_view()
+                embed = await self.generate_embed()
+                await interaction.response.edit_message(embed=embed, view=self)
+                self.message = await interaction.original_response()
                 
         except Exception as e:
             self.logger.error(f"Error in handle_button: {e}", exc_info=True)
