@@ -9,7 +9,6 @@ class FishData(TypedDict):
 
 class RodData(TypedDict):
     chance: float
-    value_increase: int
     cost: int
     description: str
 
@@ -76,7 +75,6 @@ FISH_TYPES: Dict[str, FishData] = {
 ROD_TYPES: Dict[str, RodData] = {
     "Basic Rod": {
         "chance": 0.0,
-        "value_increase": 0,
         "cost": 0,
         "durability": 100,
         "description": "A simple fishing rod. Gets the job done.",
@@ -84,7 +82,6 @@ ROD_TYPES: Dict[str, RodData] = {
     },
     "Intermediate Rod": {
         "chance": 0.1,
-        "value_increase": 5,
         "cost": 50,
         "durability": 200,
         "description": "Better quality rod with improved catch rates.",
@@ -95,7 +92,6 @@ ROD_TYPES: Dict[str, RodData] = {
     },
     "Advanced Rod": {
         "chance": 0.2,
-        "value_increase": 10,
         "cost": 100,
         "durability": 300,
         "description": "Professional grade rod with excellent catch rates.",
