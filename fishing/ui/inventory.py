@@ -28,7 +28,7 @@ class InventoryView(BaseView):
             style=discord.ButtonStyle.blurple,
             custom_id="view_rods"
         )
-        rods_button.callback = self.view_rods
+        rods_button.callback = self.view_rods  # Keep specialized handlers for inventory actions
         self.add_item(rods_button)
         
         bait_button = Button(
@@ -53,7 +53,7 @@ class InventoryView(BaseView):
             style=discord.ButtonStyle.grey,
             custom_id="menu"
         )
-        back_button.callback = self.back_to_main
+        back_button.callback = self.handle_button  # Use the new handler for navigation
         self.add_item(back_button)
         
     else:
