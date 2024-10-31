@@ -87,27 +87,31 @@ class InventoryManager:
     async def get_inventory_summary(self, user_id: int) -> Optional[Dict]:
         """Get a summary of user's inventory"""
         try:
-            user_data = await self.config.user_from_id(user_id).all()
-            if not user_data:
-                return None
+            async with self.config.user_from_id(user_id).all() as user_data:
+                if not user_data:
+                    return None
+                    
+                fish_count = len(user_data.get("inventory", []))
+                bait_count = sum(user_data.get("bait", {}).values())
+                rod_count = len(user_data.get("purchased_rods", {}))
                 
-            fish_count = len(user_data.get("inventory", []))
-            bait_count = sum(user_data.get("bait", {}).values())
-            rod_count = len(user_data.get("purchased_rods", {}))
-            
-            total_value = sum(
-                self.data["fish"][fish]["value"]
-                for fish in user_data.get("inventory", [])
-            )
-            
-            return {
-                "fish_count": fish_count,
-                "bait_count": bait_count,
-                "rod_count": rod_count,
-                "total_value": total_value,
-                "equipped_rod": user_data.get("rod"),
-                "equipped_bait": user_data.get("equipped_bait")
-            }
+                total_value = sum(
+                    self.data["fish"][fish]["value"]
+                    for fish in user_data.get("inventory", [])
+                )
+                
+                return {
+                    "fish_count": fish_count,
+                    "bait_count": bait_count,
+                    "rod_count": rod_count,
+                    "total_value": total_value,
+                    "equipped_rod": user_data.get("rod"),
+                    "equipped_bait": user_data.get("equipped_bait")
+                }
+                
+        except Exception as e:
+            self.logger.error(f"Error getting inventory summary: {e}", exc_info=True)
+            return None
             
         except Exception as e:
             logger.error(f"Error getting inventory summary: {e}", exc_info=True)
