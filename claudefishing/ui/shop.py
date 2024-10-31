@@ -1,8 +1,11 @@
 from typing import Dict, Optional
 import discord
+import logging
 from discord.ui import Button, Select
 from redbot.core import bank
 from .base import BaseView
+
+logger = logging.getLogger("red.fishing")
 
 class QuantitySelect(discord.ui.Select):
     def __init__(self):
@@ -18,84 +21,74 @@ class QuantitySelect(discord.ui.Select):
 
 class PurchaseConfirmView(BaseView):
     def __init__(self, cog, ctx, item_name: str, quantity: int, cost_per_item: int):
-        super().__init__(cog, ctx, timeout=30)
+        super().__init__(cog, ctx, timeout=60)  # Increased timeout for safety
         self.item_name = item_name
         self.quantity = quantity
         self.total_cost = cost_per_item * quantity
         self.value = None
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        return interaction.user.id == self.ctx.author.id
+        # Allow only the author to interact with the view
+        if interaction.user.id == self.ctx.author.id:
+            logger.debug(f"User {interaction.user.id} is authorized for interaction.")
+            return True
+        logger.warning(f"Unauthorized interaction attempt by user {interaction.user.id}")
+        return False
+
+    async def on_timeout(self):
+        # Disable buttons when the view times out
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            await self.message.edit(view=self)
+        logger.info("Purchase view timed out, buttons disabled.")
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
     async def confirm(self, interaction: discord.Interaction, button: Button):
+        logger.debug(f"Confirm button pressed by user {interaction.user.id} for {self.item_name}.")
+
         try:
             currency_name = await bank.get_currency_name(self.ctx.guild)
-            
-            # Check if user can afford
+
+            # Check if user can afford the item
             if not await bank.can_spend(self.ctx.author, self.total_cost):
                 await interaction.response.send_message(
-                    f"You don't have enough {currency_name} for this purchase!",
-                    ephemeral=True
+                    f"You don't have enough {currency_name} for this purchase!", ephemeral=True
                 )
+                logger.warning("User cannot afford the purchase.")
                 return
 
-            # Check stock for bait
+            # Check stock for the item
             if self.item_name in self.cog.BAIT_TYPES:
-                if self.cog._bait_stock[self.item_name] < self.quantity:
+                if self.cog._bait_stock.get(self.item_name, 0) < self.quantity:
                     await interaction.response.send_message(
-                        "Not enough stock available!",
-                        ephemeral=True
+                        "Not enough stock available!", ephemeral=True
                     )
+                    logger.warning("Not enough stock for item purchase.")
                     return
-                
+
                 # Process bait purchase
-                async with self.cog.config.user(self.ctx.author).bait() as user_bait:
-                    user_bait[self.item_name] = user_bait.get(self.item_name, 0) + self.quantity
-                self.cog._bait_stock[self.item_name] -= self.quantity
+                async with self.cog.config.user(self.ctx.author).bait() as bait_data:
+                    bait_data[self.item_name] = bait_data.get(self.item_name, 0) + self.quantity
 
-            # Process rod purchase
-            elif self.item_name in self.cog.ROD_TYPES:
-                if self.item_name in (await self.cog.config.user(self.ctx.author).purchased_rods()):
-                    await interaction.response.send_message(
-                        "You already own this rod!",
-                        ephemeral=True
-                    )
-                    return
-                
-                # Check requirements
-                requirements = self.cog.ROD_TYPES[self.item_name].get("requirements")
-                if requirements:
-                    user_data = await self.cog.config.user(self.ctx.author).all()
-                    if (user_data.get("level", 1) < requirements["level"] or 
-                        user_data.get("fish_caught", 0) < requirements["fish_caught"]):
-                        await interaction.response.send_message(
-                            "You don't meet the requirements for this rod!",
-                            ephemeral=True
-                        )
-                        return
-
-                # Add rod to user's inventory
-                async with self.cog.config.user(self.ctx.author).purchased_rods() as rods:
-                    rods[self.item_name] = True
-
-            # Withdraw money
-            await bank.withdraw_credits(self.ctx.author, self.total_cost)
-            
-            await interaction.response.send_message(
-                f"Successfully purchased {self.quantity}x {self.item_name} for {self.total_cost} {currency_name}!",
-                ephemeral=True
-            )
-            self.value = True
-            self.stop()
-
+                # Deduct the cost
+                await bank.withdraw_credits(self.ctx.author, self.total_cost)
+                await interaction.response.send_message(
+                    f"Purchased {self.quantity} {self.item_name} for {self.total_cost} {currency_name}.", ephemeral=True
+                )
+                logger.info(f"User {interaction.user.id} purchased {self.quantity} of {self.item_name} for {self.total_cost}.")
+            else:
+                # Handle non-bait purchases if any
+                await interaction.response.send_message(
+                    "This item is currently unavailable for purchase.", ephemeral=True
+                )
+                logger.warning(f"Purchase attempt for an invalid item: {self.item_name}.")
         except Exception as e:
+            logger.error(f"Error during purchase: {e}")
             await interaction.response.send_message(
-                "An error occurred while processing your purchase.",
-                ephemeral=True
+                "An error occurred during the purchase. Please try again later.", ephemeral=True
             )
-            self.stop()
-
+            
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
     async def cancel(self, interaction: discord.Interaction, button: Button):
         await interaction.response.send_message("Purchase cancelled.", ephemeral=True)
