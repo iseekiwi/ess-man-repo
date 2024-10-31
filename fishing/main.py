@@ -17,7 +17,6 @@ from .data.fishing_data import (
     LOCATIONS,
     WEATHER_TYPES,
     TIME_EFFECTS,
-    EVENTS
 )
 
 import logging
