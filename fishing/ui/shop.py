@@ -1,11 +1,12 @@
-from typing import Dict, Optional
 import discord
 import logging
+from typing import Dict, Optional
 from discord.ui import Button, Select
 from redbot.core import bank
 from .base import BaseView
+from ..utils.logging_config import setup_logging
 
-logger = logging.getLogger("red.fishing")
+logger = setup_logging('shop')
 
 class QuantitySelect(discord.ui.Select):
     def __init__(self):
@@ -95,7 +96,7 @@ class ShopView(BaseView):
         self.current_page = "main"
         self.selected_quantity = 1
         self.current_balance = 0
-        self.logger = logging.getLogger('fishing.shop')
+        self.logger = setup_logging('shop.view')
         self.logger.debug(f"Initializing ShopView for user {ctx.author.name}")
 
     async def setup(self):
