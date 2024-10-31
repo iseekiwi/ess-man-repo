@@ -778,21 +778,17 @@ class Fishing(commands.Cog):
                 logger.error(f"Failed to get user data for {ctx.author.name}")
                 await ctx.send("❌ Error accessing user data. Please try again.")
                 return
-
-            # Create and set up the inventory view
+    
+            # Create and start the inventory view
             try:
-                view = InventoryView(self, ctx, user_data)
-                embed = await view.generate_embed()
-                
-                # Send the initial message and store it in the view
-                view.message = await ctx.send(embed=embed, view=view)
+                view = await InventoryView(self, ctx, user_data).start()
                 logger.debug(f"Inventory view created successfully for {ctx.author.name}")
                 
             except Exception as e:
                 logger.error(f"Error creating inventory view: {e}", exc_info=True)
                 await ctx.send("❌ An error occurred while displaying your inventory. Please try again.")
                 return
-
+    
         except Exception as e:
             logger.error(f"Unexpected error in inventory command: {e}", exc_info=True)
             await ctx.send("❌ An unexpected error occurred. Please try again later.")
