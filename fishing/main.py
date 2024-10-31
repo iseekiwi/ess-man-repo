@@ -497,7 +497,7 @@ class Fishing(commands.Cog):
             
             # Validate bait
             if not user_data["equipped_bait"]:
-                await ctx.send(f"🚫 {ctx.author.name}, you need to equip bait first! Use `!equipbait` to equip some bait.")
+                await ctx.send(f"🚫 {ctx.author.name}, you need to equip bait first! Use `!inventory` and equip some bait.")
                 return
 
             bait = user_data.get("bait", {})
