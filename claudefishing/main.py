@@ -616,16 +616,14 @@ class Fishing(commands.Cog):
     async def shop(self, ctx: commands.Context):
         """Browse and purchase fishing supplies"""
         try:
-            # Get user data
             user_data = await self.config.user(ctx.author).all()
-            
-            # Create the shop view
             view = ShopView(self, ctx, user_data)
             
-            # Generate initial embed
-            embed = await view.generate_embed()
+            # Set up interaction handlers
+            view.children[0].callback = view.handle_button
+            view.children[1].callback = view.handle_button
             
-            # Send the message and store it in the view
+            embed = await view.generate_embed()
             view.message = await ctx.send(embed=embed, view=view)
             
         except Exception as exc:
