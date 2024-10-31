@@ -23,7 +23,7 @@ class BaitData(TypedDict):
 FISH_TYPES: Dict[str, FishData] = {
     "Common Fish": {
         "rarity": "common",
-        "value": 10,
+        "value": 3,
         "chance": 0.6,
         "variants": [
             "Bluegill",
@@ -35,7 +35,7 @@ FISH_TYPES: Dict[str, FishData] = {
     },
     "Uncommon Fish": {
         "rarity": "uncommon",
-        "value": 20,
+        "value": 7,
         "chance": 0.25,
         "variants": [
             "Salmon",
@@ -47,7 +47,7 @@ FISH_TYPES: Dict[str, FishData] = {
     },
     "Rare Fish": {
         "rarity": "rare",
-        "value": 50,
+        "value": 12,
         "chance": 0.1,
         "variants": [
             "Swordfish",
@@ -59,7 +59,7 @@ FISH_TYPES: Dict[str, FishData] = {
     },
     "Legendary Fish": {
         "rarity": "legendary",
-        "value": 100,
+        "value": 50,
         "chance": 0.05,
         "variants": [
             "Golden Koi",
@@ -117,7 +117,7 @@ BAIT_TYPES: Dict[str, BaitData] = {
         }
     },
     "Shrimp": {
-        "value": 2,
+        "value": 3,
         "catch_bonus": 0.2,
         "cost": 2,
         "description": "Medium-grade bait, good for various fish types.",
@@ -129,7 +129,7 @@ BAIT_TYPES: Dict[str, BaitData] = {
         }
     },
     "Cricket": {
-        "value": 3,
+        "value": 5,
         "catch_bonus": 0.3,
         "cost": 3,
         "description": "Premium bait with high catch bonus.",
