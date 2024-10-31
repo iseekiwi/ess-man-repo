@@ -18,6 +18,18 @@ class InventoryView(BaseView):
         self.current_page = "main"
         self.logger = setup_logging('inventory.view')
         
+    async def start(self):
+        """Start the inventory view"""
+        try:
+            self.logger.debug(f"Starting inventory view for {self.ctx.author.name}")
+            await self.initialize_view()
+            embed = await self.generate_embed()
+            self.message = await self.ctx.send(embed=embed, view=self)
+            return self
+        except Exception as e:
+            self.logger.error(f"Error starting inventory view: {e}", exc_info=True)
+            return None
+        
     async def initialize_view(self):
         """Initialize the view's buttons based on current page"""
         try:
