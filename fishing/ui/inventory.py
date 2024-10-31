@@ -1,17 +1,18 @@
-from typing import Dict
 import discord
+import logging
+from typing import Dict
 from discord.ui import Button, View
 from collections import Counter
 from .base import BaseView, ConfirmView
-import logging
+from ..utils.logging_config import setup_logging
 
-logger = logging.getLogger("red.fishing.inventory")
+
+logger = setup_logging('inventory')
 
 class InventoryView(BaseView):
-    """Enhanced inventory view with full features"""
-    
     def __init__(self, cog, ctx, user_data: Dict):
         super().__init__(cog, ctx)
+        self.logger = setup_logging('inventory.view')
         self.user_data = user_data
         self.current_page = "main"
         
