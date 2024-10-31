@@ -226,7 +226,7 @@ class FishingMenuView(BaseView):
     async def handle_button(self, interaction: discord.Interaction):
         """Handle button interactions"""
         try:
-        custom_id = interaction.data["custom_id"]
+            custom_id = interaction.data["custom_id"]
         
         if custom_id == "fish":
             if self.fishing_in_progress:
