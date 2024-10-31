@@ -790,16 +790,27 @@ class Fishing(commands.Cog):
     async def inventory(self, ctx: commands.Context):
         """Display your fishing inventory"""
         try:
+            self.logger.debug(f"Inventory command invoked by {ctx.author.name}")
+            
             # Ensure user data exists and is properly initialized
             user_data = await self._ensure_user_data(ctx.author)
             if not user_data:
+                self.logger.error(f"Failed to get user data for {ctx.author.name}")
                 await ctx.send("❌ Error accessing user data. Please try again.")
                 return
-    
+            
             # Create and start the inventory view
-            view = InventoryView(self, ctx, user_data)
-            await view.start()
-    
+            try:
+                view = InventoryView(self, ctx, user_data)
+                result = await view.start()
+                if not result:
+                    self.logger.error(f"Failed to start inventory view for {ctx.author.name}")
+                    return
+            except Exception as e:
+                self.logger.error(f"Error creating inventory view: {e}", exc_info=True)
+                await ctx.send("❌ Error displaying inventory. Please try again.")
+                return
+                
         except Exception as e:
             self.logger.error(f"Error in inventory command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while displaying your inventory. Please try again.")
