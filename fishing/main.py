@@ -88,108 +88,40 @@ class Fishing(commands.Cog):
             self.logger.debug(f"Ensuring user data for {user.name}")
             user_data = await self.config.user(user).all()
             
-            # Initialize with default values if data is missing or empty
-            default_user = {
-                "inventory": [],
-                "rod": "Basic Rod",
-                "total_value": 0,
-                "daily_quest": None,
-                "bait": {},
-                "purchased_rods": {"Basic Rod": True},
-                "equipped_bait": None,
-                "current_location": "Pond",
-                "fish_caught": 0,
-                "level": 1,
-                "settings": {
-                    "notifications": True,
-                    "auto_sell": False
-                }
-            }
-            
             if not user_data:
                 self.logger.debug(f"Initializing new user data for {user.name}")
-                await self.config.user(user).set_raw(value=default_user)
-                return default_user
-
+                await self.config.user(user).set(self.default_user)
+                return self.default_user.copy()
+    
             # Check if any default keys are missing and add them
             modified = False
-            for key, value in default_user.items():
+            for key, value in self.default_user.items():
                 if key not in user_data:
                     user_data[key] = value
                     modified = True
                 elif isinstance(value, dict):
-                    # Check nested dictionaries
                     for subkey, subvalue in value.items():
                         if key not in user_data or subkey not in user_data[key]:
                             if key not in user_data:
                                 user_data[key] = {}
                             user_data[key][subkey] = subvalue
                             modified = True
-
+    
             if modified:
                 self.logger.debug(f"Updating user data with missing defaults for {user.name}")
-                await self.config.user(user).set_raw(value=user_data)
-
+                await self.config.user(user).set(user_data)
+    
             return user_data
-
+    
         except Exception as e:
             self.logger.error(f"Error ensuring user data for {user.name}: {e}", exc_info=True)
-            await self.config.user(user).clear()  # Clear potentially corrupted data
+            await self.config.user(user).clear()
             return None
-
-    # Background Task Management
-    def start_background_tasks(self):
-        """Initialize and start background tasks."""
-        try:
-            if self.bg_tasks:  # Cancel any existing tasks
-                for task in self.bg_tasks:
-                    task.cancel()
-            self.bg_tasks = []
-
-            # Create new tasks
-            self.bg_tasks.append(self.bot.loop.create_task(self.daily_stock_reset()))
-            self.bg_tasks.append(self.bot.loop.create_task(self.weather_change_task()))
-            self.logger.info("Background tasks started successfully")
-        except Exception as e:
-            self.logger.error(f"Error starting background tasks: {e}", exc_info=True)
-
+        
     def cog_unload(self):
         """Clean up when cog is unloaded."""
         self.bg_task_manager.cancel_tasks()
         self.logger.info("Cog unloaded, background tasks cancelled")
-
-    async def weather_change_task(self):
-        """Periodically change the weather."""
-        while True:
-            try:
-                await asyncio.sleep(3600)  # Change weather every hour
-                weather = random.choice(list(self.data["weather"].keys()))
-                await self.config.current_weather.set(weather)
-                self.logger.debug(f"Weather changed to {weather}")
-                
-            except asyncio.CancelledError:
-                self.logger.info("Weather change task cancelled")
-                break
-            except Exception as e:
-                self.logger.error(f"Error in weather_change_task: {e}", exc_info=True)
-                await asyncio.sleep(60)
-
-    async def daily_stock_reset(self):
-        """Reset the daily stock of shop items at midnight."""
-        try:
-            while True:
-                now = datetime.datetime.now()
-                midnight = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time())
-                await asyncio.sleep((midnight - now).total_seconds())
-                
-                default_stock = {bait: data["daily_stock"] for bait, data in self.data["bait"].items()}
-                await self.config.bait_stock.set(default_stock)
-                self.logger.info("Daily stock reset completed")
-        except asyncio.CancelledError:
-            self.logger.info("Daily stock reset task cancelled")
-            pass
-        except Exception as e:
-            self.logger.error(f"Error in daily_stock_reset: {e}", exc_info=True)
             
     # Location Commands
     @commands.group(name="location", invoke_without_command=True)
