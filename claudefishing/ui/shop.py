@@ -89,10 +89,104 @@ class PurchaseConfirmView(BaseView):
 class ShopView(BaseView):
     def __init__(self, cog, ctx, user_data: Dict):
         super().__init__(cog, ctx)
-        logger.debug(f"Initializing ShopView for user {ctx.author.name}")
         self.user_data = user_data
         self.current_page = "main"
         self.selected_quantity = 1
+        self.logger = logging.getLogger('fishing.shop')
+        self.logger.debug(f"Initializing ShopView for user {ctx.author.name}")
+
+    async def generate_embed(self) -> discord.Embed:
+        """Generate the appropriate embed based on current page"""
+        try:
+            self.logger.debug(f"Generating embed for page: {self.current_page}")
+            embed = discord.Embed(color=discord.Color.green())
+            
+            # Get current balance
+            try:
+                self.current_balance = await bank.get_balance(self.ctx.author)
+                currency_name = await bank.get_currency_name(self.ctx.guild)
+                self.logger.debug(f"User balance: {self.current_balance} {currency_name}")
+            except Exception as e:
+                self.logger.error(f"Error getting balance: {e}")
+                self.current_balance = 0
+                currency_name = "coins"
+
+            if self.current_page == "main":
+                self.logger.debug("Generating main page embed")
+                embed.title = "🏪 Fishing Shop"
+                embed.description = "Welcome! What would you like to buy?"
+                embed.add_field(
+                    name="Categories",
+                    value=(
+                        "🪱 **Bait** - Various baits for fishing\n"
+                        "🎣 **Rods** - Better rods, better catches!"
+                    ),
+                    inline=False
+                )
+
+            elif self.current_page == "bait":
+                self.logger.debug("Generating bait page embed")
+                embed.title = "🪱 Bait Shop"
+                bait_list = []
+                
+                # Verify bait data exists
+                if not hasattr(self.cog, 'data') or 'bait' not in self.cog.data:
+                    self.logger.error("Bait data not found in cog")
+                    raise ValueError("Shop data not properly initialized")
+                
+                for bait_name, bait_data in self.cog.data["bait"].items():
+                    stock = self.cog._bait_stock.get(bait_name, 0)
+                    status = "📦 Stock: {}".format(stock) if stock > 0 else "❌ Out of stock!"
+                    
+                    bait_entry = (
+                        f"**{bait_name}** - {bait_data['cost']} {currency_name}\n"
+                        f"{bait_data['description']}\n"
+                        f"{status}\n"
+                    )
+                    bait_list.append(bait_entry)
+                
+                embed.description = "\n".join(bait_list) if bait_list else "No bait available!"
+
+            elif self.current_page == "rods":
+                self.logger.debug("Generating rods page embed")
+                embed.title = "🎣 Rod Shop"
+                rod_list = []
+                
+                # Verify rod data exists
+                if not hasattr(self.cog, 'data') or 'rods' not in self.cog.data:
+                    self.logger.error("Rod data not found in cog")
+                    raise ValueError("Shop data not properly initialized")
+                
+                for rod_name, rod_data in self.cog.data["rods"].items():
+                    if rod_name == "Basic Rod":
+                        continue
+                    
+                    owned = rod_name in self.user_data.get("purchased_rods", {})
+                    status = "✅ Owned" if owned else f"💰 Cost: {rod_data['cost']} {currency_name}"
+                    
+                    requirements = rod_data.get("requirements")
+                    req_text = ""
+                    if requirements:
+                        req_text = f"\nRequires: Level {requirements['level']}, {requirements['fish_caught']} fish caught"
+                    
+                    rod_entry = (
+                        f"**{rod_name}**\n"
+                        f"{rod_data['description']}\n"
+                        f"{status}{req_text}\n"
+                    )
+                    rod_list.append(rod_entry)
+                
+                embed.description = "\n".join(rod_list) if rod_list else "No rods available!"
+
+            # Add footer with balance
+            embed.set_footer(text=f"Your balance: {self.current_balance} {currency_name}")
+            
+            self.logger.debug("Embed generated successfully")
+            return embed
+
+        except Exception as e:
+            self.logger.error(f"Error generating embed: {str(e)}", exc_info=True)
+            raise
 
     async def setup(self):
         """Async setup method to initialize the view"""
