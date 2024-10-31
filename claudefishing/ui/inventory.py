@@ -3,96 +3,209 @@ import discord
 from discord.ui import Button, View
 from collections import Counter
 from .base import BaseView, ConfirmView
+import logging
+
+logger = logging.getLogger("red.fishing.inventory")
 
 class InventoryView(BaseView):
-    """Enhanced inventory view with proper button management"""
+    """Enhanced inventory view with proper button handling"""
     
     def __init__(self, cog, ctx, user_data: Dict):
         super().__init__(cog, ctx)
         self.user_data = user_data
-        self.current_page = "main"  # main, rods, bait, fish
-        self.initialize_view()
+        self.current_page = "main"
+        logger.debug(f"Initializing InventoryView for {ctx.author.name}")
+        # Don't call initialize_view in __init__ as it's an async method
+        
+    async def start(self):
+        """Initialize and start the view"""
+        await self.initialize_view()
+        embed = await self.generate_embed()
+        self.message = await self.ctx.send(embed=embed, view=self)
+        return self
 
     async def initialize_view(self):
-        """Initialize the view based on current page"""
-        self.clear_items()
-        
-        if self.current_page == "main":
-            # Main menu buttons
-            rods_button = Button(
-                label="View Rods",
-                style=discord.ButtonStyle.blurple,
-                custom_id="view_rods"
-            )
-            rods_button.callback = self.view_rods
-            self.add_item(rods_button)
-
-            bait_button = Button(
-                label="View Bait",
-                style=discord.ButtonStyle.blurple,
-                custom_id="view_bait"
-            )
-            bait_button.callback = self.view_bait
-            self.add_item(bait_button)
-
-            fish_button = Button(
-                label="View Fish",
-                style=discord.ButtonStyle.blurple,
-                custom_id="view_fish"
-            )
-            fish_button.callback = self.view_fish
-            self.add_item(fish_button)
-        else:
-            # Back button for sub-pages
-            back_button = Button(
-                label="Back",
-                style=discord.ButtonStyle.grey,
-                custom_id="back"
-            )
-            back_button.callback = self.back_to_main
-            self.add_item(back_button)
-
-            # Additional buttons for specific pages
-            if self.current_page == "fish" and self.user_data.get("inventory"):
-                sell_button = Button(
-                    label="Sell All Fish",
-                    style=discord.ButtonStyle.green,
-                    custom_id="sell_all"
-                )
-                sell_button.callback = self.sell_all_fish
-                self.add_item(sell_button)
+        """Initialize the view's buttons based on current page"""
+        try:
+            logger.debug(f"Initializing view for page: {self.current_page}")
+            self.clear_items()  # Clear existing buttons
             
-            elif self.current_page == "rods":
-                equip_buttons = []
-                for rod in self.user_data.get("purchased_rods", {}):
-                    if rod != self.user_data['rod']:  # Don't show equip button for currently equipped rod
-                        equip_button = Button(
-                            label=f"Equip {rod}",
-                            style=discord.ButtonStyle.green,
-                            custom_id=f"equip_rod_{rod}"
-                        )
-                        equip_button.callback = self.equip_rod
-                        equip_buttons.append(equip_button)
+            if self.current_page == "main":
+                # Main menu buttons
+                self.add_item(Button(
+                    label="View Rods",
+                    style=discord.ButtonStyle.blurple,
+                    custom_id="view_rods",
+                    callback=self.view_rods
+                ))
                 
-                # Add up to 4 equip buttons (Discord has a 5 button per row limit)
-                for button in equip_buttons[:4]:
-                    self.add_item(button)
+                self.add_item(Button(
+                    label="View Bait",
+                    style=discord.ButtonStyle.blurple,
+                    custom_id="view_bait",
+                    callback=self.view_bait
+                ))
+                
+                self.add_item(Button(
+                    label="View Fish",
+                    style=discord.ButtonStyle.blurple,
+                    custom_id="view_fish",
+                    callback=self.view_fish
+                ))
             
-            elif self.current_page == "bait":
-                equip_buttons = []
-                for bait_name in self.user_data.get("bait", {}):
-                    if bait_name != self.user_data.get('equipped_bait'):
-                        equip_button = Button(
-                            label=f"Equip {bait_name}",
-                            style=discord.ButtonStyle.green,
-                            custom_id=f"equip_bait_{bait_name}"
-                        )
-                        equip_button.callback = self.equip_bait
-                        equip_buttons.append(equip_button)
+            else:  # Sub-pages
+                # Back button
+                self.add_item(Button(
+                    label="Back",
+                    style=discord.ButtonStyle.grey,
+                    custom_id="back",
+                    callback=self.back_to_main
+                ))
                 
-                # Add up to 4 equip buttons
-                for button in equip_buttons[:4]:
-                    self.add_item(button)
+                if self.current_page == "fish" and self.user_data.get("inventory"):
+                    # Sell fish button
+                    self.add_item(Button(
+                        label="Sell All Fish",
+                        style=discord.ButtonStyle.green,
+                        custom_id="sell_all",
+                        callback=self.sell_all_fish
+                    ))
+                
+                elif self.current_page == "rods":
+                    # Rod equip buttons
+                    for rod in self.user_data.get("purchased_rods", {}):
+                        if rod != self.user_data['rod']:
+                            self.add_item(Button(
+                                label=f"Equip {rod}",
+                                style=discord.ButtonStyle.green,
+                                custom_id=f"equip_rod_{rod}",
+                                callback=self.equip_rod
+                            ))
+                
+                elif self.current_page == "bait":
+                    # Bait equip buttons
+                    for bait_name in self.user_data.get("bait", {}):
+                        if bait_name != self.user_data.get('equipped_bait'):
+                            self.add_item(Button(
+                                label=f"Equip {bait_name}",
+                                style=discord.ButtonStyle.green,
+                                custom_id=f"equip_bait_{bait_name}",
+                                callback=self.equip_bait
+                            ))
+            
+            logger.debug(f"Added {len(self.children)} buttons to view")
+            
+        except Exception as e:
+            logger.error(f"Error initializing view: {e}", exc_info=True)
+            raise
+
+    # Button Callbacks
+    async def view_rods(self, interaction: discord.Interaction):
+        """Handle rod view button press"""
+        try:
+            self.current_page = "rods"
+            await interaction.response.defer()
+            await self.update_view()
+        except Exception as e:
+            logger.error(f"Error in view_rods: {e}", exc_info=True)
+            await interaction.followup.send("Error viewing rods.", ephemeral=True)
+
+    async def view_bait(self, interaction: discord.Interaction):
+        """Handle bait view button press"""
+        try:
+            self.current_page = "bait"
+            await interaction.response.defer()
+            await self.update_view()
+        except Exception as e:
+            logger.error(f"Error in view_bait: {e}", exc_info=True)
+            await interaction.followup.send("Error viewing bait.", ephemeral=True)
+
+    async def view_fish(self, interaction: discord.Interaction):
+        """Handle fish view button press"""
+        try:
+            self.current_page = "fish"
+            await interaction.response.defer()
+            await self.update_view()
+        except Exception as e:
+            logger.error(f"Error in view_fish: {e}", exc_info=True)
+            await interaction.followup.send("Error viewing fish.", ephemeral=True)
+
+    async def back_to_main(self, interaction: discord.Interaction):
+        """Handle back button press"""
+        try:
+            self.current_page = "main"
+            await interaction.response.defer()
+            await self.update_view()
+        except Exception as e:
+            logger.error(f"Error in back_to_main: {e}", exc_info=True)
+            await interaction.followup.send("Error returning to main menu.", ephemeral=True)
+
+    async def equip_rod(self, interaction: discord.Interaction):
+        """Handle rod equipment"""
+        try:
+            rod_name = interaction.data["custom_id"].replace("equip_rod_", "")
+            success, msg = await self.cog._equip_rod(interaction.user, rod_name)
+            
+            if success:
+                self.user_data["rod"] = rod_name
+                await interaction.response.defer()
+                await self.update_view()
+                await interaction.followup.send(msg, ephemeral=True)
+            else:
+                await interaction.response.send_message(msg, ephemeral=True)
+        except Exception as e:
+            logger.error(f"Error equipping rod: {e}", exc_info=True)
+            await interaction.response.send_message("Error equipping rod.", ephemeral=True)
+
+    async def equip_bait(self, interaction: discord.Interaction):
+        """Handle bait equipment"""
+        try:
+            bait_name = interaction.data["custom_id"].replace("equip_bait_", "")
+            success, msg = await self.cog._equip_bait(interaction.user, bait_name)
+            
+            if success:
+                self.user_data["equipped_bait"] = bait_name
+                await interaction.response.defer()
+                await self.update_view()
+                await interaction.followup.send(msg, ephemeral=True)
+            else:
+                await interaction.response.send_message(msg, ephemeral=True)
+        except Exception as e:
+            logger.error(f"Error equipping bait: {e}", exc_info=True)
+            await interaction.response.send_message("Error equipping bait.", ephemeral=True)
+
+    async def sell_all_fish(self, interaction: discord.Interaction):
+        """Handle fish selling"""
+        try:
+            if not self.user_data.get("inventory"):
+                await interaction.response.send_message("You have no fish to sell!", ephemeral=True)
+                return
+
+            confirm_view = ConfirmView(self.ctx.author)
+            total_value = sum(
+                self.cog.data["fish"][fish]["value"]
+                for fish in self.user_data["inventory"]
+            )
+            
+            await interaction.response.send_message(
+                f"Are you sure you want to sell all your fish for {total_value} coins?",
+                view=confirm_view,
+                ephemeral=True
+            )
+
+            await confirm_view.wait()
+            if confirm_view.value:
+                success, amount, msg = await self.cog.sell_fish(self.ctx)
+                if success:
+                    self.user_data = await self.cog.config.user(self.ctx.author).all()
+                    await self.update_view()
+                await interaction.followup.send(msg, ephemeral=True)
+            else:
+                await interaction.followup.send("Sale cancelled.", ephemeral=True)
+                
+        except Exception as e:
+            logger.error(f"Error selling fish: {e}", exc_info=True)
+            await interaction.followup.send("Error processing fish sale.", ephemeral=True)
 
     async def generate_embed(self) -> discord.Embed:
         """Generate the appropriate embed based on current page"""
@@ -174,15 +287,16 @@ class InventoryView(BaseView):
 
         return embed
 
-    async def update_view(self):
+async def update_view(self):
         """Update the message with current embed and view"""
         try:
             await self.initialize_view()
             embed = await self.generate_embed()
             await self.message.edit(embed=embed, view=self)
         except Exception as e:
+            logger.error(f"Error updating view: {e}", exc_info=True)
             await self.ctx.send(f"Error updating inventory view: {str(e)}")
-
+            
     # Button Callbacks
     async def view_rods(self, interaction: discord.Interaction):
         self.current_page = "rods"
