@@ -89,14 +89,32 @@ class Fishing(commands.Cog):
             self.logger.debug(f"Ensuring user data for {user.name}")
             user_data = await self.config.user(user).all()
             
+            # Define default user settings (same as in __init__)
+            default_user = {
+                "inventory": [],
+                "rod": "Basic Rod",
+                "total_value": 0,
+                "daily_quest": None,
+                "bait": {},
+                "purchased_rods": {"Basic Rod": True},
+                "equipped_bait": None,
+                "current_location": "Pond",
+                "fish_caught": 0,
+                "level": 1,
+                "settings": {
+                    "notifications": True,
+                    "auto_sell": False
+                }
+            }
+            
             if not user_data:
                 self.logger.debug(f"Initializing new user data for {user.name}")
-                await self.config.user(user).set(self.default_user)
-                return self.default_user.copy()
+                await self.config.user(user).set(default_user)
+                return default_user.copy()
     
             # Check if any default keys are missing and add them
             modified = False
-            for key, value in self.default_user.items():
+            for key, value in default_user.items():
                 if key not in user_data:
                     user_data[key] = value
                     modified = True
