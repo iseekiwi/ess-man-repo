@@ -5,9 +5,9 @@ import logging
 from typing import Dict, Optional
 from discord.ui import Button
 from .base import BaseView
+from ..utils.logging_config import setup_logging
 from .shop import ShopView
 from .inventory import InventoryView
-from ..utils.logging_config import setup_logging
 
 logger = setup_logging('menu')
 
