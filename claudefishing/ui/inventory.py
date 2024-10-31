@@ -287,7 +287,7 @@ class InventoryView(BaseView):
 
         return embed
 
-async def update_view(self):
+    async def update_view(self):
         """Update the message with current embed and view"""
         try:
             await self.initialize_view()
