@@ -19,16 +19,15 @@ from .data.fishing_data import (
 )
 
 # Set up logging
+logging.basicConfig(
+    level=logging.DEBUG,  # Set this to DEBUG to capture all logs
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("fishing_game.log"),  # Output logs to a file
+        logging.StreamHandler()  # Also print logs to the console
+    ]
+)
 logger = logging.getLogger('red.fishing')
-
-# Create a handler
-c_handler = logging.StreamHandler()
-
-# Link handler to logger
-logger.addHandler(c_handler)
-
-# Set logging level to the logger
-logger.setLevel(logging.DEBUG)
 
 class Fishing(commands.Cog):
     """A fishing game cog for Redbot"""
