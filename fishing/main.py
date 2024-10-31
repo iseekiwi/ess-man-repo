@@ -27,8 +27,8 @@ class Fishing(commands.Cog):
     def __init__(self, bot: Red):
         self.bot = bot
         # Set up logging first
-        self.logger = setup_logging('main')
-        self.logger.info("Initializing Fishing cog")
+        self.self.logger = setup_logging('main')
+        self.self.logger.info("Initializing Fishing cog")
         
         self.config = Config.get_conf(self, identifier=123456789)
             
@@ -85,7 +85,7 @@ class Fishing(commands.Cog):
     async def _ensure_user_data(self, user) -> dict:
         """Ensure user data exists and is properly initialized."""
         try:
-            logger.debug(f"Ensuring user data for {user.name}")
+            self.self.logger.debug(f"Ensuring user data for {user.name}")
             user_data = await self.config.user(user).all()
             
             # Initialize with default values if data is missing or empty
@@ -107,7 +107,7 @@ class Fishing(commands.Cog):
             }
             
             if not user_data:
-                logger.debug(f"Initializing new user data for {user.name}")
+                self.self.logger.debug(f"Initializing new user data for {user.name}")
                 await self.config.user(user).set_raw(value=default_user)
                 return default_user
 
@@ -127,13 +127,13 @@ class Fishing(commands.Cog):
                             modified = True
 
             if modified:
-                logger.debug(f"Updating user data with missing defaults for {user.name}")
+                self.self.logger.debug(f"Updating user data with missing defaults for {user.name}")
                 await self.config.user(user).set_raw(value=user_data)
 
             return user_data
 
         except Exception as e:
-            logger.error(f"Error ensuring user data for {user.name}: {e}", exc_info=True)
+            self.self.logger.error(f"Error ensuring user data for {user.name}: {e}", exc_info=True)
             await self.config.user(user).clear()  # Clear potentially corrupted data
             return None
 
@@ -149,14 +149,14 @@ class Fishing(commands.Cog):
             # Create new tasks
             self.bg_tasks.append(self.bot.loop.create_task(self.daily_stock_reset()))
             self.bg_tasks.append(self.bot.loop.create_task(self.weather_change_task()))
-            logger.info("Background tasks started successfully")
+            self.self.logger.info("Background tasks started successfully")
         except Exception as e:
-            logger.error(f"Error starting background tasks: {e}", exc_info=True)
+            self.self.logger.error(f"Error starting background tasks: {e}", exc_info=True)
 
     def cog_unload(self):
         """Clean up when cog is unloaded."""
         self.bg_task_manager.cancel_tasks()
-        self.logger.info("Cog unloaded, background tasks cancelled")
+        self.self.logger.info("Cog unloaded, background tasks cancelled")
 
     async def weather_change_task(self):
         """Periodically change the weather."""
@@ -165,13 +165,13 @@ class Fishing(commands.Cog):
                 await asyncio.sleep(3600)  # Change weather every hour
                 weather = random.choice(list(self.data["weather"].keys()))
                 await self.config.current_weather.set(weather)
-                logger.debug(f"Weather changed to {weather}")
+                self.self.logger.debug(f"Weather changed to {weather}")
                 
             except asyncio.CancelledError:
-                logger.info("Weather change task cancelled")
+                self.self.logger.info("Weather change task cancelled")
                 break
             except Exception as e:
-                logger.error(f"Error in weather_change_task: {e}", exc_info=True)
+                self.self.logger.error(f"Error in weather_change_task: {e}", exc_info=True)
                 await asyncio.sleep(60)
 
     async def daily_stock_reset(self):
@@ -184,12 +184,12 @@ class Fishing(commands.Cog):
                 
                 default_stock = {bait: data["daily_stock"] for bait, data in self.data["bait"].items()}
                 await self.config.bait_stock.set(default_stock)
-                logger.info("Daily stock reset completed")
+                self.self.logger.info("Daily stock reset completed")
         except asyncio.CancelledError:
-            logger.info("Daily stock reset task cancelled")
+            self.self.logger.info("Daily stock reset task cancelled")
             pass
         except Exception as e:
-            logger.error(f"Error in daily_stock_reset: {e}", exc_info=True)
+            self.self.logger.error(f"Error in daily_stock_reset: {e}", exc_info=True)
             
     # Location Commands
     @commands.group(name="location", invoke_without_command=True)
@@ -213,7 +213,7 @@ class Fishing(commands.Cog):
                 actual_location = location_map[new_location.lower()]
                 user_data = await self._ensure_user_data(ctx.author)
                 if not user_data:
-                    logger.error(f"Failed to get user data for {ctx.author.name}")
+                    self.self.logger.error(f"Failed to get user data for {ctx.author.name}")
                     await ctx.send("❌ Error accessing user data. Please try again.")
                     return
     
@@ -226,10 +226,10 @@ class Fishing(commands.Cog):
     
                 await self.config.user(ctx.author).current_location.set(actual_location)
                 await ctx.send(f"🌍 {ctx.author.name} is now fishing at: {actual_location}\n{location_data['description']}")
-                logger.debug(f"User {ctx.author.name} moved to location: {actual_location}")
+                self.self.logger.debug(f"User {ctx.author.name} moved to location: {actual_location}")
     
         except Exception as e:
-            logger.error(f"Error in location command: {e}", exc_info=True)
+            self.self.logger.error(f"Error in location command: {e}", exc_info=True)
             await ctx.send(f"An error occurred: {str(e)}\nPlease try again or contact an administrator.")
             raise
 
@@ -292,10 +292,10 @@ class Fishing(commands.Cog):
             
             embed.set_footer(text="Use !location <name> to travel to a location")
             await ctx.send(embed=embed)
-            logger.debug(f"Location list displayed for {ctx.author.name}")
+            self.self.logger.debug(f"Location list displayed for {ctx.author.name}")
 
         except Exception as e:
-            logger.error(f"Error in location list command: {e}", exc_info=True)
+            self.self.logger.error(f"Error in location list command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while displaying locations. Please try again.")
 
     @location.command(name="info")
@@ -380,10 +380,10 @@ class Fishing(commands.Cog):
                 )
             
             await ctx.send(embed=embed)
-            logger.debug(f"Location info displayed for {ctx.author.name}: {location_name}")
+            self.self.logger.debug(f"Location info displayed for {ctx.author.name}: {location_name}")
             
         except Exception as e:
-            logger.error(f"Error in location info command: {e}", exc_info=True)
+            self.self.logger.error(f"Error in location info command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while displaying location information. Please try again.")
 
     async def check_requirements(self, user_data: dict, requirements: dict) -> tuple[bool, str]:
@@ -403,7 +403,7 @@ class Fishing(commands.Cog):
                 
             return True, ""
         except Exception as e:
-            logger.error(f"Error checking requirements: {e}", exc_info=True)
+            self.self.logger.error(f"Error checking requirements: {e}", exc_info=True)
             return False, "❌ An error occurred while checking requirements."
 
     @commands.command(name="weather")
@@ -448,10 +448,10 @@ class Fishing(commands.Cog):
             embed.set_footer(text="Weather changes every hour")
             
             await ctx.send(embed=embed)
-            logger.debug(f"Weather check by {ctx.author.name}: {current_weather}")
+            self.self.logger.debug(f"Weather check by {ctx.author.name}: {current_weather}")
             
         except Exception as e:
-            logger.error(f"Error in weather command: {e}", exc_info=True)
+            self.self.logger.error(f"Error in weather command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while checking the weather. Please try again.")
     
     # Core Fishing Commands
@@ -459,12 +459,12 @@ class Fishing(commands.Cog):
     async def fish(self, ctx):
         """Go fishing with a minigame challenge."""
         try:
-            logger.debug(f"Starting fishing command for {ctx.author.name}")
+            self.self.logger.debug(f"Starting fishing command for {ctx.author.name}")
             
             # Ensure user data is properly initialized
             user_data = await self._ensure_user_data(ctx.author)
             if not user_data:
-                logger.error(f"Failed to initialize user data for {ctx.author.name}")
+                self.self.logger.error(f"Failed to initialize user data for {ctx.author.name}")
                 await ctx.send("❌ Error initializing user data. Please try again.")
                 return
             
@@ -490,7 +490,7 @@ class Fishing(commands.Cog):
                 else "Night"
             )
             
-            logger.debug(f"Fishing conditions - Weather: {current_weather}, Time: {time_of_day}")
+            self.logger.debug(f"Fishing conditions - Weather: {current_weather}, Time: {time_of_day}")
 
             # Run fishing minigame
             msg = await ctx.send("🎣 Fishing...")
@@ -514,7 +514,7 @@ class Fishing(commands.Cog):
                 return
 
             # Process catch
-            logger.debug(f"Processing catch for {ctx.author.name}")
+            self.logger.debug(f"Processing catch for {ctx.author.name}")
             catch = await self._catch_fish(
                 user_data,
                 equipped_bait,
@@ -529,7 +529,7 @@ class Fishing(commands.Cog):
                 if bait[equipped_bait] <= 0:
                     del bait[equipped_bait]
                     await self.config.user(ctx.author).equipped_bait.set(None)
-                    logger.debug(f"Bait {equipped_bait} depleted for {ctx.author.name}")
+                    self.logger.debug(f"Bait {equipped_bait} depleted for {ctx.author.name}")
 
             if catch:
                 fish_name = catch["name"]
@@ -554,13 +554,13 @@ class Fishing(commands.Cog):
                     f"Location: {location} - {location_effect}\n"
                     f"Weather: {current_weather} - {weather_effect}"
                 )
-                logger.debug(f"Successful catch for {ctx.author.name}: {fish_name} ({variant})")
+                self.logger.debug(f"Successful catch for {ctx.author.name}: {fish_name} ({variant})")
             else:
                 await ctx.send(f"🎣 {ctx.author.name} went fishing but didn't catch anything this time.")
-                logger.debug(f"Failed catch attempt for {ctx.author.name}")
+                self.logger.debug(f"Failed catch attempt for {ctx.author.name}")
                 
         except Exception as e:
-            logger.error(f"Error in fish command: {e}", exc_info=True)
+            self.logger.error(f"Error in fish command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while fishing. Please try again.")
 
     async def _catch_fish(self, user_data: dict, bait_type: str, location: str, weather: str, time_of_day: str) -> dict:
@@ -573,7 +573,7 @@ class Fishing(commands.Cog):
             time_bonus = self.data["time"][time_of_day].get("catch_bonus", 0)
             
             total_chance = base_chance + bait_bonus + weather_bonus + time_bonus
-            logger.debug(f"Catch chances - Base: {base_chance}, Total: {total_chance}")
+            self.logger.debug(f"Catch chances - Base: {base_chance}, Total: {total_chance}")
             
             if random.random() >= total_chance:
                 return None
@@ -592,7 +592,7 @@ class Fishing(commands.Cog):
             for fish, data in self.data["fish"].items():
                 # Validate fish data
                 if "variants" not in data:
-                    logger.warning(f"Fish type {fish} missing variants!")
+                    self.logger.warning(f"Fish type {fish} missing variants!")
                     continue
                     
                 weight = data["chance"] * location_mods[fish]
@@ -602,15 +602,15 @@ class Fishing(commands.Cog):
                 weights.append(weight)
 
             if not weighted_fish:
-                logger.warning("No valid fish types found!")
+                self.logger.warning("No valid fish types found!")
                 return None
 
             caught_fish = random.choices(weighted_fish, weights=weights, k=1)[0]
-            logger.debug(f"Fish caught: {caught_fish}")
+            self.logger.debug(f"Fish caught: {caught_fish}")
             return {"name": caught_fish, "value": self.data["fish"][caught_fish]["value"]}
             
         except Exception as e:
-            logger.error(f"Error in _catch_fish: {e}", exc_info=True)
+            self.logger.error(f"Error in _catch_fish: {e}", exc_info=True)
             return None
 
     async def _add_to_inventory(self, user, fish_name: str) -> bool:
@@ -628,10 +628,10 @@ class Fishing(commands.Cog):
                 user_data["level"] = new_level
                 
                 if new_level > old_level:
-                    logger.info(f"User {user.name} leveled up from {old_level} to {new_level}")
+                    self.logger.info(f"User {user.name} leveled up from {old_level} to {new_level}")
             return True
         except Exception as e:
-            logger.error(f"Error updating total value: {e}", exc_info=True)
+            self.logger.error(f"Error updating total value: {e}", exc_info=True)
             return False
             
     # Shop Commands
@@ -639,18 +639,18 @@ class Fishing(commands.Cog):
     async def shop(self, ctx: commands.Context):
         """Browse and purchase fishing supplies"""
         try:
-            logger.info(f"Shop command invoked by {ctx.author.name}")
+            self.logger.info(f"Shop command invoked by {ctx.author.name}")
             
             # Get user data
             user_data = await self.config.user(ctx.author).all()
             if not user_data:
-                logger.error(f"No user data found for {ctx.author.name}")
+                self.logger.error(f"No user data found for {ctx.author.name}")
                 await ctx.send("Error: Please try fishing first to initialize your account.")
                 return
                 
             # Initialize bait stock if not exists
             if not hasattr(self, '_bait_stock'):
-                logger.debug("Initializing bait stock")
+                self.logger.debug("Initializing bait stock")
                 self._bait_stock = {
                     bait: data["daily_stock"] 
                     for bait, data in self.data["bait"].items()
@@ -658,87 +658,87 @@ class Fishing(commands.Cog):
             
             # Verify required data is loaded
             if not hasattr(self, 'data'):
-                logger.error("Cog data not initialized")
+                self.logger.error("Cog data not initialized")
                 await ctx.send("Error: Shop data not initialized. Please contact an administrator.")
                 return
             
             # Create shop view
             try:
                 view = await ShopView(self, ctx, user_data).setup()
-                logger.debug("Shop view created successfully")
+                self.logger.debug("Shop view created successfully")
             except Exception as e:
-                logger.error(f"Error creating shop view: {e}", exc_info=True)
+                self.logger.error(f"Error creating shop view: {e}", exc_info=True)
                 await ctx.send("Error: Unable to create shop interface. Please try again.")
                 return
             
             try:
                 # Generate initial embed
                 embed = await view.generate_embed()
-                logger.debug("Initial embed generated successfully")
+                self.logger.debug("Initial embed generated successfully")
                 
                 # Send the message and store it in the view
                 view.message = await ctx.send(embed=embed, view=view)
-                logger.info(f"Shop displayed successfully for {ctx.author.name}")
+                self.logger.info(f"Shop displayed successfully for {ctx.author.name}")
                 
             except Exception as e:
-                logger.error(f"Error displaying shop: {e}", exc_info=True)
+                self.logger.error(f"Error displaying shop: {e}", exc_info=True)
                 await ctx.send("Error: Unable to display shop information. Please try again later.")
                 return
                 
         except Exception as e:
-            logger.error(f"Unexpected error in shop command: {e}", exc_info=True)
+            self.logger.error(f"Unexpected error in shop command: {e}", exc_info=True)
             await ctx.send("An unexpected error occurred. Please try again later.")
     
     async def _handle_bait_purchase(self, user, bait_name: str, amount: int, user_data: dict) -> tuple[bool, str]:
         """Handle bait purchase logic."""
         try:
-            logger.debug(f"Starting bait purchase for {user.name}: {bait_name} x {amount}")
+            self.logger.debug(f"Starting bait purchase for {user.name}: {bait_name} x {amount}")
             
             bait_data = self.data["bait"][bait_name]
             total_cost = bait_data["cost"] * amount
-            logger.debug(f"Total cost: {total_cost} coins")
+            self.logger.debug(f"Total cost: {total_cost} coins")
             
             # Check stock
             bait_stock = await self.config.bait_stock()
-            logger.debug(f"Current bait stock: {bait_stock}")
+            self.logger.debug(f"Current bait stock: {bait_stock}")
             if bait_stock[bait_name] < amount:
-                logger.debug(f"Insufficient stock: {bait_name} x {amount}")
+                self.logger.debug(f"Insufficient stock: {bait_name} x {amount}")
                 return False, f"🚫 Not enough {bait_name} in stock! Available: {bait_stock[bait_name]}"
     
             # Check balance
-            logger.debug(f"Checking balance for {user.name}")
+            self.logger.debug(f"Checking balance for {user.name}")
             if not await self._can_afford(user, total_cost):
-                logger.debug(f"Insufficient balance for {user.name}")
+                self.logger.debug(f"Insufficient balance for {user.name}")
                 return False, f"🚫 You don't have enough coins! Cost: {total_cost}"
     
             # Process purchase atomically
             async with self.config.user(user).bait() as user_bait:
-                logger.debug(f"Processing purchase for {user.name}")
+                self.logger.debug(f"Processing purchase for {user.name}")
                 
                 # Verify stock again before finalizing
                 current_stock = await self.config.bait_stock()
                 if current_stock[bait_name] < amount:
-                    logger.debug(f"Stock changed while processing for {user.name}")
+                    self.logger.debug(f"Stock changed while processing for {user.name}")
                     return False, f"🚫 Stock changed while processing. Please try again."
                 
                 # Update stock
                 current_stock[bait_name] -= amount
                 await self.config.bait_stock.set(current_stock)
-                logger.debug(f"Updated bait stock: {current_stock}")
+                self.logger.debug(f"Updated bait stock: {current_stock}")
                 
                 # Update user's bait
                 user_bait[bait_name] = user_bait.get(bait_name, 0) + amount
-                logger.debug(f"Updated user bait: {user_bait}")
+                self.logger.debug(f"Updated user bait: {user_bait}")
                 
                 # Process payment
                 await bank.withdraw_credits(user, total_cost)
-                logger.debug(f"Payment processed for {user.name}: {total_cost} coins")
+                self.logger.debug(f"Payment processed for {user.name}: {total_cost} coins")
                 
-            logger.debug(f"Bait purchase completed for {user.name}: {bait_name} x {amount}")
+            self.logger.debug(f"Bait purchase completed for {user.name}: {bait_name} x {amount}")
             return True, f"✅ Purchased {amount} {bait_name} for {total_cost} coins!"
     
         except Exception as e:
-            logger.exception(f"Error in bait purchase for {user.name}: {e}")
+            self.logger.exception(f"Error in bait purchase for {user.name}: {e}")
             return False, "❌ An error occurred while processing your purchase."
     
     async def _handle_rod_purchase(self, user, rod_name: str, user_data: dict) -> tuple[bool, str]:
@@ -774,7 +774,7 @@ class Fishing(commands.Cog):
             return True, f"✅ Purchased {rod_name} for {rod_data['cost']} coins!"
     
         except Exception as e:
-            logger.error(f"Error in rod purchase: {e}", exc_info=True)
+            self.logger.error(f"Error in rod purchase: {e}", exc_info=True)
             return False, "❌ An error occurred while processing your purchase."
 
     async def _can_afford(self, user, cost: int) -> bool:
@@ -783,7 +783,7 @@ class Fishing(commands.Cog):
             balance = await bank.get_balance(user)
             return balance >= cost
         except Exception as e:
-            logger.error(f"Error checking balance: {e}", exc_info=True)
+            self.logger.error(f"Error checking balance: {e}", exc_info=True)
             return False
 
     @commands.command(name="inventory")
@@ -801,7 +801,7 @@ class Fishing(commands.Cog):
             await view.start()
     
         except Exception as e:
-            logger.error(f"Error in inventory command: {e}", exc_info=True)
+            self.logger.error(f"Error in inventory command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while displaying your inventory. Please try again.")
 
     async def _equip_rod(self, user: discord.Member, rod_name: str) -> tuple[bool, str]:
@@ -813,11 +813,11 @@ class Fishing(commands.Cog):
                 return False, "You don't own this rod!"
                 
             await self.config.user(user).rod.set(rod_name)
-            logger.debug(f"User {user.name} equipped rod: {rod_name}")
+            self.logger.debug(f"User {user.name} equipped rod: {rod_name}")
             return True, f"Successfully equipped {rod_name}!"
             
         except Exception as e:
-            logger.error(f"Error equipping rod: {e}", exc_info=True)
+            self.logger.error(f"Error equipping rod: {e}", exc_info=True)
             return False, "An error occurred while equipping the rod."
 
     async def _equip_bait(self, user: discord.Member, bait_name: str) -> tuple[bool, str]:
@@ -829,11 +829,11 @@ class Fishing(commands.Cog):
                 return False, "You don't have any of this bait!"
                 
             await self.config.user(user).equipped_bait.set(bait_name)
-            logger.debug(f"User {user.name} equipped bait: {bait_name}")
+            self.logger.debug(f"User {user.name} equipped bait: {bait_name}")
             return True, f"Successfully equipped {bait_name}!"
             
         except Exception as e:
-            logger.error(f"Error equipping bait: {e}", exc_info=True)
+            self.logger.error(f"Error equipping bait: {e}", exc_info=True)
             return False, "An error occurred while equipping the bait."
 
     # Update the sell_fish command to return the amount sold
@@ -860,13 +860,13 @@ class Fishing(commands.Cog):
             
             if success:
                 await bank.deposit_credits(ctx.author, total_value)
-                logger.info(f"User {ctx.author.name} sold fish for {total_value} coins")
+                self.logger.info(f"User {ctx.author.name} sold fish for {total_value} coins")
                 return True, total_value, f"Successfully sold all fish for {total_value} coins!"
             
             return False, 0, msg
             
         except Exception as e:
-            logger.error(f"Error in sell_fish: {e}", exc_info=True)
+            self.logger.error(f"Error in sell_fish: {e}", exc_info=True)
             return False, 0, "An error occurred while selling fish."
             
     @commands.command(name="fisherboard")
@@ -919,7 +919,7 @@ class Fishing(commands.Cog):
                             inline=False
                         )
                 except Exception as e:
-                    logger.warning(f"Could not fetch user {user_id}: {e}")
+                    self.logger.warning(f"Could not fetch user {user_id}: {e}")
                     continue
     
             # Add footer with total registered fishers
@@ -927,10 +927,10 @@ class Fishing(commands.Cog):
             embed.set_footer(text=f"Total Registered Fishers: {total_fishers}")
             
             await ctx.send(embed=embed)
-            logger.debug("Leaderboard displayed successfully")
+            self.logger.debug("Leaderboard displayed successfully")
     
         except Exception as e:
-            logger.error(f"Error displaying leaderboard: {e}", exc_info=True)
+            self.logger.error(f"Error displaying leaderboard: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while displaying the leaderboard. Please try again.")
 
     # Admin Commands
@@ -950,10 +950,10 @@ class Fishing(commands.Cog):
             await ctx.send(msg)
             
             if success:
-                logger.info(f"Admin {ctx.author.name} added {amount}x {item_name} ({item_type}) to {member.name}")
+                self.logger.info(f"Admin {ctx.author.name} added {amount}x {item_name} ({item_type}) to {member.name}")
                 
         except Exception as e:
-            logger.error(f"Error in add_item command: {e}", exc_info=True)
+            self.logger.error(f"Error in add_item command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while adding items. Please try again.")
 
     @manage.command(name="remove")
@@ -965,10 +965,10 @@ class Fishing(commands.Cog):
             await ctx.send(msg)
             
             if success:
-                logger.info(f"Admin {ctx.author.name} removed {amount}x {item_name} ({item_type}) from {member.name}")
+                self.logger.info(f"Admin {ctx.author.name} removed {amount}x {item_name} ({item_type}) from {member.name}")
                 
         except Exception as e:
-            logger.error(f"Error in remove_item command: {e}", exc_info=True)
+            self.logger.error(f"Error in remove_item command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while removing items. Please try again.")
 
     @manage.command(name="reset")
@@ -979,9 +979,9 @@ class Fishing(commands.Cog):
             await self.config.user(member).clear()
             await self._ensure_user_data(member)  # Reinitialize with defaults
             await ctx.send(f"✅ Reset fishing data for {member.name}")
-            logger.warning(f"Admin {ctx.author.name} reset fishing data for {member.name}")
+            self.logger.warning(f"Admin {ctx.author.name} reset fishing data for {member.name}")
         except Exception as e:
-            logger.error(f"Error resetting user data: {e}", exc_info=True)
+            self.logger.error(f"Error resetting user data: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while resetting user data. Please try again.")
 
     @manage.command(name="stock")
@@ -992,9 +992,9 @@ class Fishing(commands.Cog):
             default_stock = {bait: data["daily_stock"] for bait, data in self.data["bait"].items()}
             await self.config.bait_stock.set(default_stock)
             await ctx.send("✅ Shop stock has been reset!")
-            logger.info(f"Admin {ctx.author.name} reset shop stock")
+            self.logger.info(f"Admin {ctx.author.name} reset shop stock")
         except Exception as e:
-            logger.error(f"Error resetting shop stock: {e}", exc_info=True)
+            self.logger.error(f"Error resetting shop stock: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while resetting shop stock. Please try again.")
 
 def setup(bot: Red):
@@ -1002,7 +1002,9 @@ def setup(bot: Red):
     try:
         cog = Fishing(bot)
         bot.add_cog(cog)
+        logger = setup_logging('setup')  # Create a temporary logger for setup
         logger.info("Fishing cog loaded successfully")
     except Exception as e:
+        logger = setup_logging('setup')
         logger.error(f"Error loading Fishing cog: {e}", exc_info=True)
         raise
