@@ -627,27 +627,50 @@ class Fishing(commands.Cog):
     async def shop(self, ctx: commands.Context):
         """Browse and purchase fishing supplies"""
         try:
-            # Get user data
+            logger.debug(f"Starting shop command for user {ctx.author.name}")
+            
+            # Get user data with validation
             user_data = await self.config.user(ctx.author).all()
+            if not user_data:
+                logger.error(f"Failed to retrieve user data for {ctx.author.name}")
+                await ctx.send("Error: Unable to retrieve your user data. Please try again.")
+                return
+                
+            logger.debug(f"Retrieved user data: {user_data}")
             
-            # Initialize bait stock if not exists
-            if not hasattr(self, '_bait_stock'):
-                self._bait_stock = {
-                    bait: data["daily_stock"] 
-                    for bait, data in self.data["bait"].items()
-                }
-            
+            # Verify required data structures
+            if not hasattr(self, 'data'):
+                logger.error("Cog data not properly initialized")
+                await ctx.send("Error: Shop data not properly initialized. Please contact an administrator.")
+                return
+                
             # Create and setup shop view
-            view = await ShopView(self, ctx, user_data).setup()
+            try:
+                view = await ShopView(self, ctx, user_data).setup()
+            except Exception as e:
+                logger.error(f"Failed to create ShopView: {str(e)}", exc_info=True)
+                await ctx.send("Error: Unable to create shop interface. Please try again.")
+                return
             
             # Generate initial embed
-            embed = await view.generate_embed()
+            try:
+                embed = await view.generate_embed()
+            except Exception as e:
+                logger.error(f"Failed to generate embed: {str(e)}", exc_info=True)
+                await ctx.send("Error: Unable to display shop information. Please try again.")
+                return
             
             # Send the message and store it in the view
-            view.message = await ctx.send(embed=embed, view=view)
-            
+            try:
+                view.message = await ctx.send(embed=embed, view=view)
+                logger.debug("Shop view successfully created and displayed")
+            except Exception as e:
+                logger.error(f"Failed to send shop message: {str(e)}", exc_info=True)
+                await ctx.send("Error: Unable to display the shop. Please try again.")
+                return
+                
         except Exception as exc:
-            logger.error("Error in shop command", exc_info=exc)
+            logger.error(f"Unexpected error in shop command: {str(exc)}", exc_info=True)
             await ctx.send("There was an error accessing the shop. Please try again.")
     
     async def _handle_bait_purchase(self, user, bait_name: str, amount: int, user_data: dict) -> tuple[bool, str]:
