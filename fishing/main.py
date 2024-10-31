@@ -861,7 +861,7 @@ class Fishing(commands.Cog):
             
             total_value = summary["total_value"]
             
-            # Process sale
+            # Process sale - explicitly pass None for item_name to trigger "remove all" behavior
             success, msg = await self.inventory.remove_item(
                 ctx.author.id, 
                 "fish", 
