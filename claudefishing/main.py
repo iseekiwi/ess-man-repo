@@ -1,5 +1,7 @@
 import discord
 import asyncio
+from .ui.inventory import InventoryView
+from .ui.shop import ShopView, BaitPurchaseView
 from redbot.core import commands, Config, bank
 from redbot.core.bot import Red
 import random
@@ -771,60 +773,24 @@ class Fishing(commands.Cog):
             return False
 
     @commands.command(name="inventory")
-    async def inventory(self, ctx):
-        """Display user's inventory."""
+    async def inventory(self, ctx: commands.Context):
+        """Display your fishing inventory"""
         try:
-            user_data = await self._ensure_user_data(ctx.author)
-            if not user_data:
-                await ctx.send("❌ Error accessing inventory data. Please try again.")
-                return
-
-            fish_counts = Counter(user_data["inventory"])
-            sections = []
+            # Get user data
+            user_data = await self.config.user(ctx.author).all()
             
-            # Fish section
-            for rarity in ["common", "uncommon", "rare", "legendary"]:
-                rarity_fish = [
-                    f"- {fish}: {fish_counts[fish]}"
-                    for fish in fish_counts.keys()
-                    if self.data["fish"][fish]["rarity"] == rarity
-                ]
-                if rarity_fish:
-                    sections.append((f"__{rarity.title()} Fish:__", "\n".join(rarity_fish)))
+            # Create the inventory view
+            view = InventoryView(self, ctx, user_data)
             
-            # Bait section
-            if user_data["bait"]:
-                bait_items = [f"- {name}: {amount}" for name, amount in user_data["bait"].items()]
-                sections.append(("__Bait:__", "\n".join(bait_items)))
-            else:
-                sections.append(("__Bait:__", "None"))
+            # Generate initial embed
+            embed = await view.generate_embed()
             
-            # Rods section
-            rod_items = []
-            for rod_name in self.data["rods"].keys():
-                if rod_name == "Basic Rod" or rod_name in user_data["purchased_rods"]:
-                    equipped = "📌 " if rod_name == user_data["rod"] else "  "
-                    rod_items.append(f"{equipped}{rod_name}")
-            sections.append(("__Fishing Rods:__", "\n".join(rod_items)))
-
-            # Stats section
-            stats = [
-                f"Total Fish Caught: {user_data['fish_caught']}",
-                f"Level: {user_data['level']}",
-                f"Current Location: {user_data['current_location']}"
-            ]
-            sections.append(("__Stats:__", "\n".join(stats)))
-
-            # Combine all sections
-            inventory_display = "🎒 **Your Inventory:**\n\n"
-            inventory_display += "\n\n".join(f"{header}\n{content}" for header, content in sections)
+            # Send the message and store it in the view
+            view.message = await ctx.send(embed=embed, view=view)
             
-            await ctx.send(inventory_display)
-            logger.debug(f"Inventory displayed for {ctx.author.name}")
-
-        except Exception as e:
-            logger.error(f"Error displaying inventory: {e}", exc_info=True)
-            await ctx.send("❌ An error occurred while displaying your inventory. Please try again.")
+        except Exception as exc:
+            log.exception("Error displaying inventory", exc_info=exc)
+            await ctx.send("There was an error displaying your inventory. Please try again.")
 
     @commands.command(name="sellfish")
     async def sell_fish(self, ctx):
