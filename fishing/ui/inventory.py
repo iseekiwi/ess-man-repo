@@ -5,7 +5,6 @@ from discord.ui import Button, View
 from collections import Counter
 from .base import BaseView, ConfirmView
 from ..utils.logging_config import setup_logging
-from .menu import FishingMenuView
 
 
 logger = setup_logging('inventory')
@@ -273,6 +272,16 @@ class InventoryView(BaseView):
 
     async def handle_button(self, interaction: discord.Interaction):
         """Handle navigation button interactions"""
+        try:
+        custom_id = interaction.data["custom_id"]
+        
+        if custom_id == "menu":
+            # Import here to avoid circular import
+            from .menu import FishingMenuView
+            menu_view = await FishingMenuView(self.cog, self.ctx, self.user_data).setup()
+            embed = await menu_view.generate_embed()
+            await interaction.response.edit_message(embed=embed, view=menu_view)
+            return
         try:
             custom_id = interaction.data["custom_id"]
             
