@@ -270,3 +270,28 @@ class InventoryView(BaseView):
         except Exception as e:
             logger.error(f"Error updating view: {e}", exc_info=True)
             await self.ctx.send(f"Error updating inventory view: {str(e)}")
+
+    async def handle_button(self, interaction: discord.Interaction):
+        """Handle navigation button interactions"""
+        try:
+            custom_id = interaction.data["custom_id"]
+            
+            if custom_id == "menu":
+                # Create new menu view and switch to it
+                from .menu import FishingMenuView  # Import here to avoid circular imports
+                menu_view = await FishingMenuView(self.cog, self.ctx, self.user_data).setup()
+                embed = await menu_view.generate_embed()
+                await interaction.response.edit_message(embed=embed, view=menu_view)
+                return
+                
+            if custom_id == "back":
+                self.current_page = "main"
+                await interaction.response.defer()
+                await self.update_view()
+                
+        except Exception as e:
+            self.logger.error(f"Error in handle_button: {e}", exc_info=True)
+            await interaction.response.send_message(
+                "An error occurred. Please try again.",
+                ephemeral=True
+            )
