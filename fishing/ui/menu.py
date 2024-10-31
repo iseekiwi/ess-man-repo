@@ -312,6 +312,18 @@ class FishingMenuView(BaseView):
                 ephemeral=True
             )
 
+    def get_time_of_day(self) -> str:
+        """Helper method to get current time of day"""
+        hour = datetime.datetime.now().hour
+        if 5 <= hour < 7:
+            return "Dawn"
+        elif 7 <= hour < 17:
+            return "Day"
+        elif 17 <= hour < 19:
+            return "Dusk"
+        else:
+            return "Night"
+        
     async def start_fishing(self, interaction: discord.Interaction):
         """Start the fishing process within the menu embed"""
         try:
