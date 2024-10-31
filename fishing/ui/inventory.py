@@ -93,12 +93,17 @@ class InventoryView(BaseView):
         embed = discord.Embed(color=discord.Color.blue())
         
         if self.current_page == "main":
+            summary = await self.cog.inventory.get_inventory_summary(self.ctx.author.id)
+            if not summary:
+                embed.description = "Error loading inventory data."
+                return embed
+                
             embed.title = f"{self.ctx.author.display_name}'s Inventory"
             embed.add_field(
                 name="Currently Equipped",
                 value=(
-                    f"🎣 Rod: {self.user_data['rod']}\n"
-                    f"🪱 Bait: {self.user_data.get('equipped_bait', 'None')}"
+                    f"🎣 Rod: {summary['equipped_rod']}\n"
+                    f"🪱 Bait: {summary['equipped_bait'] or 'None'}"
                 ),
                 inline=False
             )
@@ -116,10 +121,10 @@ class InventoryView(BaseView):
             embed.add_field(
                 name="Summary",
                 value=(
-                    f"🎣 Rods Owned: {rod_count}\n"
-                    f"🪱 Bait Available: {bait_count}\n"
-                    f"🐟 Fish Caught: {fish_count}\n"
-                    f"💰 Total Fish Value: {total_value} coins"
+                    f"🎣 Rods Owned: {summary['rod_count']}\n"
+                    f"🪱 Bait Available: {summary['bait_count']}\n"
+                    f"🐟 Fish Caught: {summary['fish_count']}\n"
+                    f"💰 Total Fish Value: {summary['total_value']} coins"
                 ),
                 inline=False
             )
