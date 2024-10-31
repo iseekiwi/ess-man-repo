@@ -636,7 +636,7 @@ class Fishing(commands.Cog):
             view.message = await ctx.send(embed=embed, view=view)
             
         except Exception as exc:
-            log.error("Error in shop command", exc_info=exc)
+            logger.error("Error in shop command", exc_info=exc)
             await ctx.send("There was an error accessing the shop. Please try again.")
     
         async def _handle_bait_purchase(self, user, bait_name: str, amount: int, user_data: dict) -> tuple[bool, str]:
