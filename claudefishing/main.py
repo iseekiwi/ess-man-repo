@@ -612,120 +612,85 @@ class Fishing(commands.Cog):
             return False
             
     # Shop Commands
-    @commands.group(name="shop", invoke_without_command=True)
-    async def shop(self, ctx):
-        """Display available shop items."""
+    @commands.command(name="shop")
+    async def shop(self, ctx: commands.Context):
+        """Browse and purchase fishing supplies"""
         try:
-            bait_stock = await self.config.bait_stock()
+            # Get user data
+            user_data = await self.config.user(ctx.author).all()
             
-            # Build shop display
-            sections = []
+            # Create the shop view
+            view = ShopView(self, ctx, user_data)
             
-            # Bait section
-            bait_items = []
-            for i, (name, data) in enumerate(self.data["bait"].items(), 1):
-                stock = bait_stock.get(name, 0)
-                bait_items.append(
-                    f"**{i}.** {name} - {data['cost']} coins\n"
-                    f"   Stock: {stock} | Bonus: +{data['catch_bonus']*100}%\n"
-                    f"   {data['description']}"
-                )
-            sections.append(("__Bait:__", "\n".join(bait_items)))
+            # Generate initial embed
+            embed = await view.generate_embed()
             
-            # Rod section
-            rod_items = []
-            for i, (name, data) in enumerate(self.data["rods"].items(), len(self.data["bait"]) + 1):
-                if name != "Basic Rod":
-                    req = data['requirements']
-                    req_str = f"(Requires Level {req['level']}, {req['fish_caught']} fish caught)" if req else ""
-                    rod_items.append(
-                        f"**{i}.** {name} - {data['cost']} coins\n"
-                        f"   Bonus: +{data['chance']*100}% catch rate\n"
-                        f"   {data['description']} {req_str}"
-                    )
-            sections.append(("__Fishing Rods:__", "\n".join(rod_items)))
+            # Send the message and store it in the view
+            view.message = await ctx.send(embed=embed, view=view)
             
-            # Combine sections
-            shop_display = "🛒 **Fishing Shop:**\n\n"
-            shop_display += "\n\n".join(f"{header}\n{content}" for header, content in sections)
-            
-            await ctx.send(shop_display)
-            logger.debug(f"Shop displayed for {ctx.author.name}")
-
-        except Exception as e:
-            logger.error(f"Error displaying shop: {e}", exc_info=True)
-            await ctx.send("❌ An error occurred while displaying the shop. Please try again.")
-
-    @shop.command(name="buy")
-    async def buy(self, ctx, item_index: int, amount: int = 1):
-        """Purchase items from the shop."""
+        except Exception as exc:
+            log.exception("Error displaying shop", exc_info=exc)
+            await ctx.send("There was an error accessing the shop. Please try again.")
+    
+    @commands.command(name="buy")
+    async def buy_item(self, ctx: commands.Context, item_name: str, quantity: int = 1):
+        """Purchase an item from the shop"""
         try:
-            shop_items = list(self.data["bait"].keys()) + [rod for rod in self.data["rods"].keys() if rod != "Basic Rod"]
-            
-            if not 1 <= item_index <= len(shop_items):
-                await ctx.send("🚫 Invalid item index!")
-                return
-
-            item_name = shop_items[item_index - 1]
-            user_data = await self._ensure_user_data(ctx.author)
-            if not user_data:
-                await ctx.send("❌ Error accessing user data. Please try again.")
-                return
-
-            # Handle purchase logic based on item type
-            if item_name in self.data["bait"]:
-                success, msg = await self._handle_bait_purchase(ctx.author, item_name, amount, user_data)
+            if item_name.lower() in self.BAIT_TYPES:
+                bait_name = item_name
+                cost = self.BAIT_TYPES[bait_name]["cost"]
+                
+                view = BaitPurchaseView(self, ctx, bait_name, quantity, cost)
+                embed = await view.generate_embed()
+                await ctx.send(embed=embed, view=view)
+                
+            elif item_name.lower() in self.ROD_TYPES:
+                # Handle rod purchases
+                pass
             else:
-                success, msg = await self._handle_rod_purchase(ctx.author, item_name, user_data)
-            
-            if success:
-                logger.info(f"User {ctx.author.name} purchased {amount}x {item_name}")
-            else:
-                logger.debug(f"Failed purchase attempt by {ctx.author.name}: {msg}")
+                await ctx.send("Invalid item name!")
                 
-            await ctx.send(msg)
-
-        except Exception as e:
-            logger.error(f"Error in buy command: {e}", exc_info=True)
-            await ctx.send("❌ An error occurred while processing your purchase. Please try again.")
-
-    async def _handle_bait_purchase(self, user, bait_name: str, amount: int, user_data: dict) -> tuple[bool, str]:
-        """Handle bait purchase logic."""
-        try:
-            bait_data = self.data["bait"][bait_name]
-            total_cost = bait_data["cost"] * amount
-            
-            # Check stock
-            bait_stock = await self.config.bait_stock()
-            if bait_stock[bait_name] < amount:
-                return False, f"🚫 Not enough {bait_name} in stock! Available: {bait_stock[bait_name]}"
-
-            # Check balance
-            if not await self._can_afford(user, total_cost):
-                return False, f"🚫 You don't have enough coins! Cost: {total_cost}"
-
-            # Process purchase atomically
-            async with self.config.user(user).bait() as user_bait:
-                # Verify stock again before finalizing
-                current_stock = await self.config.bait_stock()
-                if current_stock[bait_name] < amount:
-                    return False, f"🚫 Stock changed while processing. Please try again."
+        except Exception as exc:
+            log.exception("Error processing purchase", exc_info=exc)
+            await ctx.send("There was an error processing your purchase. Please try again.")
+    
+        async def _handle_bait_purchase(self, user, bait_name: str, amount: int, user_data: dict) -> tuple[bool, str]:
+            """Handle bait purchase logic."""
+            try:
+                bait_data = self.data["bait"][bait_name]
+                total_cost = bait_data["cost"] * amount
                 
-                # Update stock
-                current_stock[bait_name] -= amount
-                await self.config.bait_stock.set(current_stock)
-                
-                # Update user's bait
-                user_bait[bait_name] = user_bait.get(bait_name, 0) + amount
-                
-                # Process payment
-                await bank.withdraw_credits(user, total_cost)
-                
-            return True, f"✅ Purchased {amount} {bait_name} for {total_cost} coins!"
-
-        except Exception as e:
-            logger.error(f"Error in bait purchase: {e}", exc_info=True)
-            return False, "❌ An error occurred while processing your purchase."
+                # Check stock
+                bait_stock = await self.config.bait_stock()
+                if bait_stock[bait_name] < amount:
+                    return False, f"🚫 Not enough {bait_name} in stock! Available: {bait_stock[bait_name]}"
+    
+                # Check balance
+                if not await self._can_afford(user, total_cost):
+                    return False, f"🚫 You don't have enough coins! Cost: {total_cost}"
+    
+                # Process purchase atomically
+                async with self.config.user(user).bait() as user_bait:
+                    # Verify stock again before finalizing
+                    current_stock = await self.config.bait_stock()
+                    if current_stock[bait_name] < amount:
+                        return False, f"🚫 Stock changed while processing. Please try again."
+                    
+                    # Update stock
+                    current_stock[bait_name] -= amount
+                    await self.config.bait_stock.set(current_stock)
+                    
+                    # Update user's bait
+                    user_bait[bait_name] = user_bait.get(bait_name, 0) + amount
+                    
+                    # Process payment
+                    await bank.withdraw_credits(user, total_cost)
+                    
+                return True, f"✅ Purchased {amount} {bait_name} for {total_cost} coins!"
+    
+            except Exception as e:
+                logger.error(f"Error in bait purchase: {e}", exc_info=True)
+                return False, "❌ An error occurred while processing your purchase."
 
     async def _handle_rod_purchase(self, user, rod_name: str, user_data: dict) -> tuple[bool, str]:
         """Handle rod purchase logic."""
