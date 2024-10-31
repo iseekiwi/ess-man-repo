@@ -18,86 +18,86 @@ class InventoryView(BaseView):
         self.current_page = "main"
         
     async def initialize_view(self):
-    """Initialize the view's buttons based on current page"""
-    self.clear_items()
-    
-    if self.current_page == "main":
-        # Main menu buttons
-        rods_button = Button(
-            label="View Rods",
-            style=discord.ButtonStyle.blurple,
-            custom_id="view_rods"
-        )
-        rods_button.callback = self.view_rods  # Keep specialized handlers for inventory actions
-        self.add_item(rods_button)
+        """Initialize the view's buttons based on current page"""
+        self.clear_items()
         
-        bait_button = Button(
-            label="View Bait",
-            style=discord.ButtonStyle.blurple,
-            custom_id="view_bait"
-        )
-        bait_button.callback = self.view_bait
-        self.add_item(bait_button)
-        
-        fish_button = Button(
-            label="View Fish",
-            style=discord.ButtonStyle.blurple,
-            custom_id="view_fish"
-        )
-        fish_button.callback = self.view_fish
-        self.add_item(fish_button)
-        
-        # Add back button to main inventory page
-        back_button = Button(
-            label="Back to Menu",
-            style=discord.ButtonStyle.grey,
-            custom_id="menu"
-        )
-        back_button.callback = self.handle_button  # Use the new handler for navigation
-        self.add_item(back_button)
-        
-    else:
-        # Back button for sub-pages
-        back_button = Button(
-            label="Back",
-            style=discord.ButtonStyle.grey,
-            custom_id="back"
-        )
-        back_button.callback = self.back_to_main
-        self.add_item(back_button)
-        
-        if self.current_page == "fish" and self.user_data.get("inventory"):
-            sell_button = Button(
-                label="Sell All Fish",
-                style=discord.ButtonStyle.green,
-                custom_id="sell_all"
+        if self.current_page == "main":
+            # Main menu buttons
+            rods_button = Button(
+                label="View Rods",
+                style=discord.ButtonStyle.blurple,
+                custom_id="view_rods"
             )
-            sell_button.callback = self.sell_all_fish
-            self.add_item(sell_button)
+            rods_button.callback = self.view_rods  # Keep specialized handlers for inventory actions
+            self.add_item(rods_button)
             
-        elif self.current_page == "rods":
-            # Add equip buttons for owned rods
-            for rod in self.user_data.get("purchased_rods", {}):
-                if rod != self.user_data['rod']:  # Don't show for currently equipped rod
-                    equip_button = Button(
-                        label=f"Equip {rod}",
-                        style=discord.ButtonStyle.green,
-                        custom_id=f"equip_rod_{rod}"
-                    )
-                    equip_button.callback = self.equip_rod
-                    self.add_item(equip_button)
-                    
-        elif self.current_page == "bait":
-            # Add equip buttons for available bait
-            for bait_name, amount in self.user_data.get("bait", {}).items():
-                if amount > 0 and bait_name != self.user_data.get('equipped_bait'):
-                    equip_button = Button(
-                        label=f"Equip {bait_name}",
-                        style=discord.ButtonStyle.green,
-                        custom_id=f"equip_bait_{bait_name}"
-                    )
-                    equip_button.callback = self.equip_bait
-                    self.add_item(equip_button)
+            bait_button = Button(
+                label="View Bait",
+                style=discord.ButtonStyle.blurple,
+                custom_id="view_bait"
+            )
+            bait_button.callback = self.view_bait
+            self.add_item(bait_button)
+            
+            fish_button = Button(
+                label="View Fish",
+                style=discord.ButtonStyle.blurple,
+                custom_id="view_fish"
+            )
+            fish_button.callback = self.view_fish
+            self.add_item(fish_button)
+            
+            # Add back button to main inventory page
+            back_button = Button(
+                label="Back to Menu",
+                style=discord.ButtonStyle.grey,
+                custom_id="menu"
+            )
+            back_button.callback = self.handle_button  # Use the new handler for navigation
+            self.add_item(back_button)
+            
+        else:
+            # Back button for sub-pages
+            back_button = Button(
+                label="Back",
+                style=discord.ButtonStyle.grey,
+                custom_id="back"
+            )
+            back_button.callback = self.back_to_main
+            self.add_item(back_button)
+            
+            if self.current_page == "fish" and self.user_data.get("inventory"):
+                sell_button = Button(
+                    label="Sell All Fish",
+                    style=discord.ButtonStyle.green,
+                    custom_id="sell_all"
+                )
+                sell_button.callback = self.sell_all_fish
+                self.add_item(sell_button)
+                
+            elif self.current_page == "rods":
+                # Add equip buttons for owned rods
+                for rod in self.user_data.get("purchased_rods", {}):
+                    if rod != self.user_data['rod']:  # Don't show for currently equipped rod
+                        equip_button = Button(
+                            label=f"Equip {rod}",
+                            style=discord.ButtonStyle.green,
+                            custom_id=f"equip_rod_{rod}"
+                        )
+                        equip_button.callback = self.equip_rod
+                        self.add_item(equip_button)
+                        
+            elif self.current_page == "bait":
+                # Add equip buttons for available bait
+                for bait_name, amount in self.user_data.get("bait", {}).items():
+                    if amount > 0 and bait_name != self.user_data.get('equipped_bait'):
+                        equip_button = Button(
+                            label=f"Equip {bait_name}",
+                            style=discord.ButtonStyle.green,
+                            custom_id=f"equip_bait_{bait_name}"
+                        )
+                        equip_button.callback = self.equip_bait
+                        self.add_item(equip_button)
 
     async def generate_embed(self) -> discord.Embed:
         """Generate the appropriate embed based on current page"""
