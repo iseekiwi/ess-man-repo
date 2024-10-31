@@ -1,14 +1,15 @@
 import discord
 import asyncio
 import os
-from .ui.inventory import InventoryView
-from .ui.shop import ShopView, PurchaseConfirmView
-from redbot.core import commands, Config, bank
-from redbot.core.bot import Red
 import random
 import datetime
-from collections import Counter
 import logging
+from .ui.inventory import InventoryView
+from .ui.shop import ShopView, PurchaseConfirmView
+from .utils.inventory_manager import InventoryManager
+from redbot.core import commands, Config, bank
+from redbot.core.bot import Red
+from collections import Counter
 from .data.fishing_data import (
     FISH_TYPES,
     ROD_TYPES,
@@ -100,11 +101,14 @@ class Fishing(commands.Cog):
             "time": TIME_EFFECTS,
             "events": EVENTS
         }
-    
+
+        # Initialize inventory manager
+        self.inventory = InventoryManager(bot, self.config, self.data)
+        
         # Initialize background tasks
         self.bg_tasks = []
         self.start_background_tasks()
-
+    
     async def _ensure_user_data(self, user) -> dict:
         """Ensure user data exists and is properly initialized."""
         try:
@@ -642,14 +646,8 @@ class Fishing(commands.Cog):
 
     async def _add_to_inventory(self, user, fish_name: str) -> bool:
         """Add fish to user's inventory."""
-        try:
-            async with self.config.user(user).inventory() as inventory:
-                inventory.append(fish_name)
-            logger.debug(f"Added {fish_name} to {user.name}'s inventory")
-            return True
-        except Exception as e:
-            logger.error(f"Error adding to inventory: {e}", exc_info=True)
-            return False
+        success, _ = await self.inventory.add_item(user.id, "fish", fish_name)
+        return success
 
     async def _update_total_value(self, user, value: int) -> bool:
         """Update total value and check for level up."""
@@ -873,36 +871,31 @@ class Fishing(commands.Cog):
     async def sell_fish(self, ctx: commands.Context) -> tuple[bool, int, str]:
         """Sell all fish in inventory and return status, amount earned, and message"""
         try:
-            user_data = await self._ensure_user_data(ctx.author)
-            if not user_data:
+            # Get inventory summary first
+            summary = await self.inventory.get_inventory_summary(ctx.author.id)
+            if not summary:
                 return False, 0, "Error accessing inventory data."
-    
-            inventory = user_data["inventory"]
-            if not inventory:
+            
+            if summary["fish_count"] == 0:
                 return False, 0, "You have no fish to sell."
-    
-            # Calculate total value (removed rod bonus)
-            total_value = sum(self.data["fish"][fish]["value"] for fish in inventory)
-    
-            try:
-                # Process sale atomically
-                async with self.config.user(ctx.author).inventory() as inventory:
-                    if not inventory:
-                        return False, 0, "You have no fish to sell."
-                    
-                    # Process payment first
-                    await bank.deposit_credits(ctx.author, total_value)
-                    
-                    # Clear inventory after successful payment
-                    inventory.clear()
-                
+            
+            total_value = summary["total_value"]
+            
+            # Process sale
+            success, msg = await self.inventory.remove_item(
+                ctx.author.id, 
+                "fish", 
+                None,  # Special case for removing all fish
+                summary["fish_count"]
+            )
+            
+            if success:
+                await bank.deposit_credits(ctx.author, total_value)
                 logger.info(f"User {ctx.author.name} sold fish for {total_value} coins")
                 return True, total_value, f"Successfully sold all fish for {total_value} coins!"
-    
-            except Exception as e:
-                logger.error(f"Error processing fish sale: {e}", exc_info=True)
-                return False, 0, "Error processing sale."
-    
+            
+            return False, 0, msg
+            
         except Exception as e:
             logger.error(f"Error in sell_fish: {e}", exc_info=True)
             return False, 0, "An error occurred while selling fish."
@@ -984,24 +977,12 @@ class Fishing(commands.Cog):
     async def add_item(self, ctx, item_type: str, member: discord.Member, item_name: str, amount: int = 1):
         """Add items to a user's inventory."""
         try:
-            item_type = item_type.lower()
-            
-            handlers = {
-                "fish": self._add_fish,
-                "bait": self._add_bait,
-                "rod": self._add_rod
-            }
-            
-            if item_type not in handlers:
-                await ctx.send("🚫 Invalid item type. Use `fish`, `bait`, or `rod`.")
-                return
-            
-            success, msg = await handlers[item_type](member, item_name, amount)
+            success, msg = await self.inventory.add_item(member.id, item_type.lower(), item_name, amount)
             await ctx.send(msg)
             
             if success:
                 logger.info(f"Admin {ctx.author.name} added {amount}x {item_name} ({item_type}) to {member.name}")
-
+                
         except Exception as e:
             logger.error(f"Error in add_item command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while adding items. Please try again.")
@@ -1011,24 +992,12 @@ class Fishing(commands.Cog):
     async def remove_item(self, ctx, item_type: str, member: discord.Member, item_name: str, amount: int = 1):
         """Remove items from a user's inventory."""
         try:
-            item_type = item_type.lower()
-            
-            handlers = {
-                "fish": self._remove_fish,
-                "bait": self._remove_bait,
-                "rod": self._remove_rod
-            }
-            
-            if item_type not in handlers:
-                await ctx.send("🚫 Invalid item type. Use `fish`, `bait`, or `rod`.")
-                return
-            
-            success, msg = await handlers[item_type](member, item_name, amount)
+            success, msg = await self.inventory.remove_item(member.id, item_type.lower(), item_name, amount)
             await ctx.send(msg)
             
             if success:
                 logger.info(f"Admin {ctx.author.name} removed {amount}x {item_name} ({item_type}) from {member.name}")
-
+                
         except Exception as e:
             logger.error(f"Error in remove_item command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while removing items. Please try again.")
@@ -1058,111 +1027,6 @@ class Fishing(commands.Cog):
         except Exception as e:
             logger.error(f"Error resetting shop stock: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while resetting shop stock. Please try again.")
-
-    # Admin helper methods
-    async def _add_fish(self, member: discord.Member, fish_name: str, amount: int) -> tuple[bool, str]:
-        """Add fish to user's inventory."""
-        try:
-            if fish_name not in self.data["fish"]:
-                return False, "🚫 Invalid fish type!"
-                
-            async with self.config.user(member).inventory() as inventory:
-                for _ in range(amount):
-                    inventory.append(fish_name)
-                    
-            return True, f"✅ Added {amount} {fish_name}(s) to {member.name}'s inventory."
-
-        except Exception as e:
-            logger.error(f"Error adding fish: {e}", exc_info=True)
-            return False, "❌ An error occurred while adding fish."
-
-    async def _add_bait(self, member: discord.Member, bait_name: str, amount: int) -> tuple[bool, str]:
-        """Add bait to user's inventory."""
-        try:
-            if bait_name not in self.data["bait"]:
-                return False, "🚫 Invalid bait type!"
-                
-            async with self.config.user(member).bait() as bait:
-                bait[bait_name] = bait.get(bait_name, 0) + amount
-                
-            return True, f"✅ Added {amount} {bait_name}(s) to {member.name}'s bait inventory."
-
-        except Exception as e:
-            logger.error(f"Error adding bait: {e}", exc_info=True)
-            return False, "❌ An error occurred while adding bait."
-
-    async def _add_rod(self, member: discord.Member, rod_name: str, _: int) -> tuple[bool, str]:
-        """Add rod to user's inventory."""
-        try:
-            if rod_name not in self.data["rods"]:
-                return False, "🚫 Invalid rod type!"
-                
-            async with self.config.user(member).purchased_rods() as purchased_rods:
-                purchased_rods[rod_name] = True
-                
-            return True, f"✅ Added {rod_name} to {member.name}'s purchased rods."
-
-        except Exception as e:
-            logger.error(f"Error adding rod: {e}", exc_info=True)
-            return False, "❌ An error occurred while adding rod."
-
-    async def _remove_fish(self, member: discord.Member, fish_name: str, amount: int) -> tuple[bool, str]:
-        """Remove fish from user's inventory."""
-        try:
-            if fish_name not in self.data["fish"]:
-                return False, "🚫 Invalid fish type!"
-                
-            async with self.config.user(member).inventory() as inventory:
-                fish_count = inventory.count(fish_name)
-                if fish_count < amount:
-                    return False, f"🚫 {member.name} does not have enough {fish_name} to remove."
-                    
-                for _ in range(amount):
-                    inventory.remove(fish_name)
-                    
-            return True, f"✅ Removed {amount} {fish_name}(s) from {member.name}'s inventory."
-
-        except Exception as e:
-            logger.error(f"Error removing fish: {e}", exc_info=True)
-            return False, "❌ An error occurred while removing fish."
-
-    async def _remove_bait(self, member: discord.Member, bait_name: str, amount: int) -> tuple[bool, str]:
-        """Remove bait from user's inventory."""
-        try:
-            if bait_name not in self.data["bait"]:
-                return False, "🚫 Invalid bait type!"
-                
-            async with self.config.user(member).bait() as bait:
-                if bait.get(bait_name, 0) < amount:
-                    return False, f"🚫 {member.name} does not have enough {bait_name} to remove."
-                    
-                bait[bait_name] -= amount
-                if bait[bait_name] <= 0:
-                    del bait[bait_name]
-                    
-            return True, f"✅ Removed {amount} {bait_name}(s) from {member.name}'s bait inventory."
-
-        except Exception as e:
-            logger.error(f"Error removing bait: {e}", exc_info=True)
-            return False, "❌ An error occurred while removing bait."
-
-    async def _remove_rod(self, member: discord.Member, rod_name: str, _: int) -> tuple[bool, str]:
-        """Remove rod from user's inventory."""
-        try:
-            if rod_name not in self.data["rods"]:
-                return False, "🚫 Invalid rod type!"
-                
-            async with self.config.user(member).purchased_rods() as purchased_rods:
-                if rod_name not in purchased_rods:
-                    return False, f"🚫 {member.name} does not have a {rod_name} to remove."
-                    
-                del purchased_rods[rod_name]
-                    
-            return True, f"✅ Removed {rod_name} from {member.name}'s purchased rods."
-
-        except Exception as e:
-            logger.error(f"Error removing rod: {e}", exc_info=True)
-            return False, "❌ An error occurred while removing rod."
 
 def setup(bot: Red):
     """Add the cog to the bot."""
