@@ -345,7 +345,10 @@ class FishingMenuView(BaseView):
                 description="Casting line...",
                 color=discord.Color.blue()
             )
-            await interaction.response.edit_message(embed=fishing_embed, view=self)
+            
+            # Initial response to the interaction
+            await interaction.response.defer()
+            await self.message.edit(embed=fishing_embed, view=self)
     
             # Wait for fish to bite
             await asyncio.sleep(random.uniform(2, 5))
@@ -381,6 +384,7 @@ class FishingMenuView(BaseView):
                     if bait[equipped_bait] <= 0:
                         del bait[equipped_bait]
                         await self.cog.config.user(self.ctx.author).equipped_bait.set(None)
+                        self.user_data["equipped_bait"] = None
     
                 if catch:
                     fish_name = catch["name"]
@@ -427,10 +431,16 @@ class FishingMenuView(BaseView):
             self.logger.error(f"Error starting fishing: {e}", exc_info=True)
             self.fishing_in_progress = False
             await self.initialize_view()
-            await interaction.followup.send(
-                "An error occurred while fishing. Please try again.",
-                ephemeral=True
-            )
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "An error occurred while fishing. Please try again.",
+                    ephemeral=True
+                )
+            else:
+                await interaction.followup.send(
+                    "An error occurred while fishing. Please try again.",
+                    ephemeral=True
+                )
 
     async def start(self):
         """Start the menu view"""
