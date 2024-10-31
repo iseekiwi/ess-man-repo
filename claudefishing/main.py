@@ -227,29 +227,34 @@ class Fishing(commands.Cog):
                 if new_location is None:
                     await ctx.send("📍 Please specify a location or use `!location list` to see available locations.")
                     return
-
-                if new_location not in self.data["locations"]:
+    
+                # Convert input to title case and find matching location
+                new_location_title = new_location.title()
+                location_map = {loc.lower(): loc for loc in self.data["locations"].keys()}
+                
+                if new_location.lower() not in location_map:
                     locations = "\n".join(f"- {loc}" for loc in self.data["locations"].keys())
                     await ctx.send(f"🌍 Available locations:\n{locations}")
                     return
-
+    
+                actual_location = location_map[new_location.lower()]
                 user_data = await self._ensure_user_data(ctx.author)
                 if not user_data:
                     logger.error(f"Failed to get user data for {ctx.author.name}")
                     await ctx.send("❌ Error accessing user data. Please try again.")
                     return
-
-                location_data = self.data["locations"][new_location]
+    
+                location_data = self.data["locations"][actual_location]
                 
                 meets_req, msg = await self.check_requirements(user_data, location_data["requirements"])
                 if not meets_req:
                     await ctx.send(msg)
                     return
-
-                await self.config.user(ctx.author).current_location.set(new_location)
-                await ctx.send(f"🌍 {ctx.author.name} is now fishing at: {new_location}\n{location_data['description']}")
-                logger.debug(f"User {ctx.author.name} moved to location: {new_location}")
-
+    
+                await self.config.user(ctx.author).current_location.set(actual_location)
+                await ctx.send(f"🌍 {ctx.author.name} is now fishing at: {actual_location}\n{location_data['description']}")
+                logger.debug(f"User {ctx.author.name} moved to location: {actual_location}")
+    
         except Exception as e:
             logger.error(f"Error in location command: {e}", exc_info=True)
             await ctx.send(f"An error occurred: {str(e)}\nPlease try again or contact an administrator.")
