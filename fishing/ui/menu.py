@@ -309,52 +309,52 @@ class FishingMenuView(BaseView):
             )
 
     async def start_fishing(self, interaction: discord.Interaction):
-    """Start the fishing process"""
-    try:
-        # Check bait
-        if not self.user_data["equipped_bait"]:
+        """Start the fishing process"""
+        try:
+            # Check bait
+            if not self.user_data["equipped_bait"]:
+                await interaction.followup.send(
+                    "🚫 You need to equip bait first! Use the Inventory menu to equip some bait.",
+                    ephemeral=True
+                )
+                return
+    
+            # Set fishing in progress
+            self.fishing_in_progress = True
+            await self.initialize_view()  # Update view to disable fishing button
+            embed = await self.generate_embed()
+            await self.message.edit(view=self)
+    
+            # Create initial fishing message
+            fishing_msg = await interaction.followup.send("🎣 Starting fishing...", wait=True)
+            
+            # Start fishing process using the new method
+            success, result_message = await self.cog.do_fishing(self.ctx, fishing_msg)
+            
+            # Send result
+            if fishing_msg:
+                try:
+                    await fishing_msg.edit(content=result_message)
+                except discord.NotFound:
+                    await self.ctx.send(result_message)
+            
+            # Reset fishing status
+            self.fishing_in_progress = False
+            await self.initialize_view()
+            
+            # Update user data after fishing
+            self.user_data = await self.cog.config.user(self.ctx.author).all()
+            embed = await self.generate_embed()
+            await self.message.edit(embed=embed, view=self)
+            
+        except Exception as e:
+            self.logger.error(f"Error starting fishing: {e}", exc_info=True)
+            self.fishing_in_progress = False
+            await self.initialize_view()
             await interaction.followup.send(
-                "🚫 You need to equip bait first! Use the Inventory menu to equip some bait.",
+                "An error occurred while fishing. Please try again.",
                 ephemeral=True
             )
-            return
-
-        # Set fishing in progress
-        self.fishing_in_progress = True
-        await self.initialize_view()  # Update view to disable fishing button
-        embed = await self.generate_embed()
-        await self.message.edit(view=self)
-
-        # Create initial fishing message
-        fishing_msg = await interaction.followup.send("🎣 Starting fishing...", wait=True)
-        
-        # Start fishing process using the new method
-        success, result_message = await self.cog.do_fishing(self.ctx, fishing_msg)
-        
-        # Send result
-        if fishing_msg:
-            try:
-                await fishing_msg.edit(content=result_message)
-            except discord.NotFound:
-                await self.ctx.send(result_message)
-        
-        # Reset fishing status
-        self.fishing_in_progress = False
-        await self.initialize_view()
-        
-        # Update user data after fishing
-        self.user_data = await self.cog.config.user(self.ctx.author).all()
-        embed = await self.generate_embed()
-        await self.message.edit(embed=embed, view=self)
-        
-    except Exception as e:
-        self.logger.error(f"Error starting fishing: {e}", exc_info=True)
-        self.fishing_in_progress = False
-        await self.initialize_view()
-        await interaction.followup.send(
-            "An error occurred while fishing. Please try again.",
-            ephemeral=True
-        )
 
     async def start(self):
         """Start the menu view"""
