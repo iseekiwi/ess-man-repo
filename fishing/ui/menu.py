@@ -1,15 +1,14 @@
-# ui/menu.py
-
+# menu.py
 import discord
 import logging
+import asyncio
+import random
+import datetime
 from typing import Dict, Optional
 from discord.ui import Button
 from .base import BaseView
 from ..utils.logging_config import setup_logging
 from .shop import ShopView
-from .inventory import InventoryView
-
-logger = setup_logging('menu')
 
 class FishingMenuView(BaseView):
     """Main menu interface for the fishing cog"""
@@ -229,13 +228,7 @@ class FishingMenuView(BaseView):
         try:
             custom_id = interaction.data["custom_id"]
             
-            if custom_id == "back":
-                self.current_page = "main"
-                await self.initialize_view()
-                embed = await self.generate_embed()
-                await interaction.response.edit_message(embed=embed, view=self)
-                
-            elif custom_id == "fish":
+            if custom_id == "fish":
                 if self.fishing_in_progress:
                     await interaction.response.send_message(
                         "You're already fishing!",
@@ -248,21 +241,29 @@ class FishingMenuView(BaseView):
                 await self.start_fishing(interaction)
                 
             elif custom_id in ["shop", "inventory"]:
-                # Initialize respective view
+                # Use dynamic import to avoid circular dependency
                 if custom_id == "shop":
                     self.shop_view = await ShopView(self.cog, self.ctx, self.user_data).setup()
                     embed = await self.shop_view.generate_embed()
-                    # Update the message and store it in the shop view
                     await interaction.response.edit_message(embed=embed, view=self.shop_view)
                     self.shop_view.message = await interaction.original_response()
-                else:
+                else:  # inventory
+                    # Import here to avoid circular import
+                    from .inventory import InventoryView
                     self.inventory_view = InventoryView(self.cog, self.ctx, self.user_data)
+                    await self.inventory_view.initialize_view()
                     embed = await self.inventory_view.generate_embed()
                     await interaction.response.edit_message(embed=embed, view=self.inventory_view)
                     self.inventory_view.message = await interaction.original_response()
-                    
+                
             elif custom_id in ["location", "weather"]:
                 self.current_page = custom_id
+                await self.initialize_view()
+                embed = await self.generate_embed()
+                await interaction.response.edit_message(embed=embed, view=self)
+                
+            elif custom_id == "back":
+                self.current_page = "main"
                 await self.initialize_view()
                 embed = await self.generate_embed()
                 await interaction.response.edit_message(embed=embed, view=self)
@@ -331,7 +332,7 @@ class FishingMenuView(BaseView):
             # Create initial fishing message
             fishing_msg = await interaction.followup.send("🎣 Starting fishing...", wait=True)
             
-            # Start fishing process using the new method
+            # Start fishing process using the cog's method
             success, result_message = await self.cog.do_fishing(self.ctx, fishing_msg)
             
             # Send result
