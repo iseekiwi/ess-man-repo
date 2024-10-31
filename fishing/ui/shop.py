@@ -144,7 +144,7 @@ class ShopView(BaseView):
                     style=discord.ButtonStyle.blurple,
                     custom_id="bait"
                 )
-                bait_button.callback = self.handle_button
+                bait_button.callback = self.handle_button  # Use the new handler
                 self.add_item(bait_button)
     
                 rod_button = Button(
