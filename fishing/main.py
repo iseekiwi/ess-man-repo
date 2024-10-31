@@ -432,7 +432,55 @@ class Fishing(commands.Cog):
         except Exception as e:
             logger.error(f"Error checking requirements: {e}", exc_info=True)
             return False, "❌ An error occurred while checking requirements."
+
+    @commands.command(name="weather")
+    async def check_weather(self, ctx):
+        """Check the current weather conditions for fishing."""
+        try:
+            current_weather = await self.config.current_weather()
+            weather_data = self.data["weather"][current_weather]
             
+            embed = discord.Embed(
+                title="🌤️ Current Fishing Weather",
+                description=f"**{current_weather}**\n{weather_data['description']}",
+                color=discord.Color.blue()
+            )
+            
+            # Add effects information
+            effects = []
+            if "catch_bonus" in weather_data:
+                percentage = int(weather_data["catch_bonus"] * 100)
+                effects.append(f"Catch rate: {percentage:+d}%")
+            if "rare_bonus" in weather_data:
+                percentage = int(weather_data["rare_bonus"] * 100)
+                effects.append(f"Rare fish chance: {percentage:+d}%")
+                
+            if effects:
+                embed.add_field(
+                    name="Current Effects",
+                    value="\n".join(effects),
+                    inline=False
+                )
+                
+            # Add location effects
+            affected_locations = weather_data.get("affects_locations", [])
+            if affected_locations:
+                embed.add_field(
+                    name="Affects Locations",
+                    value="\n".join(f"• {loc}" for loc in affected_locations),
+                    inline=False
+                )
+                
+            # Add footer showing when weather will change
+            embed.set_footer(text="Weather changes every hour")
+            
+            await ctx.send(embed=embed)
+            logger.debug(f"Weather check by {ctx.author.name}: {current_weather}")
+            
+        except Exception as e:
+            logger.error(f"Error in weather command: {e}", exc_info=True)
+            await ctx.send("❌ An error occurred while checking the weather. Please try again.")
+    
     # Core Fishing Commands
     @commands.command(name="fish")
     async def fish(self, ctx):
