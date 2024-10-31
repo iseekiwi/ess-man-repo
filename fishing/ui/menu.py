@@ -247,8 +247,9 @@ class FishingMenuView(BaseView):
                     color=discord.Color.blue()
                 )
                 
-                # Initial response
+                # Initial response and store the message reference
                 await interaction.response.edit_message(embed=fishing_embed, view=self)
+                self.message = await interaction.original_response()
                 await self.do_fishing(interaction)
                 return
                 
@@ -257,6 +258,7 @@ class FishingMenuView(BaseView):
                 menu_view = await self.cog.create_menu(self.ctx, self.user_data)
                 embed = await menu_view.generate_embed()
                 await interaction.response.edit_message(embed=embed, view=menu_view)
+                menu_view.message = await interaction.original_response()
                 return
                 
             elif custom_id in ["shop", "inventory"]:
@@ -280,19 +282,22 @@ class FishingMenuView(BaseView):
                 await self.initialize_view()
                 embed = await self.generate_embed()
                 await interaction.response.edit_message(embed=embed, view=self)
+                self.message = await interaction.original_response()
                 
             elif custom_id == "back":
                 self.current_page = "main"
                 await self.initialize_view()
                 embed = await self.generate_embed()
                 await interaction.response.edit_message(embed=embed, view=self)
+                self.message = await interaction.original_response()
                 
         except Exception as e:
             self.logger.error(f"Error handling button: {e}", exc_info=True)
-            await interaction.response.send_message(
-                "An error occurred. Please try again.",
-                ephemeral=True
-            )
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "An error occurred. Please try again.",
+                    ephemeral=True
+                )
 
     def get_time_of_day(self) -> str:
         """Helper method to get current time of day"""
