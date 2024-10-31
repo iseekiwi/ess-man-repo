@@ -859,7 +859,7 @@ class Fishing(commands.Cog):
 
     @commands.command(name="fisherboard")
     async def fisherboard(self, ctx):
-        """Display fishing leaderboard."""
+        """Display detailed fishing leaderboard in an embed."""
         try:
             all_users = await self.config.all_users()
             
@@ -867,37 +867,56 @@ class Fishing(commands.Cog):
             fisher_stats = [
                 (user_id, data["total_value"], data["fish_caught"])
                 for user_id, data in all_users.items()
-                if data["total_value"] > 0
+                if data["total_value"] > 0 or data["fish_caught"] > 0
             ]
             
             if not fisher_stats:
                 await ctx.send("🏆 The fisherboard is empty!")
                 return
-
+    
+            # Sort by total value (career earnings)
             fisher_stats.sort(key=lambda x: x[1], reverse=True)
             
-            # Build leaderboard display
-            board_entries = []
+            embed = discord.Embed(
+                title="🎣 Fishing Leaderboard",
+                description="Top fishers ranked by career earnings",
+                color=discord.Color.blue()
+            )
+    
+            # Process top 10 users
             for rank, (user_id, value, fish_caught) in enumerate(fisher_stats[:10], 1):
                 try:
                     user = await self.bot.fetch_user(user_id)
                     if user:
-                        board_entries.append(
-                            f"{rank}. {user.name}\n"
-                            f"   💰 {value:,} coins earned\n"
-                            f"   🐟 {fish_caught:,} fish caught\n"
+                        # Calculate catch rate (avoiding division by zero)
+                        total_casts = all_users[user_id].get("total_casts", fish_caught)  # Fallback if total_casts not tracked
+                        catch_rate = (fish_caught / total_casts * 100) if total_casts > 0 else 0
+                        
+                        # Format stats with thousands separators
+                        value_formatted = "{:,}".format(value)
+                        fish_formatted = "{:,}".format(fish_caught)
+                        
+                        # Create field for each user
+                        embed.add_field(
+                            name=f"#{rank} {user.name}",
+                            value=(
+                                f"💰 **{value_formatted}** coins\n"
+                                f"🐟 {fish_formatted} catches\n"
+                                f"📊 {catch_rate:.1f}% success rate"
+                            ),
+                            inline=False
                         )
                 except Exception as e:
                     logger.warning(f"Could not fetch user {user_id}: {e}")
                     continue
+    
+            # Add footer with total registered fishers
+            total_fishers = len(fisher_stats)
+            embed.set_footer(text=f"Total Registered Fishers: {total_fishers}")
             
-            if not board_entries:
-                await ctx.send("🏆 No valid leaderboard entries found.")
-                return
-
-            await ctx.send("🏆 **Fishing Leaderboard:**\n\n" + "\n".join(board_entries))
+            await ctx.send(embed=embed)
             logger.debug("Leaderboard displayed successfully")
-
+    
         except Exception as e:
             logger.error(f"Error displaying leaderboard: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while displaying the leaderboard. Please try again.")
