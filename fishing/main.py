@@ -98,7 +98,6 @@ class Fishing(commands.Cog):
             "locations": LOCATIONS,
             "weather": WEATHER_TYPES,
             "time": TIME_EFFECTS,
-            "events": EVENTS
         }
 
         # Initialize inventory manager
