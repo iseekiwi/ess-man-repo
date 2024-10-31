@@ -27,8 +27,8 @@ class Fishing(commands.Cog):
     def __init__(self, bot: Red):
         self.bot = bot
         # Set up logging first
-        self.self.logger = setup_logging('main')
-        self.self.logger.info("Initializing Fishing cog")
+        self.logger = setup_logging('main')
+        self.logger.info("Initializing Fishing cog")
         
         self.config = Config.get_conf(self, identifier=123456789)
             
