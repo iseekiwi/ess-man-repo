@@ -82,6 +82,12 @@ class Fishing(commands.Cog):
         # Initialize background tasks
         self.bg_task_manager = BackgroundTasks(bot, self.config, self.data)
         self.bg_task_manager.start_tasks()
+
+    async def create_menu(self, ctx, user_data):
+        """Create and setup a new menu view"""
+        from .ui.menu import FishingMenuView
+        menu_view = await FishingMenuView(self, ctx, user_data).setup()
+        return menu_view
     
     async def _ensure_user_data(self, user) -> dict:
         """Ensure user data exists and is properly initialized."""
