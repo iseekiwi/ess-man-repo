@@ -254,7 +254,7 @@ class InventoryView(BaseView):
                 await interaction.response.defer()
                 await self.update_view()
                 
-            except Exception as e:
+        except Exception as e:
             self.logger.error(f"Error in handle_button: {e}", exc_info=True)
             await interaction.response.send_message(
                 "An error occurred. Please try again.",
