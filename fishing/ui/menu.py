@@ -226,21 +226,33 @@ class FishingMenuView(BaseView):
     async def handle_button(self, interaction: discord.Interaction):
         """Handle button interactions"""
         try:
-            custom_id = interaction.data["custom_id"]
-            
-            if custom_id == "fish":
-                if self.fishing_in_progress:
-                    await interaction.response.send_message(
-                        "You're already fishing!",
-                        ephemeral=True
-                    )
-                    return
-                    
-                # Start fishing process
-                await interaction.response.defer()
-                await self.start_fishing(interaction)
+        custom_id = interaction.data["custom_id"]
+        
+        if custom_id == "fish":
+            if self.fishing_in_progress:
+                await interaction.response.send_message(
+                    "You're already fishing!",
+                    ephemeral=True
+                )
+                return
                 
-            elif custom_id in ["shop", "inventory"]:
+            # Start fishing process immediately with the interaction
+            self.fishing_in_progress = True
+            await self.initialize_view()
+            
+            # Create initial fishing embed
+            fishing_embed = discord.Embed(
+                title="🎣 Fishing in Progress",
+                description="Casting line...",
+                color=discord.Color.blue()
+            )
+            
+            # Initial response
+            await interaction.response.edit_message(embed=fishing_embed, view=self)
+            await self.do_fishing(interaction)
+            return
+            
+        elif custom_id in ["shop", "inventory"]:
                 # Use dynamic import to avoid circular dependency
                 if custom_id == "shop":
                     self.shop_view = await ShopView(self.cog, self.ctx, self.user_data).setup()
@@ -324,37 +336,29 @@ class FishingMenuView(BaseView):
         else:
             return "Night"
         
-    async def start_fishing(self, interaction: discord.Interaction):
-        """Start the fishing process within the menu embed"""
+    async def do_fishing(self, interaction: discord.Interaction):
+        """Handle the fishing process after initial interaction"""
         try:
-            # Check bait
             if not self.user_data["equipped_bait"]:
-                await interaction.response.send_message(
+                self.fishing_in_progress = False
+                await self.initialize_view()
+                await interaction.followup.send(
                     "🚫 You need to equip bait first! Use the Inventory menu to equip some bait.",
                     ephemeral=True
                 )
+                main_embed = await self.generate_embed()
+                await self.message.edit(embed=main_embed, view=self)
                 return
-    
-            # Set fishing in progress
-            self.fishing_in_progress = True
-            await self.initialize_view()  # Update view to disable fishing button
-            
-            # Create initial fishing embed
-            fishing_embed = discord.Embed(
-                title="🎣 Fishing in Progress",
-                description="Casting line...",
-                color=discord.Color.blue()
-            )
-            
-            # Initial response to the interaction
-            await interaction.response.defer()
-            await self.message.edit(embed=fishing_embed, view=self)
     
             # Wait for fish to bite
             await asyncio.sleep(random.uniform(2, 5))
             
             keyword = random.choice(["catch", "grab", "snag", "hook", "reel"])
-            fishing_embed.description = f"Quick! Type **{keyword}** to catch the fish!"
+            fishing_embed = discord.Embed(
+                title="🎣 Fishing in Progress",
+                description=f"Quick! Type **{keyword}** to catch the fish!",
+                color=discord.Color.blue()
+            )
             await self.message.edit(embed=fishing_embed)
     
             try:
@@ -428,20 +432,16 @@ class FishingMenuView(BaseView):
             await self.message.edit(embed=main_embed, view=self)
     
         except Exception as e:
-            self.logger.error(f"Error starting fishing: {e}", exc_info=True)
+            self.logger.error(f"Error in fishing process: {e}", exc_info=True)
             self.fishing_in_progress = False
             await self.initialize_view()
-            if not interaction.response.is_done():
-                await interaction.response.send_message(
-                    "An error occurred while fishing. Please try again.",
-                    ephemeral=True
-                )
-            else:
-                await interaction.followup.send(
-                    "An error occurred while fishing. Please try again.",
-                    ephemeral=True
-                )
-
+            await interaction.followup.send(
+                "An error occurred while fishing. Please try again.",
+                ephemeral=True
+            )
+            main_embed = await self.generate_embed()
+            await self.message.edit(embed=main_embed, view=self)
+    
     async def start(self):
         """Start the menu view"""
         embed = await self.generate_embed()
