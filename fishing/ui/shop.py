@@ -424,12 +424,15 @@ class ShopView(BaseView):
                 cost
             )
 
-            # Send confirmation message
+            # Send confirmation message and store the reference
             await interaction.response.send_message(
                 f"Confirm purchase of {quantity}x {item_name} for {total_cost} coins?",
                 view=confirm_view,
                 ephemeral=True
             )
+            
+            # Store message reference
+            confirm_view.message = await interaction.original_response()
             
             # Wait for confirmation
             await confirm_view.wait()
@@ -456,7 +459,9 @@ class ShopView(BaseView):
                     await self.initialize_view()
                     await self.update_view()
                 
-                await interaction.followup.send(msg, ephemeral=True)
+                # Send the result as a new ephemeral message
+                if not confirm_view.message.deleted:
+                    await interaction.followup.send(msg, ephemeral=True)
             
         except Exception as e:
             self.logger.error(f"Error in handle_purchase: {e}", exc_info=True)
