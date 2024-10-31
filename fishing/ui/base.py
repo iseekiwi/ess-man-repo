@@ -1,12 +1,12 @@
-# base.py
-
 import discord
+import logging
 from discord.ext import commands
 from discord.ui import View, Button
 from typing import Optional
-import logging
+from ..utils.logging_config import setup_logging
 
-logger = logging.getLogger("red.fishing.views")
+
+logger = setup_logging('base')
 
 class BaseView(View):
     """Enhanced base view class with improved error handling and logging"""
@@ -16,7 +16,7 @@ class BaseView(View):
         self.cog = cog
         self.ctx = ctx
         self.message: Optional[discord.Message] = None
-        self.logger = logging.getLogger("red.fishing.views")
+        self.logger = setup_logging('base.view')
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         """Enhanced interaction check with logging"""
