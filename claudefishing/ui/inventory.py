@@ -129,10 +129,7 @@ class InventoryView(BaseView):
             rods_text = []
             for rod in self.user_data.get("purchased_rods", {}):
                 rod_data = self.cog.data["rods"][rod]
-                stats = (
-                    f"Catch Bonus: +{rod_data['chance']*100}%\n"
-                    f"Value Bonus: +{rod_data['value_increase']}%"
-                )
+                stats = f"Catch Bonus: +{rod_data['chance']*100}%"
                 if rod == self.user_data['rod']:
                     rods_text.append(f"**{rod}** *(Equipped)*\n{stats}")
                 else:
