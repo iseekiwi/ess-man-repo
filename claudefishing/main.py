@@ -828,17 +828,14 @@ class Fishing(commands.Cog):
             user_data = await self._ensure_user_data(ctx.author)
             if not user_data:
                 return False, 0, "Error accessing inventory data."
-
+    
             inventory = user_data["inventory"]
             if not inventory:
                 return False, 0, "You have no fish to sell."
-
-            # Calculate total value with rod bonus
-            user_rod = user_data["rod"]
-            base_value = sum(self.data["fish"][fish]["value"] for fish in inventory)
-            value_multiplier = 1 + (self.data["rods"][user_rod]["value_increase"] / 100)
-            total_value = int(base_value * value_multiplier)
-
+    
+            # Calculate total value (removed rod bonus)
+            total_value = sum(self.data["fish"][fish]["value"] for fish in inventory)
+    
             try:
                 # Process sale atomically
                 async with self.config.user(ctx.author).inventory() as inventory:
@@ -853,15 +850,15 @@ class Fishing(commands.Cog):
                 
                 logger.info(f"User {ctx.author.name} sold fish for {total_value} coins")
                 return True, total_value, f"Successfully sold all fish for {total_value} coins!"
-
+    
             except Exception as e:
                 logger.error(f"Error processing fish sale: {e}", exc_info=True)
                 return False, 0, "Error processing sale."
-
+    
         except Exception as e:
             logger.error(f"Error in sell_fish: {e}", exc_info=True)
             return False, 0, "An error occurred while selling fish."
-
+            
     @commands.command(name="fisherboard")
     async def fisherboard(self, ctx):
         """Display detailed fishing leaderboard in an embed."""
