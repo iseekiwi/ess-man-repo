@@ -274,20 +274,10 @@ class InventoryView(BaseView):
         """Handle navigation button interactions"""
         try:
             custom_id = interaction.data["custom_id"]
-        
-        if custom_id == "menu":
-            # Import here to avoid circular import
-            from .menu import FishingMenuView
-            menu_view = await FishingMenuView(self.cog, self.ctx, self.user_data).setup()
-            embed = await menu_view.generate_embed()
-            await interaction.response.edit_message(embed=embed, view=menu_view)
-            return
-        try:
-            custom_id = interaction.data["custom_id"]
             
             if custom_id == "menu":
-                # Create new menu view and switch to it
-                from .menu import FishingMenuView  # Import here to avoid circular imports
+                # Import here to avoid circular import
+                from .menu import FishingMenuView
                 menu_view = await FishingMenuView(self.cog, self.ctx, self.user_data).setup()
                 embed = await menu_view.generate_embed()
                 await interaction.response.edit_message(embed=embed, view=menu_view)
