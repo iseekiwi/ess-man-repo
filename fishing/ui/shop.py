@@ -5,6 +5,7 @@ from discord.ui import Button, Select
 from redbot.core import bank
 from .base import BaseView
 from ..utils.logging_config import setup_logging
+from .menu import FishingMenuView
 
 logger = setup_logging('shop')
 
