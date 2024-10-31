@@ -6,6 +6,7 @@ import datetime
 import logging
 from .ui.inventory import InventoryView
 from .ui.shop import ShopView, PurchaseConfirmView
+from .ui.menu import FishingMenuView
 from .utils.inventory_manager import InventoryManager
 from .utils.logging_config import setup_logging
 from .utils.background_tasks import BackgroundTasks
@@ -386,12 +387,12 @@ class Fishing(commands.Cog):
             self.logger.error(f"Error in weather command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while checking the weather. Please try again.")
     
-    # Core Fishing Commands
+        # Core Fishing Commands
     @commands.command(name="fish")
     async def fish(self, ctx):
-        """Go fishing with a minigame challenge."""
+        """Open the fishing menu interface"""
         try:
-            self.logger.debug(f"Starting fishing command for {ctx.author.name}")
+            self.logger.debug(f"Opening fishing menu for {ctx.author.name}")
             
             # Ensure user data is properly initialized
             user_data = await self._ensure_user_data(ctx.author)
@@ -400,100 +401,21 @@ class Fishing(commands.Cog):
                 await ctx.send("❌ Error initializing user data. Please try again.")
                 return
             
-            # Validate bait
-            if not user_data["equipped_bait"]:
-                await ctx.send(f"🚫 {ctx.author.name}, you need to equip bait first! Use `!inventory` and equip some bait.")
-                return
-
-            bait = user_data.get("bait", {})
-            equipped_bait = user_data["equipped_bait"]
-            
-            if not bait.get(equipped_bait, 0):
-                await ctx.send(f"🚫 {ctx.author.name}, you need bait to fish! Visit the `!shop` to purchase some.")
-                return
-
-            # Get current conditions
-            current_weather = await self.config.current_weather()
-            hour = datetime.datetime.now().hour
-            time_of_day = (
-                "Dawn" if 5 <= hour < 7 
-                else "Day" if 7 <= hour < 17 
-                else "Dusk" if 17 <= hour < 19 
-                else "Night"
-            )
-            
-            self.logger.debug(f"Fishing conditions - Weather: {current_weather}, Time: {time_of_day}")
-
-            # Run fishing minigame
-            msg = await ctx.send("🎣 Fishing...")
-            await asyncio.sleep(random.uniform(3, 7))
-            
-            keyword = random.choice(["catch", "grab", "snag", "hook", "reel"])
-            await msg.edit(content=f"🎣 Quick! Type **{keyword}** to catch the fish!")
-
+            # Create and start the menu view
             try:
-                await self.bot.wait_for(
-                    'message',
-                    check=lambda m: (
-                        m.author == ctx.author and 
-                        m.content.lower() == keyword and 
-                        m.channel == ctx.channel
-                    ),
-                    timeout=5.0
-                )
-            except asyncio.TimeoutError:
-                await ctx.send(f"⏰ {ctx.author.name}, you took too long! The fish got away!")
+                view = await FishingMenuView(self, ctx, user_data).setup()
+                result = await view.start()
+                if not result:
+                    self.logger.error(f"Failed to start menu view for {ctx.author.name}")
+                    return
+            except Exception as e:
+                self.logger.error(f"Error creating menu view: {e}", exc_info=True)
+                await ctx.send("❌ Error displaying menu. Please try again.")
                 return
-
-            # Process catch
-            self.logger.debug(f"Processing catch for {ctx.author.name}")
-            catch = await self._catch_fish(
-                user_data,
-                equipped_bait,
-                user_data["current_location"],
-                current_weather,
-                time_of_day
-            )
-
-            # Update bait inventory
-            async with self.config.user(ctx.author).bait() as bait:
-                bait[equipped_bait] = bait.get(equipped_bait, 0) - 1
-                if bait[equipped_bait] <= 0:
-                    del bait[equipped_bait]
-                    await self.config.user(ctx.author).equipped_bait.set(None)
-                    self.logger.debug(f"Bait {equipped_bait} depleted for {ctx.author.name}")
-
-            if catch:
-                fish_name = catch["name"]
-                fish_value = catch["value"]
-                variant = random.choice(self.data["fish"][fish_name]["variants"])
-                
-                # Update user data
-                await self._add_to_inventory(ctx.author, fish_name)
-                await self._update_total_value(ctx.author, fish_value)
-                
-                # Update fish count
-                async with self.config.user(ctx.author).all() as user_data:
-                    user_data["fish_caught"] += 1
-                
-                # Format message
-                location = user_data["current_location"]
-                weather_effect = self.data["weather"][current_weather]["description"]
-                location_effect = self.data["locations"][location]["description"]
-                
-                await ctx.send(
-                    f"🎣 {ctx.author.name} caught a {variant} ({fish_name}) worth {fish_value} coins!\n"
-                    f"Location: {location} - {location_effect}\n"
-                    f"Weather: {current_weather} - {weather_effect}"
-                )
-                self.logger.debug(f"Successful catch for {ctx.author.name}: {fish_name} ({variant})")
-            else:
-                await ctx.send(f"🎣 {ctx.author.name} went fishing but didn't catch anything this time.")
-                self.logger.debug(f"Failed catch attempt for {ctx.author.name}")
                 
         except Exception as e:
             self.logger.error(f"Error in fish command: {e}", exc_info=True)
-            await ctx.send("❌ An error occurred while fishing. Please try again.")
+            await ctx.send("❌ An error occurred. Please try again.")
 
     async def _catch_fish(self, user_data: dict, bait_type: str, location: str, weather: str, time_of_day: str) -> dict:
         """Calculate catch results with all modifiers."""
