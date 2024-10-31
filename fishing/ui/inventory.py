@@ -17,7 +17,109 @@ class InventoryView(BaseView):
         self.user_data = user_data
         self.current_page = "main"
         self.logger = setup_logging('inventory.view')
-        
+
+    async def generate_embed(self) -> discord.Embed:
+        """Generate the appropriate embed based on current page"""
+        try:
+            self.logger.debug(f"Generating embed for page: {self.current_page}")
+            
+            if self.current_page == "main":
+                summary = await self.cog.inventory.get_inventory_summary(self.ctx.author.id)
+                if not summary:
+                    embed = discord.Embed(description="Error loading inventory data.")
+                    return embed
+                    
+                embed = discord.Embed(
+                    title=f"🎒 {self.ctx.author.display_name}'s Inventory",
+                    color=discord.Color.blue()
+                )
+                
+                # Currently equipped section
+                embed.add_field(
+                    name="Currently Equipped",
+                    value=(
+                        f"🎣 Rod: {summary['equipped_rod']}\n"
+                        f"🪱 Bait: {summary['equipped_bait'] or 'None'}"
+                    ),
+                    inline=False
+                )
+                
+                # Inventory summary section
+                embed.add_field(
+                    name="Summary",
+                    value=(
+                        f"🎣 Rods Owned: {summary['rod_count']}\n"
+                        f"🪱 Bait Available: {summary['bait_count']}\n"
+                        f"🐟 Fish Caught: {summary['fish_count']}\n"
+                        f"💰 Total Fish Value: {summary['total_value']} coins"
+                    ),
+                    inline=False
+                )
+                
+            elif self.current_page == "rods":
+                embed = discord.Embed(
+                    title="🎣 Your Fishing Rods",
+                    color=discord.Color.blue()
+                )
+                
+                rods_text = []
+                for rod in self.user_data.get("purchased_rods", {}):
+                    rod_data = self.cog.data["rods"][rod]
+                    stats = f"Catch Bonus: +{rod_data['chance']*100}%"
+                    
+                    if rod == self.user_data['rod']:
+                        rods_text.append(f"**{rod}** *(Equipped)*\n{stats}")
+                    else:
+                        rods_text.append(f"{rod}\n{stats}")
+                
+                embed.description = "\n\n".join(rods_text) or "No rods owned!"
+                
+            elif self.current_page == "bait":
+                embed = discord.Embed(
+                    title="🪱 Your Bait",
+                    color=discord.Color.blue()
+                )
+                
+                bait_text = []
+                for bait_name, amount in self.user_data.get("bait", {}).items():
+                    if amount > 0:
+                        bait_data = self.cog.data["bait"][bait_name]
+                        stats = f"Catch Bonus: +{bait_data['catch_bonus']*100}%"
+                        
+                        if bait_name == self.user_data.get('equipped_bait'):
+                            bait_text.append(f"**{bait_name}** (x{amount}) *(Equipped)*\n{stats}")
+                        else:
+                            bait_text.append(f"{bait_name} (x{amount})\n{stats}")
+                
+                embed.description = "\n\n".join(bait_text) or "No bait available!"
+                
+            elif self.current_page == "fish":
+                embed = discord.Embed(
+                    title="🐟 Your Caught Fish",
+                    color=discord.Color.blue()
+                )
+                
+                if not self.user_data.get("inventory"):
+                    embed.description = "No fish caught yet!"
+                else:
+                    fish_counts = Counter(self.user_data["inventory"])
+                    fish_text = []
+                    total_value = 0
+                    
+                    for fish, count in fish_counts.most_common():
+                        value = self.cog.data["fish"][fish]["value"] * count
+                        total_value += value
+                        fish_text.append(f"{fish}: x{count} (Worth: {value} coins)")
+                    
+                    embed.description = "\n".join(fish_text)
+                    embed.set_footer(text=f"Total Value: {total_value} coins")
+            
+            return embed
+            
+        except Exception as e:
+            self.logger.error(f"Error generating embed: {e}", exc_info=True)
+            return discord.Embed(description="Error generating inventory view.")
+
     async def start(self):
         """Start the inventory view"""
         try:
