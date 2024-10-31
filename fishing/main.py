@@ -7,6 +7,8 @@ import logging
 from .ui.inventory import InventoryView
 from .ui.shop import ShopView, PurchaseConfirmView
 from .utils.inventory_manager import InventoryManager
+from .utils.logging_config import setup_logging
+from .utils.background_tasks import BackgroundTasks
 from redbot.core import commands, Config, bank
 from redbot.core.bot import Red
 from collections import Counter
@@ -19,42 +21,15 @@ from .data.fishing_data import (
     TIME_EFFECTS,
 )
 
-import logging
-import sys
-from pathlib import Path
-
-# Create logs directory if it doesn't exist
-log_dir = Path(__file__).parent / "logs"
-log_dir.mkdir(exist_ok=True)
-
-# Define the log file path
-log_file_path = log_dir / "fishing_game.log"
-
-# Configure logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_file_path, encoding='utf-8'),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-
-# Create logger for this module
-logger = logging.getLogger('fishing.main')
-logger.setLevel(logging.DEBUG)
-
-# Test log message in cog initialization
-class Fishing(commands.Cog):
-    def __init__(self, bot: Red):
-        self.bot = bot
-        logger.info("Initializing Fishing cog")
-
 class Fishing(commands.Cog):
     """A fishing game cog for Redbot"""
 
     def __init__(self, bot: Red):
         self.bot = bot
+        # Set up logging first
+        self.logger = setup_logging('main')
+        self.logger.info("Initializing Fishing cog")
+        
         self.config = Config.get_conf(self, identifier=123456789)
             
         # Default user settings
@@ -104,8 +79,8 @@ class Fishing(commands.Cog):
         self.inventory = InventoryManager(bot, self.config, self.data)
         
         # Initialize background tasks
-        self.bg_tasks = []
-        self.start_background_tasks()
+        self.bg_task_manager = BackgroundTasks(bot, self.config, self.data)
+        self.bg_task_manager.start_tasks()
     
     async def _ensure_user_data(self, user) -> dict:
         """Ensure user data exists and is properly initialized."""
@@ -179,13 +154,9 @@ class Fishing(commands.Cog):
             logger.error(f"Error starting background tasks: {e}", exc_info=True)
 
     def cog_unload(self):
-        """Clean up background tasks when cog is unloaded."""
-        try:
-            for task in self.bg_tasks:
-                task.cancel()
-            logger.info("Background tasks cleaned up successfully")
-        except Exception as e:
-            logger.error(f"Error in cog_unload: {e}", exc_info=True)
+        """Clean up when cog is unloaded."""
+        self.bg_task_manager.cancel_tasks()
+        self.logger.info("Cog unloaded, background tasks cancelled")
 
     async def weather_change_task(self):
         """Periodically change the weather."""
