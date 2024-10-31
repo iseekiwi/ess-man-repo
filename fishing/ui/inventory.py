@@ -1,5 +1,6 @@
 import discord
 import logging
+from collections import Counter
 from typing import Dict
 from discord.ui import Button, View
 from collections import Counter
