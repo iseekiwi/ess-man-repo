@@ -92,9 +92,15 @@ class ShopView(BaseView):
         self.user_data = user_data
         self.current_page = "main"
         self.selected_quantity = 1
-        self.initialize_view()
+        # Remove direct initialization from __init__
+        # We'll call initialize_view through an async method
 
-    def initialize_view(self):
+    async def setup(self):
+        """Async setup method to initialize the view"""
+        await self.initialize_view()
+        return self
+
+    async def initialize_view(self):
         """Initialize the view based on current page"""
         self.clear_items()
         
@@ -144,10 +150,17 @@ class ShopView(BaseView):
                 # Add purchase buttons for available rods
                 for rod_name, rod_data in self.cog.data["rods"].items():
                     if rod_name != "Basic Rod" and rod_name not in self.user_data.get("purchased_rods", {}):
-                        meets_req, _ = await self.cog.check_requirements(
-                            self.user_data, 
-                            rod_data.get("requirements", {})
-                        )
+                        # Check requirements synchronously using the data we already have
+                        requirements = rod_data.get("requirements", {})
+                        meets_req = True
+                        if requirements:
+                            level_req = requirements.get("level", 1)
+                            fish_req = requirements.get("fish_caught", 0)
+                            meets_req = (
+                                self.user_data.get("level", 1) >= level_req and 
+                                self.user_data.get("fish_caught", 0) >= fish_req
+                            )
+                        
                         if meets_req:
                             purchase_button = discord.ui.Button(
                                 label=f"Buy {rod_name}",
