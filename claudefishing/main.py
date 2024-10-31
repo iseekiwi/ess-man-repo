@@ -19,18 +19,36 @@ from .data.fishing_data import (
     EVENTS
 )
 
-# Define the log file path, saving it in the same directory as your cog files
-log_file_path = os.path.join(os.path.dirname(__file__), "fishing_game.log")
+import logging
+import sys
+from pathlib import Path
 
+# Create logs directory if it doesn't exist
+log_dir = Path(__file__).parent / "logs"
+log_dir.mkdir(exist_ok=True)
+
+# Define the log file path
+log_file_path = log_dir / "fishing_game.log"
+
+# Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,  # Set this to DEBUG to capture all logs
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(log_file_path),  # Log file path updated here
-        logging.StreamHandler()  # Also print logs to the console
+        logging.FileHandler(log_file_path, encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)
     ]
 )
-logger = logging.getLogger('red.fishing')
+
+# Create logger for this module
+logger = logging.getLogger('fishing.main')
+logger.setLevel(logging.DEBUG)
+
+# Test log message in cog initialization
+class Fishing(commands.Cog):
+    def __init__(self, bot: Red):
+        self.bot = bot
+        logger.info("Initializing Fishing cog")
 
 class Fishing(commands.Cog):
     """A fishing game cog for Redbot"""
@@ -627,51 +645,55 @@ class Fishing(commands.Cog):
     async def shop(self, ctx: commands.Context):
         """Browse and purchase fishing supplies"""
         try:
-            logger.debug(f"Starting shop command for user {ctx.author.name}")
+            logger.info(f"Shop command invoked by {ctx.author.name}")
             
-            # Get user data with validation
+            # Get user data
             user_data = await self.config.user(ctx.author).all()
             if not user_data:
-                logger.error(f"Failed to retrieve user data for {ctx.author.name}")
-                await ctx.send("Error: Unable to retrieve your user data. Please try again.")
+                logger.error(f"No user data found for {ctx.author.name}")
+                await ctx.send("Error: Please try fishing first to initialize your account.")
                 return
                 
-            logger.debug(f"Retrieved user data: {user_data}")
+            # Initialize bait stock if not exists
+            if not hasattr(self, '_bait_stock'):
+                logger.debug("Initializing bait stock")
+                self._bait_stock = {
+                    bait: data["daily_stock"] 
+                    for bait, data in self.data["bait"].items()
+                }
             
-            # Verify required data structures
+            # Verify required data is loaded
             if not hasattr(self, 'data'):
-                logger.error("Cog data not properly initialized")
-                await ctx.send("Error: Shop data not properly initialized. Please contact an administrator.")
+                logger.error("Cog data not initialized")
+                await ctx.send("Error: Shop data not initialized. Please contact an administrator.")
                 return
-                
-            # Create and setup shop view
+            
+            # Create shop view
             try:
                 view = await ShopView(self, ctx, user_data).setup()
+                logger.debug("Shop view created successfully")
             except Exception as e:
-                logger.error(f"Failed to create ShopView: {str(e)}", exc_info=True)
+                logger.error(f"Error creating shop view: {e}", exc_info=True)
                 await ctx.send("Error: Unable to create shop interface. Please try again.")
                 return
             
-            # Generate initial embed
             try:
+                # Generate initial embed
                 embed = await view.generate_embed()
-            except Exception as e:
-                logger.error(f"Failed to generate embed: {str(e)}", exc_info=True)
-                await ctx.send("Error: Unable to display shop information. Please try again.")
-                return
-            
-            # Send the message and store it in the view
-            try:
+                logger.debug("Initial embed generated successfully")
+                
+                # Send the message and store it in the view
                 view.message = await ctx.send(embed=embed, view=view)
-                logger.debug("Shop view successfully created and displayed")
+                logger.info(f"Shop displayed successfully for {ctx.author.name}")
+                
             except Exception as e:
-                logger.error(f"Failed to send shop message: {str(e)}", exc_info=True)
-                await ctx.send("Error: Unable to display the shop. Please try again.")
+                logger.error(f"Error displaying shop: {e}", exc_info=True)
+                await ctx.send("Error: Unable to display shop information. Please try again later.")
                 return
                 
-        except Exception as exc:
-            logger.error(f"Unexpected error in shop command: {str(exc)}", exc_info=True)
-            await ctx.send("There was an error accessing the shop. Please try again.")
+        except Exception as e:
+            logger.error(f"Unexpected error in shop command: {e}", exc_info=True)
+            await ctx.send("An unexpected error occurred. Please try again later.")
     
     async def _handle_bait_purchase(self, user, bait_name: str, amount: int, user_data: dict) -> tuple[bool, str]:
         """Handle bait purchase logic."""
