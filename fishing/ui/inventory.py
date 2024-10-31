@@ -273,7 +273,7 @@ class InventoryView(BaseView):
     async def handle_button(self, interaction: discord.Interaction):
         """Handle navigation button interactions"""
         try:
-        custom_id = interaction.data["custom_id"]
+            custom_id = interaction.data["custom_id"]
         
         if custom_id == "menu":
             # Import here to avoid circular import
