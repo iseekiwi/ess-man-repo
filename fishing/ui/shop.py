@@ -320,6 +320,14 @@ class ShopView(BaseView):
             self.logger.debug(f"Handling button interaction: {interaction.data['custom_id']}")
             custom_id = interaction.data["custom_id"]
             
+            if custom_id == "menu":
+                # Create new menu view and switch to it
+                from .menu import FishingMenuView  # Import here to avoid circular imports
+                menu_view = await FishingMenuView(self.cog, self.ctx, self.user_data).setup()
+                embed = await menu_view.generate_embed()
+                await interaction.response.edit_message(embed=embed, view=menu_view)
+                return
+                
             if custom_id == "bait":
                 self.current_page = "bait"
             elif custom_id == "rods":
@@ -331,14 +339,13 @@ class ShopView(BaseView):
             await self.initialize_view()
             await interaction.response.defer()
             await self.update_view()
-            
+                
         except Exception as e:
             self.logger.error(f"Error in handle_button: {e}", exc_info=True)
             await interaction.response.send_message(
                 "An error occurred while navigating the shop. Please try again.",
                 ephemeral=True
             )
-
     async def handle_select(self, interaction: discord.Interaction):
         """Handle quantity selection"""
         try:
