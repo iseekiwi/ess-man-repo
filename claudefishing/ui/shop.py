@@ -261,6 +261,22 @@ class ShopView(BaseView):
         
         await interaction.response.send_message(msg, ephemeral=True)
 
+    async def handle_button(self, interaction: discord.Interaction):
+        """Handle button interactions"""
+        custom_id = interaction.data["custom_id"]
+        
+        if custom_id == "bait":
+            self.current_page = "bait"
+        elif custom_id == "rods":
+            self.current_page = "rods"
+        elif custom_id == "back":
+            self.current_page = "main"
+            self.selected_quantity = 1
+        
+        self.initialize_view()
+        await interaction.response.defer()
+        await self.update_view()
+    
     async def handle_select(self, interaction: discord.Interaction):
         """Handle quantity selection"""
         self.selected_quantity = int(interaction.data["values"][0])
