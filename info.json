@@ -1,8 +1,8 @@
 {
-    "author" : ["kiwi"],
+    "author" : ["iseekiwi"],
     "install_msg" : "epic cogs",
-    "name" : "xman-cogs",
-    "short" : "many cogs",
+    "name" : "iseekiwi-cogs",
+    "short" : "many epic cogs",
     "description" : "cogs",
 	"tags": [
 		"cog"
