@@ -87,13 +87,135 @@ class PurchaseConfirmView(BaseView):
             await self.message.edit(view=self)
 
 class ShopView(BaseView):
+    """View for the fishing shop interface"""
+    
     def __init__(self, cog, ctx, user_data: Dict):
         super().__init__(cog, ctx)
         self.user_data = user_data
         self.current_page = "main"
         self.selected_quantity = 1
+        self.current_balance = 0
         self.logger = logging.getLogger('fishing.shop')
         self.logger.debug(f"Initializing ShopView for user {ctx.author.name}")
+
+    async def setup(self):
+        """Async setup method to initialize the view"""
+        try:
+            self.logger.debug(f"Setting up ShopView for user {self.ctx.author.name}")
+            
+            # Verify user data
+            if not self.user_data:
+                self.logger.error(f"User data is empty for {self.ctx.author.name}")
+                raise ValueError("User data is missing")
+                
+            # Verify cog data is accessible
+            if not hasattr(self.cog, 'data'):
+                self.logger.error("Cog data not accessible")
+                raise ValueError("Cog data not accessible")
+                
+            # Initialize bait stock if needed
+            if not hasattr(self.cog, '_bait_stock'):
+                self.logger.debug("Initializing bait stock")
+                self.cog._bait_stock = {
+                    bait: data["daily_stock"] 
+                    for bait, data in self.cog.data["bait"].items()
+                }
+            
+            await self.initialize_view()
+            self.logger.debug("ShopView setup completed successfully")
+            return self
+            
+        except Exception as e:
+            self.logger.error(f"Error in ShopView setup: {str(e)}", exc_info=True)
+            raise
+
+    async def initialize_view(self):
+        """Initialize the view based on current page"""
+        try:
+            self.logger.debug(f"Initializing view for page: {self.current_page}")
+            self.clear_items()
+            
+            if self.current_page == "main":
+                self.logger.debug("Setting up main page buttons")
+                bait_button = discord.ui.Button(
+                    label="Buy Bait",
+                    style=discord.ButtonStyle.blurple,
+                    custom_id="bait"
+                )
+                bait_button.callback = self.handle_button
+                self.add_item(bait_button)
+
+                rod_button = discord.ui.Button(
+                    label="Buy Rods",
+                    style=discord.ButtonStyle.blurple,
+                    custom_id="rods"
+                )
+                rod_button.callback = self.handle_button
+                self.add_item(rod_button)
+                
+            else:
+                self.logger.debug("Setting up back button")
+                back_button = discord.ui.Button(
+                    label="Back",
+                    style=discord.ButtonStyle.grey,
+                    custom_id="back"
+                )
+                back_button.callback = self.handle_button
+                self.add_item(back_button)
+                
+                if self.current_page == "bait":
+                    self.logger.debug("Setting up bait page")
+                    quantity_select = QuantitySelect()
+                    quantity_select.callback = self.handle_select
+                    self.add_item(quantity_select)
+
+                    for bait_name, bait_data in self.cog.data["bait"].items():
+                        stock = self.cog._bait_stock.get(bait_name, 0)
+                        self.logger.debug(f"Bait {bait_name} stock: {stock}")
+                        if stock > 0:
+                            purchase_button = discord.ui.Button(
+                                label=f"Buy {bait_name}",
+                                style=discord.ButtonStyle.green,
+                                custom_id=f"buy_{bait_name}"
+                            )
+                            purchase_button.callback = self.handle_purchase
+                            self.add_item(purchase_button)
+
+                elif self.current_page == "rods":
+                    self.logger.debug("Setting up rods page")
+                    for rod_name, rod_data in self.cog.data["rods"].items():
+                        if rod_name == "Basic Rod":
+                            continue
+                            
+                        if rod_name in self.user_data.get("purchased_rods", {}):
+                            self.logger.debug(f"Rod {rod_name} already owned")
+                            continue
+
+                        requirements = rod_data.get("requirements", {})
+                        level_req = requirements.get("level", 1)
+                        fish_req = requirements.get("fish_caught", 0)
+                        
+                        user_level = self.user_data.get("level", 1)
+                        user_fish = self.user_data.get("fish_caught", 0)
+                        
+                        self.logger.debug(f"Checking requirements for {rod_name}: "
+                                        f"Level {user_level}/{level_req}, "
+                                        f"Fish {user_fish}/{fish_req}")
+                        
+                        if user_level >= level_req and user_fish >= fish_req:
+                            purchase_button = discord.ui.Button(
+                                label=f"Buy {rod_name}",
+                                style=discord.ButtonStyle.green,
+                                custom_id=f"buy_{rod_name}"
+                            )
+                            purchase_button.callback = self.handle_purchase
+                            self.add_item(purchase_button)
+
+            self.logger.debug("View initialization completed successfully")
+            
+        except Exception as e:
+            self.logger.error(f"Error in initialize_view: {str(e)}", exc_info=True)
+            raise
 
     async def generate_embed(self) -> discord.Embed:
         """Generate the appropriate embed based on current page"""
@@ -129,11 +251,6 @@ class ShopView(BaseView):
                 embed.title = "🪱 Bait Shop"
                 bait_list = []
                 
-                # Verify bait data exists
-                if not hasattr(self.cog, 'data') or 'bait' not in self.cog.data:
-                    self.logger.error("Bait data not found in cog")
-                    raise ValueError("Shop data not properly initialized")
-                
                 for bait_name, bait_data in self.cog.data["bait"].items():
                     stock = self.cog._bait_stock.get(bait_name, 0)
                     status = "📦 Stock: {}".format(stock) if stock > 0 else "❌ Out of stock!"
@@ -151,11 +268,6 @@ class ShopView(BaseView):
                 self.logger.debug("Generating rods page embed")
                 embed.title = "🎣 Rod Shop"
                 rod_list = []
-                
-                # Verify rod data exists
-                if not hasattr(self.cog, 'data') or 'rods' not in self.cog.data:
-                    self.logger.error("Rod data not found in cog")
-                    raise ValueError("Shop data not properly initialized")
                 
                 for rod_name, rod_data in self.cog.data["rods"].items():
                     if rod_name == "Basic Rod":
@@ -179,7 +291,10 @@ class ShopView(BaseView):
                 embed.description = "\n".join(rod_list) if rod_list else "No rods available!"
 
             # Add footer with balance
-            embed.set_footer(text=f"Your balance: {self.current_balance} {currency_name}")
+            if self.current_page == "bait" and self.selected_quantity > 1:
+                embed.set_footer(text=f"Your balance: {self.current_balance} {currency_name} | Quantity: {self.selected_quantity}")
+            else:
+                embed.set_footer(text=f"Your balance: {self.current_balance} {currency_name}")
             
             self.logger.debug("Embed generated successfully")
             return embed
@@ -188,128 +303,49 @@ class ShopView(BaseView):
             self.logger.error(f"Error generating embed: {str(e)}", exc_info=True)
             raise
 
-    async def setup(self):
-        """Async setup method to initialize the view"""
+    async def handle_button(self, interaction: discord.Interaction):
+        """Handle navigation button interactions"""
         try:
-            logger.debug(f"Setting up ShopView for user {self.ctx.author.name}")
+            self.logger.debug(f"Handling button interaction: {interaction.data['custom_id']}")
+            custom_id = interaction.data["custom_id"]
             
-            # Verify user data
-            if not self.user_data:
-                logger.error(f"User data is empty for {self.ctx.author.name}")
-                raise ValueError("User data is missing")
-                
-            # Verify cog data is accessible
-            if not hasattr(self.cog, 'data'):
-                logger.error("Cog data not accessible")
-                raise ValueError("Cog data not accessible")
-                
-            # Initialize bait stock if needed
-            if not hasattr(self.cog, '_bait_stock'):
-                logger.debug("Initializing bait stock")
-                self.cog._bait_stock = {
-                    bait: data["daily_stock"] 
-                    for bait, data in self.cog.data["bait"].items()
-                }
+            if custom_id == "bait":
+                self.current_page = "bait"
+            elif custom_id == "rods":
+                self.current_page = "rods"
+            elif custom_id == "back":
+                self.current_page = "main"
+                self.selected_quantity = 1
             
             await self.initialize_view()
-            logger.debug("ShopView setup completed successfully")
-            return self
+            await interaction.response.defer()
+            await self.update_view()
             
         except Exception as e:
-            logger.error(f"Error in ShopView setup: {str(e)}", exc_info=True)
-            raise
+            self.logger.error(f"Error in handle_button: {e}", exc_info=True)
+            await interaction.response.send_message(
+                "An error occurred while navigating the shop. Please try again.",
+                ephemeral=True
+            )
 
-    async def initialize_view(self):
-        """Initialize the view based on current page"""
+    async def handle_select(self, interaction: discord.Interaction):
+        """Handle quantity selection"""
         try:
-            logger.debug(f"Initializing view for page: {self.current_page}")
-            self.clear_items()
-            
-            if self.current_page == "main":
-                logger.debug("Setting up main page buttons")
-                bait_button = discord.ui.Button(
-                    label="Buy Bait",
-                    style=discord.ButtonStyle.blurple,
-                    custom_id="bait"
-                )
-                bait_button.callback = self.handle_button
-                self.add_item(bait_button)
-
-                rod_button = discord.ui.Button(
-                    label="Buy Rods",
-                    style=discord.ButtonStyle.blurple,
-                    custom_id="rods"
-                )
-                rod_button.callback = self.handle_button
-                self.add_item(rod_button)
-                
-            else:
-                logger.debug("Setting up back button")
-                back_button = discord.ui.Button(
-                    label="Back",
-                    style=discord.ButtonStyle.grey,
-                    custom_id="back"
-                )
-                back_button.callback = self.handle_button
-                self.add_item(back_button)
-                
-                if self.current_page == "bait":
-                    logger.debug("Setting up bait page")
-                    quantity_select = QuantitySelect()
-                    quantity_select.callback = self.handle_select
-                    self.add_item(quantity_select)
-
-                    for bait_name, bait_data in self.cog.data["bait"].items():
-                        stock = self.cog._bait_stock.get(bait_name, 0)
-                        logger.debug(f"Bait {bait_name} stock: {stock}")
-                        if stock > 0:
-                            purchase_button = discord.ui.Button(
-                                label=f"Buy {bait_name}",
-                                style=discord.ButtonStyle.green,
-                                custom_id=f"buy_{bait_name}"
-                            )
-                            purchase_button.callback = self.handle_purchase
-                            self.add_item(purchase_button)
-
-                elif self.current_page == "rods":
-                    logger.debug("Setting up rods page")
-                    for rod_name, rod_data in self.cog.data["rods"].items():
-                        if rod_name == "Basic Rod":
-                            continue
-                            
-                        if rod_name in self.user_data.get("purchased_rods", {}):
-                            logger.debug(f"Rod {rod_name} already owned")
-                            continue
-
-                        requirements = rod_data.get("requirements", {})
-                        level_req = requirements.get("level", 1)
-                        fish_req = requirements.get("fish_caught", 0)
-                        
-                        user_level = self.user_data.get("level", 1)
-                        user_fish = self.user_data.get("fish_caught", 0)
-                        
-                        logger.debug(f"Checking requirements for {rod_name}: "
-                                   f"Level {user_level}/{level_req}, "
-                                   f"Fish {user_fish}/{fish_req}")
-                        
-                        if user_level >= level_req and user_fish >= fish_req:
-                            purchase_button = discord.ui.Button(
-                                label=f"Buy {rod_name}",
-                                style=discord.ButtonStyle.green,
-                                custom_id=f"buy_{rod_name}"
-                            )
-                            purchase_button.callback = self.handle_purchase
-                            self.add_item(purchase_button)
-
-            logger.debug("View initialization completed successfully")
-            
+            self.logger.debug(f"Handling quantity selection: {interaction.data['values'][0]}")
+            self.selected_quantity = int(interaction.data["values"][0])
+            await interaction.response.defer()
+            await self.update_view()
         except Exception as e:
-            logger.error(f"Error in initialize_view: {str(e)}", exc_info=True)
-            raise
+            self.logger.error(f"Error in handle_select: {e}", exc_info=True)
+            await interaction.response.send_message(
+                "An error occurred while selecting quantity. Please try again.",
+                ephemeral=True
+            )
 
     async def handle_purchase(self, interaction: discord.Interaction):
         """Handle purchase button interactions"""
         try:
+            self.logger.debug(f"Starting purchase process for interaction: {interaction.data['custom_id']}")
             custom_id = interaction.data["custom_id"]
             item_name = custom_id.replace("buy_", "")
             
@@ -330,6 +366,8 @@ class ShopView(BaseView):
                 cost = self.cog.data["rods"][item_name]["cost"]
                 quantity = 1
             
+            total_cost = cost * quantity
+            
             # Create confirmation view
             confirm_view = PurchaseConfirmView(
                 self.cog,
@@ -341,7 +379,7 @@ class ShopView(BaseView):
 
             # Send confirmation message
             await interaction.response.send_message(
-                f"Confirm purchase of {quantity}x {item_name} for {cost * quantity} coins?",
+                f"Confirm purchase of {quantity}x {item_name} for {total_cost} coins?",
                 view=confirm_view,
                 ephemeral=True
             )
@@ -368,56 +406,25 @@ class ShopView(BaseView):
                 if success:
                     # Refresh user data and view after successful purchase
                     self.user_data = await self.cog.config.user(self.ctx.author).all()
-                    self.initialize_view()
+                    await self.initialize_view()
                     await self.update_view()
                 
                 await interaction.followup.send(msg, ephemeral=True)
             
         except Exception as e:
-            logger.error(f"Error in handle_purchase: {e}", exc_info=True)
+            self.logger.error(f"Error in handle_purchase: {e}", exc_info=True)
             await interaction.followup.send(
                 "An error occurred while processing your purchase. Please try again.",
                 ephemeral=True
             )
 
-    async def handle_button(self, interaction: discord.Interaction):
-        """Handle navigation button interactions"""
-        try:
-            custom_id = interaction.data["custom_id"]
-            
-            if custom_id == "bait":
-                self.current_page = "bait"
-            elif custom_id == "rods":
-                self.current_page = "rods"
-            elif custom_id == "back":
-                self.current_page = "main"
-                self.selected_quantity = 1
-            
-            self.initialize_view()
-            await interaction.response.defer()
-            await self.update_view()
-            
-        except Exception as e:
-            logger.error(f"Error in handle_button: {e}", exc_info=True)
-            await interaction.response.send_message(
-                "An error occurred while navigating the shop. Please try again.",
-                ephemeral=True
-            )
-    
-    async def handle_select(self, interaction: discord.Interaction):
-        """Handle quantity selection"""
-        try:
-            self.selected_quantity = int(interaction.data["values"][0])
-            await interaction.response.defer()
-            await self.update_view()
-        except Exception as e:
-            logger.error(f"Error in handle_select: {e}", exc_info=True)
-            await interaction.response.send_message(
-                "An error occurred while selecting quantity. Please try again.",
-                ephemeral=True
-            )
-
     async def update_view(self):
         """Update the message with current embed and view"""
-        embed = await self.generate_embed()
-        await self.message.edit(embed=embed, view=self)
+        try:
+            self.logger.debug("Updating view")
+            embed = await self.generate_embed()
+            await self.message.edit(embed=embed, view=self)
+            self.logger.debug("View updated successfully")
+        except Exception as e:
+            self.logger.error(f"Error updating view: {e}", exc_info=True)
+            raise
