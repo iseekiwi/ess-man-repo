@@ -138,15 +138,15 @@ class ShopView(BaseView):
             
             if self.current_page == "main":
                 self.logger.debug("Setting up main page buttons")
-                bait_button = discord.ui.Button(
+                bait_button = Button(
                     label="Buy Bait",
                     style=discord.ButtonStyle.blurple,
                     custom_id="bait"
                 )
                 bait_button.callback = self.handle_button
                 self.add_item(bait_button)
-
-                rod_button = discord.ui.Button(
+    
+                rod_button = Button(
                     label="Buy Rods",
                     style=discord.ButtonStyle.blurple,
                     custom_id="rods"
@@ -154,9 +154,18 @@ class ShopView(BaseView):
                 rod_button.callback = self.handle_button
                 self.add_item(rod_button)
                 
+                # Add back button to main shop page
+                back_button = Button(
+                    label="Back to Menu",
+                    style=discord.ButtonStyle.grey,
+                    custom_id="menu"
+                )
+                back_button.callback = self.handle_button
+                self.add_item(back_button)
+                
             else:
                 self.logger.debug("Setting up back button")
-                back_button = discord.ui.Button(
+                back_button = Button(
                     label="Back",
                     style=discord.ButtonStyle.grey,
                     custom_id="back"
@@ -169,19 +178,19 @@ class ShopView(BaseView):
                     quantity_select = QuantitySelect()
                     quantity_select.callback = self.handle_select
                     self.add_item(quantity_select)
-
+    
                     for bait_name, bait_data in self.cog.data["bait"].items():
                         stock = self.cog._bait_stock.get(bait_name, 0)
                         self.logger.debug(f"Bait {bait_name} stock: {stock}")
                         if stock > 0:
-                            purchase_button = discord.ui.Button(
+                            purchase_button = Button(
                                 label=f"Buy {bait_name}",
                                 style=discord.ButtonStyle.green,
                                 custom_id=f"buy_{bait_name}"
                             )
                             purchase_button.callback = self.handle_purchase
                             self.add_item(purchase_button)
-
+    
                 elif self.current_page == "rods":
                     self.logger.debug("Setting up rods page")
                     for rod_name, rod_data in self.cog.data["rods"].items():
@@ -191,7 +200,7 @@ class ShopView(BaseView):
                         if rod_name in self.user_data.get("purchased_rods", {}):
                             self.logger.debug(f"Rod {rod_name} already owned")
                             continue
-
+    
                         requirements = rod_data.get("requirements", {})
                         level_req = requirements.get("level", 1)
                         fish_req = requirements.get("fish_caught", 0)
@@ -204,7 +213,7 @@ class ShopView(BaseView):
                                         f"Fish {user_fish}/{fish_req}")
                         
                         if user_level >= level_req and user_fish >= fish_req:
-                            purchase_button = discord.ui.Button(
+                            purchase_button = Button(
                                 label=f"Buy {rod_name}",
                                 style=discord.ButtonStyle.green,
                                 custom_id=f"buy_{rod_name}"
