@@ -206,9 +206,8 @@ class InventoryView(BaseView):
             custom_id = interaction.data["custom_id"]
             
             if custom_id == "menu":
-                # Import here to avoid circular import
-                from .menu import FishingMenuView
-                menu_view = await FishingMenuView(self.cog, self.ctx, self.user_data).setup()
+                # Instead of importing FishingMenuView, use cog's create_menu method
+                menu_view = await self.cog.create_menu(self.ctx, self.user_data)
                 embed = await menu_view.generate_embed()
                 await interaction.response.edit_message(embed=embed, view=menu_view)
                 return
@@ -255,7 +254,7 @@ class InventoryView(BaseView):
                 await interaction.response.defer()
                 await self.update_view()
                 
-        except Exception as e:
+            except Exception as e:
             self.logger.error(f"Error in handle_button: {e}", exc_info=True)
             await interaction.response.send_message(
                 "An error occurred. Please try again.",
