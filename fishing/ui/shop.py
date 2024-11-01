@@ -486,11 +486,18 @@ class ShopView(BaseView):
                     )
     
                 if success:
+                    # Refresh user data from config
                     user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
                     if user_data_result.success:
+                        # Update the view's user data
                         self.user_data = user_data_result.data
+                        # Force refresh the cache
+                        await self.cog.config_manager.refresh_cache(self.ctx.author.id)
+                        # Reinitialize the view with new data
                         await self.initialize_view()
+                        # Update the display
                         await self.update_view()
+
                 
                 # Always show the result message
                 message = await interaction.followup.send(msg, ephemeral=True, wait=True)
@@ -527,6 +534,11 @@ class ShopView(BaseView):
         """Update the message with current embed and view"""
         try:
             self.logger.debug("Updating view")
+            # Refresh user data before updating
+            user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+            if user_data_result.success:
+                self.user_data = user_data_result.data
+            
             embed = await self.generate_embed()
             await self.message.edit(embed=embed, view=self)
             self.logger.debug("View updated successfully")
