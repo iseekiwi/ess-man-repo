@@ -5,6 +5,7 @@ from typing import Dict, Optional, Tuple, List
 from redbot.core.bot import Red
 from redbot.core import Config
 from ..utils.logging_config import get_logger
+from ..utils.config_manager import ConfigManager
 
 logger = get_logger('inventory_manager')
 
