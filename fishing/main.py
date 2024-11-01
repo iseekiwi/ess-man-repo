@@ -556,7 +556,7 @@ class Fishing(commands.Cog):
             if not await self._can_afford(user, total_cost):
                 return False, f"🚫 You don't have enough coins! Cost: {total_cost}"
             
-            # Use atomic operation for stock check and update
+            # Use atomic operation for the entire purchase process
             async with self.config.bait_stock() as bait_stock:
                 current_stock = bait_stock.get(bait_name, 0)
                 if current_stock < amount:
