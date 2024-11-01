@@ -1,4 +1,5 @@
 import discord
+import asyncio
 import logging
 from collections import Counter
 from typing import Dict
@@ -206,7 +207,6 @@ class InventoryView(BaseView):
             custom_id = interaction.data["custom_id"]
             
             if custom_id == "menu":
-                # Instead of importing FishingMenuView, use cog's create_menu method
                 menu_view = await self.cog.create_menu(self.ctx, self.user_data)
                 embed = await menu_view.generate_embed()
                 await interaction.response.edit_message(embed=embed, view=menu_view)
@@ -223,12 +223,10 @@ class InventoryView(BaseView):
                     self.user_data = await self.cog.config.user(self.ctx.author).all()
                     await interaction.response.defer()
                     await self.update_view()
-                    temp_msg = await interaction.followup.send(msg, ephemeral=True)
-                    await asyncio.sleep(2)
-                    try:
-                        await temp_msg.delete()
-                    except discord.NotFound:
-                        pass
+                    
+                # Send ephemeral message and schedule deletion
+                await interaction.followup.send(msg, ephemeral=True)
+                self.bot.loop.create_task(self.delete_after_delay(interaction))
                 
             elif custom_id.startswith("equip_rod_"):
                 rod_name = custom_id.replace("equip_rod_", "")
@@ -238,12 +236,8 @@ class InventoryView(BaseView):
                     self.user_data["rod"] = rod_name
                     await interaction.response.defer()
                     await self.update_view()
-                    temp_msg = await interaction.followup.send(msg, ephemeral=True)
-                    await asyncio.sleep(2)
-                    try:
-                        await temp_msg.delete()
-                    except discord.NotFound:
-                        pass
+                    await interaction.followup.send(msg, ephemeral=True)
+                    self.bot.loop.create_task(self.delete_after_delay(interaction))
                 else:
                     await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
                     
@@ -255,12 +249,8 @@ class InventoryView(BaseView):
                     self.user_data["equipped_bait"] = bait_name
                     await interaction.response.defer()
                     await self.update_view()
-                    temp_msg = await interaction.followup.send(msg, ephemeral=True)
-                    await asyncio.sleep(2)
-                    try:
-                        await temp_msg.delete()
-                    except discord.NotFound:
-                        pass
+                    await interaction.followup.send(msg, ephemeral=True)
+                    self.bot.loop.create_task(self.delete_after_delay(interaction))
                 else:
                     await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
                     
@@ -268,16 +258,31 @@ class InventoryView(BaseView):
                 self.current_page = custom_id
                 await interaction.response.defer()
                 await self.update_view()
-            
+                
         except Exception as e:
             self.logger.error(f"Error in handle_button: {e}", exc_info=True)
-            # Only send error message if interaction hasn't been responded to
             if not interaction.response.is_done():
                 await interaction.response.send_message(
                     "An error occurred. Please try again.",
                     ephemeral=True,
                     delete_after=2
                 )
+
+    async def delete_after_delay(self, interaction: discord.Interaction):
+        """Helper method to delete a message after a delay"""
+        try:
+            await asyncio.sleep(2)  # Wait 2 seconds
+            # Get the most recent followup message
+            webhook = interaction.followup
+            async for message in webhook.history(limit=1):
+                try:
+                    await message.delete()
+                except discord.NotFound:
+                    pass  # Message already deleted
+                except Exception as e:
+                    self.logger.error(f"Error deleting message: {e}")
+        except Exception as e:
+            self.logger.error(f"Error in delete_after_delay: {e}")
 
     async def update_view(self):
         """Update the message with current embed and view"""
