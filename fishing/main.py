@@ -576,44 +576,39 @@ class Fishing(commands.Cog):
             total_cost = bait_data["cost"] * amount
             self.logger.debug(f"Total cost: {total_cost} coins")
             
-            # Check stock
-            bait_stock = await self.config.bait_stock()
-            self.logger.debug(f"Current bait stock: {bait_stock}")
-            if bait_stock[bait_name] < amount:
-                self.logger.debug(f"Insufficient stock: {bait_name} x {amount}")
-                return False, f"🚫 Not enough {bait_name} in stock! Available: {bait_stock[bait_name]}"
-    
-            # Check balance
-            self.logger.debug(f"Checking balance for {user.name}")
-            if not await self._can_afford(user, total_cost):
-                self.logger.debug(f"Insufficient balance for {user.name}")
-                return False, f"🚫 You don't have enough coins! Cost: {total_cost}"
-    
-            # Process purchase atomically
-            async with self.config.user(user).bait() as user_bait:
-                self.logger.debug(f"Processing purchase for {user.name}")
-                
-                # Verify stock again before finalizing
-                current_stock = await self.config.bait_stock()
-                if current_stock[bait_name] < amount:
-                    self.logger.debug(f"Stock changed while processing for {user.name}")
-                    return False, f"🚫 Stock changed while processing. Please try again."
-                
-                # Update stock
-                current_stock[bait_name] -= amount
-                await self.config.bait_stock.set(current_stock)
-                self.logger.debug(f"Updated bait stock: {current_stock}")
-                
-                # Update user's bait
-                user_bait[bait_name] = user_bait.get(bait_name, 0) + amount
-                self.logger.debug(f"Updated user bait: {user_bait}")
-                
-                # Process payment
-                await bank.withdraw_credits(user, total_cost)
-                self.logger.debug(f"Payment processed for {user.name}: {total_cost} coins")
-                
-            self.logger.debug(f"Bait purchase completed for {user.name}: {bait_name} x {amount}")
-            return True, f"✅ Purchased {amount} {bait_name} for {total_cost} coins!"
+            # Get current stock from config
+            async with self.config.bait_stock() as bait_stock:
+                self.logger.debug(f"Current bait stock: {bait_stock}")
+                if bait_stock[bait_name] < amount:
+                    self.logger.debug(f"Insufficient stock: {bait_name} x {amount}")
+                    return False, f"🚫 Not enough {bait_name} in stock! Available: {bait_stock[bait_name]}"
+        
+                # Check balance
+                self.logger.debug(f"Checking balance for {user.name}")
+                if not await self._can_afford(user, total_cost):
+                    self.logger.debug(f"Insufficient balance for {user.name}")
+                    return False, f"🚫 You don't have enough coins! Cost: {total_cost}"
+        
+                # Process purchase
+                try:
+                    # Update stock
+                    bait_stock[bait_name] -= amount
+                    self.logger.debug(f"Updated bait stock: {bait_stock}")
+                    
+                    # Update user's bait
+                    async with self.config.user(user).bait() as user_bait:
+                        user_bait[bait_name] = user_bait.get(bait_name, 0) + amount
+                        self.logger.debug(f"Updated user bait: {user_bait}")
+                    
+                    # Process payment
+                    await bank.withdraw_credits(user, total_cost)
+                    self.logger.debug(f"Payment processed for {user.name}: {total_cost} coins")
+                    
+                    return True, f"✅ Purchased {amount} {bait_name} for {total_cost} coins!"
+                    
+                except Exception as e:
+                    self.logger.error(f"Error processing purchase: {e}")
+                    raise
     
         except Exception as e:
             self.logger.exception(f"Error in bait purchase for {user.name}: {e}")
