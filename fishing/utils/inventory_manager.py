@@ -102,27 +102,27 @@ class InventoryManager:
             if not result.success:
                 return None
                     
-                user_data = result.data
-                if not user_data:
-                    return None
+            user_data = result.data
+            if not user_data:
+                return None
                     
-                fish_count = len(user_data.get("inventory", []))
-                bait_count = sum(user_data.get("bait", {}).values())
-                rod_count = len(user_data.get("purchased_rods", {}))
+            fish_count = len(user_data.get("inventory", []))
+            bait_count = sum(user_data.get("bait", {}).values())
+            rod_count = len(user_data.get("purchased_rods", {}))
                 
-                total_value = sum(
-                    self.data["fish"][fish]["value"]
-                    for fish in user_data.get("inventory", [])
-                )
+            total_value = sum(
+                self.data["fish"][fish]["value"]
+                for fish in user_data.get("inventory", [])
+            )
                 
-                return {
-                    "fish_count": fish_count,
-                    "bait_count": bait_count,
-                    "rod_count": rod_count,
-                    "total_value": total_value,
-                    "equipped_rod": user_data.get("rod"),
-                    "equipped_bait": user_data.get("equipped_bait")
-                }
+            return {
+                "fish_count": fish_count,
+                "bait_count": bait_count,
+                "rod_count": rod_count,
+                "total_value": total_value,
+                "equipped_rod": user_data.get("rod"),
+                "equipped_bait": user_data.get("equipped_bait")
+            }
                 
         except Exception as e:
             self.logger.error(f"Error getting inventory summary: {e}", exc_info=True)
