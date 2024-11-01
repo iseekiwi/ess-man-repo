@@ -10,7 +10,7 @@ logger = get_logger('inventory_manager')
 
 class InventoryManager:
     """Centralized inventory management system"""
-    def __init__(self, bot: Red, config: Config, data: Dict):
+    def __init__(self, bot: Red, config_manager: ConfigManager, data: Dict):
         self.bot = bot
         self.config_manager = config_manager
         self.data = data
