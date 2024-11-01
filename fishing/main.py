@@ -407,7 +407,14 @@ class Fishing(commands.Cog):
             self.logger.error(f"Error in fish command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred. Please try again.")
 
-    async def _catch_fish(self, user_data: dict, bait_type: str, location: str, weather: str, time_of_day: str) -> dict:
+    async def _catch_fish(
+        self,
+        user_data: dict,
+        bait_type: str,
+        location: str,
+        weather: str,
+        time_of_day: str
+    ) -> dict:
         """Calculate catch results with all modifiers."""
         try:
             # Calculate catch chance
@@ -747,8 +754,8 @@ class Fishing(commands.Cog):
                     raise
             
         except Exception as e:
-            self.logger.error(f"Error in sell_fish: {e}", exc_info=True)
-            return False, 0, "An error occurred while selling fish."
+                self.logger.error(f"Error processing sale: {e}")
+                raise
             
     @commands.command(name="fisherboard")
     async def fisherboard(self, ctx):
