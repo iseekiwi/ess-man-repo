@@ -37,7 +37,10 @@ class InventoryView(BaseView):
                 
             if self.current_page == "main":
                 summary = await self.cog.inventory.get_inventory_summary(self.ctx.author.id)
+                self.logger.debug(f"Inventory summary for {self.ctx.author.id}: {summary}")
+                
                 if not summary:
+                    self.logger.error(f"Failed to get inventory summary for user {self.ctx.author.id}")
                     embed = discord.Embed(description="Error loading inventory data.")
                     return embed
                     
@@ -133,7 +136,11 @@ class InventoryView(BaseView):
             
         except Exception as e:
             self.logger.error(f"Error generating embed: {e}", exc_info=True)
-            return discord.Embed(description="Error generating inventory view.")
+            return discord.Embed(
+            title="Error",
+            description="An error occurred while loading the inventory. Please try again.",
+            color=discord.Color.red()
+        )
     
     async def start(self):
         """Start the inventory view"""
