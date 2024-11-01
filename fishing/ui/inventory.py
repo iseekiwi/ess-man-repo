@@ -9,7 +9,7 @@ from typing import Dict
 from discord.ui import Button, View
 from collections import Counter
 from .base import BaseView, ConfirmView
-from ..utils.logging_config import setup_logging
+from ..utils.logging_config import get_logger
 
 
 logger = setup_logging('inventory')
