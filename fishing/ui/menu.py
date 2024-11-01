@@ -232,7 +232,8 @@ class FishingMenuView(BaseView):
                 if self.fishing_in_progress:
                     await interaction.response.send_message(
                         "You're already fishing!",
-                        ephemeral=True
+                        ephemeral=True,
+                        delete_after=2
                     )
                     return
                     
@@ -296,7 +297,8 @@ class FishingMenuView(BaseView):
             if not interaction.response.is_done():
                 await interaction.response.send_message(
                     "An error occurred. Please try again.",
-                    ephemeral=True
+                    ephemeral=True,
+                    delete_after=2
                 )
 
     def get_time_of_day(self) -> str:
@@ -319,7 +321,8 @@ class FishingMenuView(BaseView):
                 await self.initialize_view()
                 await interaction.followup.send(
                     "🚫 You need to equip bait first! Use the Inventory menu to equip some bait.",
-                    ephemeral=True
+                    ephemeral=True,
+                    delete_after=3
                 )
                 main_embed = await self.generate_embed()
                 await self.message.edit(embed=main_embed, view=self)
@@ -427,7 +430,8 @@ class FishingMenuView(BaseView):
             if location_name not in self.cog.data["locations"]:
                 await interaction.response.send_message(
                     "Invalid location selection.",
-                    ephemeral=True
+                    ephemeral=True,
+                    delete_after=2
                 )
                 return
                 
@@ -439,7 +443,7 @@ class FishingMenuView(BaseView):
                 location_data["requirements"]
             )
             if not meets_req:
-                await interaction.response.send_message(msg, ephemeral=True)
+                await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
                 return
                 
             # Update location
@@ -461,7 +465,8 @@ class FishingMenuView(BaseView):
             self.logger.error(f"Error in handle_location_select: {e}", exc_info=True)
             await interaction.response.send_message(
                 "An error occurred while changing location. Please try again.",
-                ephemeral=True
+                ephemeral=True,
+                delete_after=3
             )
 
     async def update_view(self):
