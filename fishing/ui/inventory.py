@@ -223,7 +223,12 @@ class InventoryView(BaseView):
                     self.user_data = await self.cog.config.user(self.ctx.author).all()
                     await interaction.response.defer()
                     await self.update_view()
-                await interaction.followup.send(msg, ephemeral=True, delete_after=2)
+                    temp_msg = await interaction.followup.send(msg, ephemeral=True)
+                    await asyncio.sleep(2)
+                    try:
+                        await temp_msg.delete()
+                    except discord.NotFound:
+                        pass
                 
             elif custom_id.startswith("equip_rod_"):
                 rod_name = custom_id.replace("equip_rod_", "")
@@ -233,7 +238,12 @@ class InventoryView(BaseView):
                     self.user_data["rod"] = rod_name
                     await interaction.response.defer()
                     await self.update_view()
-                    await interaction.followup.send(msg, ephemeral=True, delete_after=2)
+                    temp_msg = await interaction.followup.send(msg, ephemeral=True)
+                    await asyncio.sleep(2)
+                    try:
+                        await temp_msg.delete()
+                    except discord.NotFound:
+                        pass
                 else:
                     await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
                     
@@ -245,7 +255,12 @@ class InventoryView(BaseView):
                     self.user_data["equipped_bait"] = bait_name
                     await interaction.response.defer()
                     await self.update_view()
-                    await interaction.followup.send(msg, ephemeral=True, delete_after=2)
+                    temp_msg = await interaction.followup.send(msg, ephemeral=True)
+                    await asyncio.sleep(2)
+                    try:
+                        await temp_msg.delete()
+                    except discord.NotFound:
+                        pass
                 else:
                     await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
                     
@@ -253,14 +268,16 @@ class InventoryView(BaseView):
                 self.current_page = custom_id
                 await interaction.response.defer()
                 await self.update_view()
-                
+            
         except Exception as e:
             self.logger.error(f"Error in handle_button: {e}", exc_info=True)
-            await interaction.response.send_message(
-                "An error occurred. Please try again.",
-                ephemeral=True,
-                delete_after=2
-            )
+            # Only send error message if interaction hasn't been responded to
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "An error occurred. Please try again.",
+                    ephemeral=True,
+                    delete_after=2
+                )
 
     async def update_view(self):
         """Update the message with current embed and view"""
