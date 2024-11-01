@@ -142,7 +142,30 @@ class Fishing(commands.Cog):
             self.logger.error(f"Error ensuring user data for {user.name}: {e}", exc_info=True)
             await self.config.user(user).clear()
             return None
-        
+
+    async def cog_load(self):
+        """Run setup after cog is loaded."""
+        try:
+            # Verify and initialize stock if needed
+            current_stock = await self.config.bait_stock()
+            self.logger.debug(f"Current bait stock on load: {current_stock}")
+            
+            if not current_stock:
+                self.logger.warning("No bait stock found, initializing defaults")
+                initial_stock = {
+                    bait: data["daily_stock"] 
+                    for bait, data in self.data["bait"].items()
+                }
+                await self.config.bait_stock.set(initial_stock)
+                self.logger.debug(f"Initialized bait stock: {initial_stock}")
+                
+            # Start background tasks
+            self.bg_task_manager.start_tasks()
+            
+        except Exception as e:
+            self.logger.error(f"Error in cog_load: {e}", exc_info=True)
+            raise
+    
     def cog_unload(self):
         """Clean up when cog is unloaded."""
         self.bg_task_manager.cancel_tasks()
