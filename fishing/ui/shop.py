@@ -296,7 +296,8 @@ class ShopView(BaseView):
             try:
                 self.current_balance = await bank.get_balance(self.ctx.author)
                 currency_name = await bank.get_currency_name(self.ctx.guild)
-                current_stock = await self.cog.config.bait_stock()  # Get current stock from Config
+                stock_result = await self.cog.config_manager.get_global_setting("bait_stock")
+                current_stock = stock_result.data if stock_result.success else {}
                 self.logger.debug(f"User balance: {self.current_balance} {currency_name}")
                 self.logger.debug(f"Current bait stock: {current_stock}")
             except Exception as e:
