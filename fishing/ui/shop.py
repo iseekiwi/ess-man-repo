@@ -384,16 +384,77 @@ class ShopView(BaseView):
             )
 
     async def handle_purchase(self, interaction: discord.Interaction):
-        """Handle purchase button interactions."""
-        try:
-            custom_id = interaction.data["custom_id"]
-            item_name = custom_id.replace("buy_", "")
-            
-            # Get item data and cost
-            if item_name in self.cog.data["bait"]:
-                item_data = self.cog.data["bait"][item_name]
-                cost = item_data["cost"]
-                quantity = self.selected_quantity
-                handler = self.cog._handle_bait_purchase
-            else:
-                item_data = self.cog.data["rods"][item_name
+            """Handle purchase button interactions."""
+            try:
+                custom_id = interaction.data["custom_id"]
+                item_name = custom_id.replace("buy_", "")
+                
+                # Get item data and cost
+                if item_name in self.cog.data["bait"]:
+                    item_data = self.cog.data["bait"][item_name]
+                    cost = item_data["cost"]
+                    quantity = self.selected_quantity
+                    handler = self.cog._handle_bait_purchase
+                else:
+                    item_data = self.cog.data["rods"][item_name]
+                    cost = item_data["cost"]
+                    quantity = 1
+                    handler = self.cog._handle_rod_purchase
+                
+                total_cost = cost * quantity
+                
+                # Create confirmation view
+                confirm_view = PurchaseConfirmView(
+                    self.cog,
+                    self.ctx,
+                    item_name,
+                    quantity,
+                    cost,
+                    handler
+                )
+                
+                await interaction.response.send_message(
+                    f"Confirm purchase of {quantity}x {item_name} for {total_cost} {self.currency_name}?",
+                    view=confirm_view,
+                    ephemeral=True
+                )
+                
+                confirm_view.message = await interaction.original_response()
+                await confirm_view.wait()
+                
+                if confirm_view.value:
+                    # Refresh user data and view
+                    user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+                    if user_data_result.success:
+                        self.user_data = user_data_result.data
+                        await self.initialize_view()
+                        embed = await self.generate_embed()
+                        await self.message.edit(embed=embed, view=self)
+                
+            except Exception as e:
+                self.logger.error(f"Error in handle_purchase: {e}", exc_info=True)
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(
+                        "An error occurred. Please try again.",
+                        ephemeral=True
+                    )
+                else:
+                    await interaction.followup.send(
+                        "An error occurred. Please try again.",
+                        ephemeral=True
+                    )
+    
+        async def update_view(self):
+            """Update the message with current embed and view."""
+            try:
+                # Refresh user data
+                user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+                if user_data_result.success:
+                    self.user_data = user_data_result.data
+                
+                embed = await self.generate_embed()
+                await self.message.edit(embed=embed, view=self)
+                
+            except Exception as e:
+                self.logger.error(f"Error updating view: {e}", exc_info=True)
+                raise
