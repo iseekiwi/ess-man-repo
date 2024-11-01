@@ -9,7 +9,7 @@ from redbot.core import bank
 from typing import Dict, Optional
 from discord.ui import Button
 from .base import BaseView
-from ..utils.logging_config import setup_logging
+from ..utils.logging_config import get_logger
 from .shop import ShopView
 
 class FishingMenuView(BaseView):
@@ -19,7 +19,7 @@ class FishingMenuView(BaseView):
         super().__init__(cog, ctx)
         self.user_data = user_data
         self.current_page = "main"
-        self.logger = setup_logging('menu.view')
+        self.logger = get_logger('menu.view')
         self.shop_view = None
         self.inventory_view = None
         self.fishing_in_progress = False
