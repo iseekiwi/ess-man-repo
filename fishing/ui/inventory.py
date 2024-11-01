@@ -226,7 +226,7 @@ class InventoryView(BaseView):
                     
                 # Send ephemeral message and schedule deletion
                 await interaction.followup.send(msg, ephemeral=True)
-                self.bot.loop.create_task(self.delete_after_delay(interaction))
+                self.cog.bot.loop.create_task(self.delete_after_delay(interaction))
                 
             elif custom_id.startswith("equip_rod_"):
                 rod_name = custom_id.replace("equip_rod_", "")
@@ -237,7 +237,7 @@ class InventoryView(BaseView):
                     await interaction.response.defer()
                     await self.update_view()
                     await interaction.followup.send(msg, ephemeral=True)
-                    self.bot.loop.create_task(self.delete_after_delay(interaction))
+                    self.cog.bot.loop.create_task(self.delete_after_delay(interaction))
                 else:
                     await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
                     
@@ -250,7 +250,7 @@ class InventoryView(BaseView):
                     await interaction.response.defer()
                     await self.update_view()
                     await interaction.followup.send(msg, ephemeral=True)
-                    self.bot.loop.create_task(self.delete_after_delay(interaction))
+                    self.cog.bot.loop.create_task(self.delete_after_delay(interaction))
                 else:
                     await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
                     
