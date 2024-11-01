@@ -35,7 +35,7 @@ class InventoryView(BaseView):
             except Exception as e:
                 self.logger.error(f"Error getting balance: {e}")
                 balance = 0
-                currency_name = "coins"
+                currency_name = "kiwicoin"
                 
             if self.current_page == "main":
                 summary = await self.cog.inventory.get_inventory_summary(self.ctx.author.id)
