@@ -12,7 +12,7 @@ from .base import BaseView, ConfirmView
 from ..utils.logging_config import get_logger
 
 
-logger = setup_logging('inventory')
+logger = get_logger('inventory')
 
 class InventoryView(BaseView):
     """View for the inventory interface"""
