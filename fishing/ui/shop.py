@@ -464,20 +464,18 @@ class ShopView(BaseView):
                 
                 # Check stock availability
                 if stock < quantity:
-                    message = await interaction.response.send_message(
+                    await interaction.response.send_message(
                         f"Not enough {item_name} in stock! Available: {stock}",
                         ephemeral=True,
-                        wait=True
+                        delete_after=2
                     )
-                    self.cog.bot.loop.create_task(self.delete_after_delay(message))
                     return
-            else:  # Rod purchase
+            else:
                 cost = self.cog.data["rods"][item_name]["cost"]
                 quantity = 1
             
             total_cost = cost * quantity
             
-            # Create confirmation view
             confirm_view = PurchaseConfirmView(
                 self.cog,
                 self.ctx,
@@ -485,17 +483,14 @@ class ShopView(BaseView):
                 quantity,
                 cost
             )
-    
-            # Send confirmation message and store the reference
-            message = await interaction.response.send_message(
+
+            await interaction.response.send_message(
                 f"Confirm purchase of {quantity}x {item_name} for {total_cost} coins?",
                 view=confirm_view,
-                ephemeral=True,
-                wait=True
+                ephemeral=True
             )
             
-            confirm_view.message = message
-            
+            confirm_view.message = await interaction.original_response()
             await confirm_view.wait()
             
             if confirm_view.value:
@@ -512,7 +507,7 @@ class ShopView(BaseView):
                         item_name,
                         self.user_data
                     )
-    
+
                 if success:
                     self.user_data = await self.cog.config.user(self.ctx.author).all()
                     await self.initialize_view()
@@ -520,12 +515,19 @@ class ShopView(BaseView):
             
         except Exception as e:
             self.logger.error(f"Error in handle_purchase: {e}", exc_info=True)
-            message = await interaction.followup.send(
-                "An error occurred while processing your purchase. Please try again.",
-                ephemeral=True,
-                wait=True
-            )
-            self.cog.bot.loop.create_task(self.delete_after_delay(message))
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "An error occurred while processing your purchase. Please try again.",
+                    ephemeral=True,
+                    delete_after=2
+                )
+            else:
+                message = await interaction.followup.send(
+                    "An error occurred while processing your purchase. Please try again.",
+                    ephemeral=True,
+                    wait=True
+                )
+                self.cog.bot.loop.create_task(self.delete_after_delay(message))
     
     # Add delete_after_delay method to both classes
     async def delete_after_delay(self, message):
