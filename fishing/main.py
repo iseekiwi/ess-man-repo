@@ -882,6 +882,50 @@ class Fishing(commands.Cog):
             self.logger.error(f"Error resetting shop stock: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while resetting shop stock. Please try again.")
 
+    @commands.command(name="stockstatus")
+    @commands.is_owner()
+    async def stock_status(self, ctx):
+        """Check the current status of bait stock."""
+        try:
+            current_stock = await self.config.bait_stock()
+            last_reset = self.bg_task_manager.last_stock_reset
+            
+            embed = discord.Embed(
+                title="🏪 Bait Stock Status",
+                color=discord.Color.blue()
+            )
+            
+            # Add current stock levels
+            stock_text = "\n".join(
+                f"{bait}: {amount}" for bait, amount in current_stock.items()
+            )
+            embed.add_field(
+                name="Current Stock",
+                value=stock_text or "No stock data",
+                inline=False
+            )
+            
+            # Add last reset time
+            embed.add_field(
+                name="Last Reset",
+                value=last_reset.strftime("%Y-%m-%d %H:%M:%S") if last_reset else "Never",
+                inline=False
+            )
+            
+            # Add background task status
+            tasks_running = len([t for t in self.bg_task_manager.tasks if not t.done()])
+            embed.add_field(
+                name="Background Tasks",
+                value=f"Running: {tasks_running}/{len(self.bg_task_manager.tasks)}",
+                inline=False
+            )
+            
+            await ctx.send(embed=embed)
+            
+        except Exception as e:
+            self.logger.error(f"Error in stock_status command: {e}", exc_info=True)
+            await ctx.send("Error checking stock status.")
+
 def setup(bot: Red):
     """Add the cog to the bot."""
     try:
