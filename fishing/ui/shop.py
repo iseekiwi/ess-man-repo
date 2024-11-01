@@ -457,17 +457,6 @@ class ShopView(BaseView):
             
             # Determine item type and cost
             if item_name in self.cog.data["bait"]:
-                bait_stock = await self.cog.config.bait_stock()
-                stock = bait_stock.get(item_name, 0)
-                
-                if stock < self.selected_quantity:
-                    await interaction.response.send_message(
-                        f"Not enough {item_name} in stock! Available: {stock}",
-                        ephemeral=True,
-                        delete_after=2
-                    )
-                    return
-                
                 cost = self.cog.data["bait"][item_name]["cost"]
                 quantity = self.selected_quantity
             else:
@@ -483,7 +472,7 @@ class ShopView(BaseView):
                 quantity,
                 cost
             )
-
+    
             await interaction.response.send_message(
                 f"Confirm purchase of {quantity}x {item_name} for {total_cost} coins?",
                 view=confirm_view,
@@ -507,7 +496,7 @@ class ShopView(BaseView):
                         item_name,
                         self.user_data
                     )
-
+    
                 if success:
                     self.user_data = await self.cog.config.user(self.ctx.author).all()
                     await self.initialize_view()
