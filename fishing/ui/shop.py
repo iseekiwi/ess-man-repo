@@ -41,71 +41,37 @@ class PurchaseConfirmView(BaseView):
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
     async def confirm(self, interaction: discord.Interaction, button: Button):
-        logger.debug(f"Confirm button pressed by user {interaction.user.id} for {self.item_name}.")
+        """Handle purchase confirmation."""
+        self.logger.debug(f"Confirm button pressed by user {interaction.user.id} for {self.item_name}")
         
         try:
-            # Step 1: Check bank and config readiness
-            try:
-                if not await bank.is_global():
-                    raise ValueError("Bank is not configured globally")
-                logger.debug("Bank system ready and global.")
-            except Exception as e:
-                logger.error(f"Configuration error: {e}")
-                await interaction.response.send_message(
-                    "Configuration error. Please contact an admin.",
-                    ephemeral=True,
-                    delete_after=2
-                )
-                return
-
-            # Verify the user can afford the purchase
-            if not await bank.can_spend(self.ctx.author, self.total_cost):
-                currency_name = await bank.get_currency_name(self.ctx.guild)
-                await interaction.response.send_message(
-                    f"You don't have enough {currency_name} for this purchase!", 
-                    ephemeral=True,
-                    delete_after=2
-                )
-                return
-
-            # Set the confirmation value and stop the view
+            # Simply set confirmation and clean up
             self.value = True
             self.stop()
-
-            # Delete the confirmation message
+            
+            # Delete confirmation prompt
             try:
                 if self.message:
                     await self.message.delete()
             except discord.NotFound:
                 pass  # Message was already deleted
             except Exception as e:
-                logger.error(f"Error deleting confirmation message: {e}", exc_info=True)
-
-            # Send confirmation of successful purchase
-            try:
-                await interaction.response.send_message(
-                    f"Successfully purchased {self.quantity}x {self.item_name} for {self.total_cost} coins!",
-                    ephemeral=True,
-                    delete_after=2
-                )
-            except discord.InteractionResponded:
-                await interaction.followup.send(
-                    f"Successfully purchased {self.quantity}x {self.item_name} for {self.total_cost} coins!",
-                    ephemeral=True,
-                    delete_after=2
-                )
+                self.logger.error(f"Error deleting confirmation message: {e}", exc_info=True)
+            
+            # Defer the interaction since the actual purchase will be handled by the shop
+            await interaction.response.defer()
             
         except Exception as e:
-            logger.error(f"Error in purchase confirmation: {e}", exc_info=True)
+            self.logger.error(f"Error in purchase confirmation: {e}", exc_info=True)
             try:
                 await interaction.response.send_message(
-                    "An error occurred during purchase confirmation. Please try again.",
+                    "An error occurred during purchase confirmation.",
                     ephemeral=True,
                     delete_after=2
                 )
             except discord.InteractionResponded:
                 await interaction.followup.send(
-                    "An error occurred during purchase confirmation. Please try again.",
+                    "An error occurred during purchase confirmation.",
                     ephemeral=True,
                     delete_after=2
                 )
@@ -114,18 +80,18 @@ class PurchaseConfirmView(BaseView):
     async def cancel(self, interaction: discord.Interaction, button: Button):
         """Handle purchase cancellation."""
         try:
-            logger.debug(f"Cancel button pressed by user {interaction.user.id} for {self.item_name}")
+            self.logger.debug(f"Cancel button pressed by user {interaction.user.id} for {self.item_name}")
             self.value = False
             self.stop()
             
-            # First, try to delete the confirmation message
+            # Delete confirmation prompt
             try:
                 if self.message:
                     await self.message.delete()
             except discord.NotFound:
                 pass  # Message was already deleted
             except Exception as e:
-                logger.error(f"Error deleting cancellation message: {e}", exc_info=True)
+                self.logger.error(f"Error deleting cancellation message: {e}", exc_info=True)
             
             # Send cancellation confirmation
             try:
@@ -140,11 +106,9 @@ class PurchaseConfirmView(BaseView):
                     ephemeral=True,
                     delete_after=2
                 )
-            except Exception as e:
-                logger.error(f"Error sending cancellation confirmation: {e}", exc_info=True)
                 
         except Exception as e:
-            logger.error(f"Error in purchase cancellation: {e}", exc_info=True)
+            self.logger.error(f"Error in purchase cancellation: {e}", exc_info=True)
             try:
                 await interaction.response.send_message(
                     "An error occurred while cancelling the purchase.",
@@ -156,14 +120,14 @@ class PurchaseConfirmView(BaseView):
 
     async def on_timeout(self):
         """Handle view timeout."""
-        logger.info(f"Purchase view timed out for {self.item_name}")
+        self.logger.info(f"Purchase view timed out for {self.item_name}")
         try:
             if self.message:
                 await self.message.delete()
         except discord.NotFound:
             pass  # Message was already deleted
         except Exception as e:
-            logger.error(f"Error handling timeout cleanup: {e}", exc_info=True)
+            self.logger.error(f"Error handling timeout cleanup: {e}", exc_info=True)
 
 class ShopView(BaseView):
     """View for the fishing shop interface"""
