@@ -436,7 +436,8 @@ class ShopView(BaseView):
                 if stock < quantity:
                     await interaction.response.send_message(
                         f"Not enough {item_name} in stock! Available: {stock}",
-                        ephemeral=True
+                        ephemeral=True,
+                        delete_after=2
                     )
                     return
             else:  # Rod purchase
@@ -489,24 +490,29 @@ class ShopView(BaseView):
                     await self.initialize_view()
                     await self.update_view()
                 
-                # Try to send the result message
+                # Try to send the result message with auto-delete
                 try:
-                    await interaction.followup.send(msg, ephemeral=True)
+                    await interaction.followup.send(
+                        msg, 
+                        ephemeral=True,
+                        delete_after=2  # Message will auto-delete after 2 seconds
+                    )
                 except discord.NotFound:
                     # If the original interaction is no longer valid, send a new message
-                    await self.ctx.send(msg, delete_after=5)
+                    await self.ctx.send(msg, delete_after=2)
             
         except Exception as e:
             self.logger.error(f"Error in handle_purchase: {e}", exc_info=True)
             try:
                 await interaction.followup.send(
                     "An error occurred while processing your purchase. Please try again.",
-                    ephemeral=True
+                    ephemeral=True,
+                    delete_after=2
                 )
             except discord.NotFound:
                 await self.ctx.send(
                     "An error occurred while processing your purchase. Please try again.",
-                    delete_after=5
+                    delete_after=2
                 )
 
     async def update_view(self):
