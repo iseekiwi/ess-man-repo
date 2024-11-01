@@ -21,7 +21,7 @@ class InventoryView(BaseView):
         super().__init__(cog, ctx)
         self.user_data = user_data
         self.current_page = "main"
-        self.logger = setup_logging('inventory.view')
+        self.logger = get_logger('inventory.view')
 
     async def generate_embed(self) -> discord.Embed:
         """Generate the appropriate embed based on current page"""
