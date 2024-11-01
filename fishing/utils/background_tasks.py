@@ -42,11 +42,11 @@ class BackgroundTasks:
                 )
                 await asyncio.sleep((midnight - now).total_seconds())
                 
-                default_stock = {
-                    bait: data["daily_stock"] 
-                    for bait, data in self.data["bait"].items()
-                }
-                await self.config.bait_stock.set(default_stock)
+                # Use atomic operation for stock reset
+                async with self.config.bait_stock() as bait_stock:
+                    for bait, data in self.data["bait"].items():
+                        bait_stock[bait] = data["daily_stock"]
+                        
                 logger.info("Daily stock reset completed")
                 
             except asyncio.CancelledError:
@@ -55,7 +55,7 @@ class BackgroundTasks:
             except Exception as e:
                 logger.error(f"Error in daily_stock_reset: {e}", exc_info=True)
                 await asyncio.sleep(300)  # Retry after 5 minutes on error
-
+                
     def start_tasks(self):
         """Initialize and start background tasks."""
         try:
