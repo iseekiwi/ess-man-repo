@@ -192,13 +192,10 @@ class ShopView(BaseView):
                 self.logger.error("Cog data not accessible")
                 raise ValueError("Cog data not accessible")
                 
-            # Initialize bait stock if needed
-            if not hasattr(self.cog, '_bait_stock'):
-                self.logger.debug("Initializing bait stock")
-                self.cog._bait_stock = {
-                    bait: data["daily_stock"] 
-                    for bait, data in self.cog.data["bait"].items()
-                }
+            # Verify cog data is accessible
+            if not hasattr(self.cog, 'data'):
+                self.logger.error("Cog data not accessible")
+                raise ValueError("Cog data not accessible")
             
             await self.initialize_view()
             self.logger.debug("ShopView setup completed successfully")
@@ -315,11 +312,13 @@ class ShopView(BaseView):
             try:
                 self.current_balance = await bank.get_balance(self.ctx.author)
                 currency_name = await bank.get_currency_name(self.ctx.guild)
+                bait_stock = await self.cog.config.bait_stock()
                 self.logger.debug(f"User balance: {self.current_balance} {currency_name}")
             except Exception as e:
                 self.logger.error(f"Error getting balance: {e}")
                 self.current_balance = 0
                 currency_name = "coins"
+                bait_stock = {}
 
             if self.current_page == "main":
                 self.logger.debug("Generating main page embed")
