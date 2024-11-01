@@ -41,8 +41,11 @@ class InventoryView(BaseView):
                 
                 if not summary:
                     self.logger.error(f"Failed to get inventory summary for user {self.ctx.author.id}")
-                    embed = discord.Embed(description="Error loading inventory data.")
-                    return embed
+                    return discord.Embed(
+                        title="❌ Inventory Error",
+                        description="Failed to load inventory data. Please try again later.",
+                        color=discord.Color.red()
+                    )
                     
                 embed = discord.Embed(
                     title=f"🎒 {self.ctx.author.display_name}'s Inventory",
