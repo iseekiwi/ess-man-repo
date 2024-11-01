@@ -370,13 +370,16 @@ class FishingMenuView(BaseView):
                 )
     
                 # Update bait inventory
-                async with self.cog.config.user(self.ctx.author).bait() as bait:
-                    equipped_bait = self.user_data["equipped_bait"]
-                    bait[equipped_bait] = bait.get(equipped_bait, 0) - 1
-                    if bait[equipped_bait] <= 0:
-                        del bait[equipped_bait]
-                        await self.cog.config.user(self.ctx.author).equipped_bait.set(None)
-                        self.user_data["equipped_bait"] = None
+                user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+                if user_data_result.success:
+                    update_data = {"bait": user_data_result.data.get("bait", {})}
+                    equipped_bait = user_data_result.data.get("equipped_bait")
+                    if equipped_bait:
+                        update_data["bait"][equipped_bait] = update_data["bait"].get(equipped_bait, 0) - 1
+                        if update_data["bait"][equipped_bait] <= 0:
+                            del update_data["bait"][equipped_bait]
+                            update_data["equipped_bait"] = None
+                    await self.cog.config_manager.update_user_data(self.ctx.author.id, update_data)
     
                 if catch:
                     fish_name = catch["name"]
