@@ -32,7 +32,20 @@ class InventoryManager:
             self.logger.debug(f"Current user data: {user_data}")
             updates = {}
     
-            if item_type == "bait":
+            if item_type == "fish":
+                if item_name not in self.data["fish"]:
+                    self.logger.error(f"Invalid fish type: {item_name}")
+                    return False, "Invalid fish type"
+                    
+                if "inventory" not in user_data:
+                    user_data["inventory"] = []
+                inventory = user_data["inventory"].copy()
+                for _ in range(amount):
+                    inventory.append(item_name)
+                updates["inventory"] = inventory
+                self.logger.debug(f"Updating fish inventory: {updates}")
+    
+            elif item_type == "bait":
                 self.logger.debug(f"Adding bait: {item_name} x{amount}")
                 
                 if item_name not in self.data["bait"]:
@@ -52,42 +65,79 @@ class InventoryManager:
                 new_amount = current_amount + amount
                 self.logger.debug(f"New amount will be: {new_amount}")
                 
-                # Create updates dictionary with existing bait preserved
+                # Create updates dictionary
                 bait_inventory = user_data["bait"].copy()
                 bait_inventory[item_name] = new_amount
                 updates["bait"] = bait_inventory
                 
                 self.logger.debug(f"Preparing bait updates: {updates}")
-                
-                # Update user data with changes
-                self.logger.debug(f"Applying updates: {updates}")
-                update_result = await self.config_manager.update_user_data(
-                    user_id,
-                    updates,
-                    fields=["bait"]
-                )
     
-                if not update_result.success:
-                    self.logger.error(f"Failed to update inventory: {update_result.error}")
-                    return False, "Error updating inventory"
-    
-                # Force a cache refresh and verify
-                await self.config_manager.refresh_cache(user_id)
-                verify_result = await self.config_manager.get_user_data(user_id)
-                
-                if verify_result.success:
-                    verified_data = verify_result.data
-                    self.logger.debug(f"Verification data after refresh: {verified_data}")
-                    verified_amount = verified_data.get("bait", {}).get(item_name, 0)
+            elif item_type == "rod":
+                if item_name not in self.data["rods"]:
+                    self.logger.error(f"Invalid rod type: {item_name}")
+                    return False, "Invalid rod type"
                     
-                    if verified_amount != new_amount:
-                        self.logger.error(f"Verification failed - Expected: {new_amount}, Got: {verified_amount}")
+                purchased_rods = user_data.get("purchased_rods", {"Basic Rod": True}).copy()
+                purchased_rods[item_name] = True
+                updates["purchased_rods"] = purchased_rods
+                self.logger.debug(f"Updating purchased rods: {updates}")
+    
+            else:
+                self.logger.error(f"Invalid item type: {item_type}")
+                return False, "Invalid item type"
+    
+            # Update user data with changes
+            self.logger.debug(f"Applying updates: {updates}")
+            update_result = await self.config_manager.update_user_data(
+                user_id,
+                updates,
+                fields=list(updates.keys())
+            )
+    
+            if not update_result.success:
+                self.logger.error(f"Failed to update inventory: {update_result.error}")
+                return False, "Error updating inventory"
+    
+            # Verify the update
+            verify_result = await self.config_manager.get_user_data(user_id)
+            if verify_result.success:
+                self.logger.debug(f"Full verification data: {verify_result.data}")
+                
+                if item_type == "bait":
+                    bait_data = verify_result.data.get("bait", {})
+                    verified_amount = bait_data.get(item_name, 0)
+                    expected_amount = current_amount + amount
+                    self.logger.debug(f"Bait verification - Data: {bait_data}")
+                    self.logger.debug(f"Verifying bait amount - Expected: {expected_amount}, Got: {verified_amount}")
+                    if verified_amount != expected_amount:
+                        self.logger.error(f"Bait amount verification failed - Expected: {expected_amount}, Got: {verified_amount}")
                         return False, "Error verifying inventory update"
-                    
-                    self.logger.debug(f"Verification successful - Amount matches expected: {verified_amount}")
-                    return True, f"Successfully added {amount}x {item_name}"
+                
+                # Verify specific update based on item type
+                if item_type == "bait":
+                    verified_amount = verify_result.data.get("bait", {}).get(item_name, 0)
+                    expected_amount = current_amount + amount
+                    self.logger.debug(f"Verifying bait amount - Expected: {expected_amount}, Got: {verified_amount}")
+                    if verified_amount != expected_amount:
+                        self.logger.error(f"Bait amount verification failed - Expected: {expected_amount}, Got: {verified_amount}")
+                        return False, "Error verifying inventory update"
+                elif item_type == "rod":
+                    if item_name not in verify_result.data.get("purchased_rods", {}):
+                        self.logger.error("Rod verification failed - Rod not found in purchased_rods")
+                        return False, "Error verifying inventory update"
+                elif item_type == "fish":
+                    verified_count = verify_result.data.get("inventory", []).count(item_name)
+                    expected_count = user_data["inventory"].count(item_name) + amount
+                    self.logger.debug(f"Verifying fish count - Expected: {expected_count}, Got: {verified_count}")
+                    if verified_count != expected_count:
+                        self.logger.error(f"Fish count verification failed - Expected: {expected_count}, Got: {verified_count}")
+                        return False, "Error verifying inventory update"
+            
+            return True, f"Successfully added {amount}x {item_name}"
     
-                return False, "Error verifying inventory update"
+        except Exception as e:
+            self.logger.error(f"Error adding item: {e}", exc_info=True)
+            return False, "Error processing inventory update"
             
     async def remove_item(self, user_id: int, item_type: str, item_name: str, amount: int = 1) -> Tuple[bool, str]:
         """Remove any type of item from user inventory"""
