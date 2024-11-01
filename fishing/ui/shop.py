@@ -442,12 +442,13 @@ class ShopView(BaseView):
             await self.update_view()
         except Exception as e:
             self.logger.error(f"Error in handle_select: {e}", exc_info=True)
-            await interaction.response.send_message(
+            message = await interaction.response.send_message(
                 "An error occurred while selecting quantity. Please try again.",
                 ephemeral=True,
-                delete_after=2
+                wait=True
             )
-
+            self.cog.bot.loop.create_task(self.delete_after_delay(message))
+    
     async def handle_purchase(self, interaction: discord.Interaction):
         """Handle purchase button interactions"""
         try:
@@ -463,11 +464,12 @@ class ShopView(BaseView):
                 
                 # Check stock availability
                 if stock < quantity:
-                    await interaction.response.send_message(
+                    message = await interaction.response.send_message(
                         f"Not enough {item_name} in stock! Available: {stock}",
                         ephemeral=True,
-                        delete_after=2
+                        wait=True
                     )
+                    self.cog.bot.loop.create_task(self.delete_after_delay(message))
                     return
             else:  # Rod purchase
                 cost = self.cog.data["rods"][item_name]["cost"]
@@ -483,23 +485,20 @@ class ShopView(BaseView):
                 quantity,
                 cost
             )
-
+    
             # Send confirmation message and store the reference
-            await interaction.response.send_message(
+            message = await interaction.response.send_message(
                 f"Confirm purchase of {quantity}x {item_name} for {total_cost} coins?",
                 view=confirm_view,
                 ephemeral=True,
-                delete_after=2
+                wait=True
             )
             
-            # Store message reference
-            confirm_view.message = await interaction.original_response()
+            confirm_view.message = message
             
-            # Wait for confirmation
             await confirm_view.wait()
             
             if confirm_view.value:
-                # Process the purchase based on item type
                 if item_name in self.cog.data["bait"]:
                     success, _ = await self.cog._handle_bait_purchase(
                         self.ctx.author,
@@ -513,20 +512,32 @@ class ShopView(BaseView):
                         item_name,
                         self.user_data
                     )
-
+    
                 if success:
-                    # Refresh user data and view after successful purchase
                     self.user_data = await self.cog.config.user(self.ctx.author).all()
                     await self.initialize_view()
                     await self.update_view()
             
         except Exception as e:
             self.logger.error(f"Error in handle_purchase: {e}", exc_info=True)
-            await interaction.followup.send(
+            message = await interaction.followup.send(
                 "An error occurred while processing your purchase. Please try again.",
                 ephemeral=True,
-                delete_after=2
+                wait=True
             )
+            self.cog.bot.loop.create_task(self.delete_after_delay(message))
+    
+    # Add delete_after_delay method to both classes
+    async def delete_after_delay(self, message):
+        """Helper method to delete a message after a delay"""
+        try:
+            await asyncio.sleep(2)  # Wait 2 seconds
+            await message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except Exception as e:
+            self.logger.error(f"Error in delete_after_delay: {e}")
+        
     async def update_view(self):
         """Update the message with current embed and view"""
         try:
