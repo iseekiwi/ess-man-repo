@@ -225,8 +225,8 @@ class InventoryView(BaseView):
                     await self.update_view()
                     
                 # Send ephemeral message and schedule deletion
-                await interaction.followup.send(msg, ephemeral=True)
-                self.cog.bot.loop.create_task(self.delete_after_delay(interaction))
+                message = await interaction.followup.send(msg, ephemeral=True, wait=True)
+                self.cog.bot.loop.create_task(self.delete_after_delay(message))
                 
             elif custom_id.startswith("equip_rod_"):
                 rod_name = custom_id.replace("equip_rod_", "")
@@ -236,8 +236,8 @@ class InventoryView(BaseView):
                     self.user_data["rod"] = rod_name
                     await interaction.response.defer()
                     await self.update_view()
-                    await interaction.followup.send(msg, ephemeral=True)
-                    self.cog.bot.loop.create_task(self.delete_after_delay(interaction))
+                    message = await interaction.followup.send(msg, ephemeral=True, wait=True)
+                    self.cog.bot.loop.create_task(self.delete_after_delay(message))
                 else:
                     await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
                     
@@ -249,8 +249,8 @@ class InventoryView(BaseView):
                     self.user_data["equipped_bait"] = bait_name
                     await interaction.response.defer()
                     await self.update_view()
-                    await interaction.followup.send(msg, ephemeral=True)
-                    self.cog.bot.loop.create_task(self.delete_after_delay(interaction))
+                    message = await interaction.followup.send(msg, ephemeral=True, wait=True)
+                    self.cog.bot.loop.create_task(self.delete_after_delay(message))
                 else:
                     await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
                     
@@ -268,19 +268,13 @@ class InventoryView(BaseView):
                     delete_after=2
                 )
 
-    async def delete_after_delay(self, interaction: discord.Interaction):
+    async def delete_after_delay(self, message):
         """Helper method to delete a message after a delay"""
         try:
             await asyncio.sleep(2)  # Wait 2 seconds
-            # Get the most recent followup message
-            webhook = interaction.followup
-            async for message in webhook.history(limit=1):
-                try:
-                    await message.delete()
-                except discord.NotFound:
-                    pass  # Message already deleted
-                except Exception as e:
-                    self.logger.error(f"Error deleting message: {e}")
+            await message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
         except Exception as e:
             self.logger.error(f"Error in delete_after_delay: {e}")
 
