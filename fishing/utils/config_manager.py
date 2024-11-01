@@ -60,7 +60,46 @@ class ConfigManager:
         
         self.config.register_user(**default_user)
         self.config.register_global(**default_global)
-        
+
+    async def _get_default_user_data(self) -> Dict[str, Any]:
+        """Get default user data structure"""
+        try:
+            default_data = {
+                "inventory": [],
+                "rod": "Basic Rod",
+                "total_value": 0,
+                "daily_quest": None,
+                "bait": {},
+                "purchased_rods": {"Basic Rod": True},
+                "equipped_bait": None,
+                "current_location": "Pond",
+                "fish_caught": 0,
+                "level": 1,
+                "settings": {
+                    "notifications": True,
+                    "auto_sell": False
+                }
+            }
+            
+            self.logger.debug("Generated default user data structure")
+            return default_data
+            
+        except Exception as e:
+            self.logger.error(f"Error generating default user data: {e}")
+            # Return minimal default structure to prevent further errors
+            return {
+                "inventory": [],
+                "rod": "Basic Rod",
+                "total_value": 0,
+                "bait": {},
+                "purchased_rods": {"Basic Rod": True},
+                "equipped_bait": None,
+                "current_location": "Pond",
+                "fish_caught": 0,
+                "level": 1,
+                "settings": {}
+            }
+    
     async def get_user_data(self, user_id: int) -> ConfigResult[Dict[str, Any]]:
         """Get user data with validation and caching"""
         try:
