@@ -2,6 +2,7 @@
 
 import discord
 import logging
+import asyncio
 from typing import Dict, Optional
 from discord.ui import Button, Select
 from redbot.core import bank
