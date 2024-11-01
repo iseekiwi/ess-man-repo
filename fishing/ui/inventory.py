@@ -233,7 +233,8 @@ class InventoryView(BaseView):
             elif custom_id == "sell_all":
                 success, amount, msg = await self.cog.sell_fish(self.ctx)
                 if success:
-                    self.user_data = await self.cog.config.user(self.ctx.author).all()
+                    user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+                    user_data = user_data_result.data if user_data_result.success else None
                     await interaction.response.defer()
                     await self.update_view()
                     
