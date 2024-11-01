@@ -255,7 +255,7 @@ class ShopView(BaseView):
     
                     for bait_name, bait_data in self.cog.data["bait"].items():
                         stock = bait_stock.get(bait_name, 0)
-                        if stock <= 0:
+                        if stock > 0:
                             purchase_button = Button(
                                 label=f"Buy {bait_name}",
                                 style=discord.ButtonStyle.green,
