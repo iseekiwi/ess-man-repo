@@ -14,6 +14,8 @@ class BackgroundTasks:
         self.config = config
         self.data = data
         self.tasks = []
+        self.last_stock_reset = None
+        self.logger = logging.getLogger('fishing.tasks')
 
     async def weather_change_task(self):
         """Periodically change the weather."""
@@ -40,26 +42,34 @@ class BackgroundTasks:
                     now.date() + datetime.timedelta(days=1),
                     datetime.time()
                 )
+                
+                # Log current stock before reset
+                current_stock = await self.config.bait_stock()
+                self.logger.debug(f"Current stock before reset: {current_stock}")
+                
                 await asyncio.sleep((midnight - now).total_seconds())
                 
                 # Use atomic operation for stock reset
                 async with self.config.bait_stock() as bait_stock:
                     for bait, data in self.data["bait"].items():
                         bait_stock[bait] = data["daily_stock"]
-                        
-                logger.info("Daily stock reset completed")
+                
+                self.last_stock_reset = datetime.datetime.now()
+                new_stock = await self.config.bait_stock()
+                self.logger.info(f"Daily stock reset completed. New stock: {new_stock}")
                 
             except asyncio.CancelledError:
-                logger.info("Daily stock reset task cancelled")
+                self.logger.info("Daily stock reset task cancelled")
                 break
             except Exception as e:
-                logger.error(f"Error in daily_stock_reset: {e}", exc_info=True)
+                self.logger.error(f"Error in daily_stock_reset: {e}", exc_info=True)
                 await asyncio.sleep(300)  # Retry after 5 minutes on error
                 
     def start_tasks(self):
         """Initialize and start background tasks."""
         try:
             if self.tasks:  # Cancel any existing tasks
+                self.logger.debug("Cancelling existing tasks")
                 for task in self.tasks:
                     task.cancel()
             self.tasks = []
@@ -71,10 +81,10 @@ class BackgroundTasks:
             self.tasks.append(
                 self.bot.loop.create_task(self.daily_stock_reset())
             )
-            logger.info("Background tasks started successfully")
+            self.logger.info(f"Background tasks started successfully. Total tasks: {len(self.tasks)}")
             
         except Exception as e:
-            logger.error(f"Error starting background tasks: {e}", exc_info=True)
+            self.logger.error(f"Error starting background tasks: {e}", exc_info=True)
 
     def cancel_tasks(self):
         """Cancel all running background tasks."""
