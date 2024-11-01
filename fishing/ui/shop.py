@@ -9,7 +9,7 @@ from redbot.core import bank
 from .base import BaseView
 from ..utils.logging_config import get_logger
 
-logger = setup_logging('shop')
+logger = get_logger('shop')
 
 class QuantitySelect(discord.ui.Select):
     def __init__(self):
