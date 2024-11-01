@@ -575,7 +575,16 @@ class Fishing(commands.Cog):
                 # Rollback stock if inventory update fails
                 await self.config_manager.update_global_setting("bait_stock", stock_result.data)
                 return False, "Error updating inventory."
-    
+
+            # Verify the inventory update
+            verify_result = await self.config_manager.get_user_data(user.id)
+            if verify_result.success:
+                updated_bait = verify_result.data.get("bait", {}).get(bait_name, 0)
+                self.logger.debug(f"Verified bait amount after purchase: {updated_bait}")
+                if updated_bait < amount:
+                    self.logger.error("Bait amount verification failed")
+                    return False, "Error verifying inventory update."
+            
             # Process payment last to minimize need for rollbacks
             try:
                 await bank.withdraw_credits(user, total_cost)
