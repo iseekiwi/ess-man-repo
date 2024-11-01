@@ -566,13 +566,16 @@ class Fishing(commands.Cog):
             async with self.config_manager.config_transaction() as transaction:
                 try:
                     # Update stock
-                    new_stock = {bait_name: current_stock - amount}
+                    new_stock = stock_result.data.copy()  # Copy the entire stock dict
+                    new_stock[bait_name] = current_stock - amount
                     transaction["global_bait_stock"] = new_stock
-                    
-                    # Update user's bait
-                    current_bait = user_data.get("bait", {})
-                    current_bait[bait_name] = current_bait.get(bait_name, 0) + amount
-                    transaction[f"user_{user.id}"] = {"bait": current_bait}
+                
+                    # Update user's bait inventory
+                    updated_user_data = user_data.copy()
+                    if "bait" not in updated_user_data:
+                        updated_user_data["bait"] = {}
+                    updated_user_data["bait"][bait_name] = updated_user_data.get("bait", {}).get(bait_name, 0) + amount
+                    transaction[f"user_{user.id}"] = updated_user_data
                     
                     # Process payment
                     await bank.withdraw_credits(user, total_cost)
@@ -613,9 +616,10 @@ class Fishing(commands.Cog):
             async with self.config_manager.config_transaction() as transaction:
                 try:
                     # Update user's rods
-                    purchased_rods = user_data["purchased_rods"].copy()
-                    purchased_rods[rod_name] = True
-                    transaction[f"user_{user.id}"] = {"purchased_rods": purchased_rods}
+                    updated_user_data = user_data.copy()
+                    updated_user_data["purchased_rods"] = user_data["purchased_rods"].copy()
+                    updated_user_data["purchased_rods"][rod_name] = True
+                    transaction[f"user_{user.id}"] = updated_user_data
                     
                     # Process payment
                     await bank.withdraw_credits(user, rod_data["cost"])
