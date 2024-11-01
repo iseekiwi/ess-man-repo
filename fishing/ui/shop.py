@@ -429,7 +429,8 @@ class ShopView(BaseView):
             self.logger.error(f"Error in handle_button: {e}", exc_info=True)
             await interaction.response.send_message(
                 "An error occurred while navigating the shop. Please try again.",
-                ephemeral=True
+                ephemeral=True,
+                delete_after=2
             )
             
     async def handle_select(self, interaction: discord.Interaction):
@@ -443,7 +444,8 @@ class ShopView(BaseView):
             self.logger.error(f"Error in handle_select: {e}", exc_info=True)
             await interaction.response.send_message(
                 "An error occurred while selecting quantity. Please try again.",
-                ephemeral=True
+                ephemeral=True,
+                delete_after=2
             )
 
     async def handle_purchase(self, interaction: discord.Interaction):
@@ -486,7 +488,8 @@ class ShopView(BaseView):
             await interaction.response.send_message(
                 f"Confirm purchase of {quantity}x {item_name} for {total_cost} coins?",
                 view=confirm_view,
-                ephemeral=True
+                ephemeral=True,
+                delete_after=2
             )
             
             # Store message reference
