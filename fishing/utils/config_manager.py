@@ -84,30 +84,63 @@ class ConfigManager:
     async def _validate_user_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and repair user data if needed"""
         try:
+            # If data is None or empty, return default data
             if not data:
+                self.logger.debug("User data is empty, returning default data")
                 return await self._get_default_user_data()
                 
-            # Ensure all required keys exist
             default_data = await self._get_default_user_data()
-            for key, value in default_data.items():
-                if key not in data:
-                    data[key] = value
-                elif isinstance(value, dict):
-                    for subkey, subvalue in value.items():
-                        if key not in data or subkey not in data[key]:
-                            if key not in data:
-                                data[key] = {}
-                            data[key][subkey] = subvalue
-                            
-            return data
+            validated_data = {}
             
+            # Ensure all required keys exist with correct types
+            for key, default_value in default_data.items():
+                if key not in data:
+                    validated_data[key] = default_value
+                elif isinstance(default_value, dict):
+                    if not isinstance(data[key], dict):
+                        validated_data[key] = default_value
+                    else:
+                        validated_data[key] = {}
+                        # Recursively validate nested dictionary
+                        for subkey, subvalue in default_value.items():
+                            if subkey not in data[key]:
+                                validated_data[key][subkey] = subvalue
+                            else:
+                                validated_data[key][subkey] = data[key][subkey]
+                else:
+                    validated_data[key] = data[key]
+                    
+            return validated_data
+                
         except Exception as e:
             self.logger.error(f"Error validating user data: {e}")
+            self.logger.debug("Returning default user data due to validation error")
             return await self._get_default_user_data()
             
-    async def _get_default_user_data(self) -> Dict[str, Any]:
-        """Get default user data"""
-        return await self.config.user_defaults()
+    async def get_user_data(self, user_id: int) -> ConfigResult[Dict[str, Any]]:
+        """Get user data with validation and caching"""
+        try:
+            # Check cache first
+            cache_key = f"user_{user_id}"
+            if cache_key in self._cache:
+                return ConfigResult(True, self._cache[cache_key])
+                
+            try:
+                data = await self.config.user_from_id(user_id).all()
+            except Exception as e:
+                self.logger.error(f"Error fetching user data from config: {e}")
+                data = None
+                
+            validated_data = await self._validate_user_data(data)
+            
+            # Update cache
+            self._cache[cache_key] = validated_data
+            
+            return ConfigResult(True, validated_data)
+            
+        except Exception as e:
+            self.logger.error(f"Error getting user data: {e}")
+            return ConfigResult(False, error=str(e))
         
     async def update_user_data(
         self,
