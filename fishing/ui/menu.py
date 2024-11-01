@@ -194,8 +194,8 @@ class FishingMenuView(BaseView):
                     )
                     
             elif self.current_page == "weather":
-                current_weather = await self.cog.config.current_weather()
-                weather_data = self.cog.data["weather"][current_weather]
+                weather_result = await self.cog.config_manager.get_global_setting("current_weather")
+                current_weather = weather_result.data if weather_result.success else "Sunny"
                 
                 embed = discord.Embed(
                     title="🌤️ Current Weather",
@@ -429,11 +429,12 @@ class FishingMenuView(BaseView):
             self.logger.error(f"Error in fishing process: {e}", exc_info=True)
             self.fishing_in_progress = False
             await self.initialize_view()
-            await interaction.followup.send(
+            message = await interaction.followup.send(
                 "An error occurred while fishing. Please try again.",
                 ephemeral=True,
-                delete_after=2
+                wait=True
             )
+            self.cog.bot.loop.create_task(self.delete_after_delay(message))
             main_embed = await self.generate_embed()
             await self.message.edit(embed=main_embed, view=self)
 
