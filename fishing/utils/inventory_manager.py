@@ -12,7 +12,7 @@ class InventoryManager:
     """Centralized inventory management system"""
     def __init__(self, bot: Red, config: Config, data: Dict):
         self.bot = bot
-        self.config = config
+        self.config_manager = config_manager
         self.data = data
         self.logger = logger
         
@@ -97,7 +97,11 @@ class InventoryManager:
     async def get_inventory_summary(self, user_id: int) -> Optional[Dict]:
         """Get a summary of user's inventory"""
         try:
-            async with self.config.user_from_id(user_id).all() as user_data:
+            result = await self.config_manager.get_user_data(user_id)
+                if not result.success:
+                    return None
+                    
+                user_data = result.data
                 if not user_data:
                     return None
                     
