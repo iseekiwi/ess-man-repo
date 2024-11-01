@@ -471,8 +471,22 @@ class FishingMenuView(BaseView):
                 )
                 return
                 
-            # Update location
-            await self.cog.config.user(self.ctx.author).current_location.set(location_name)
+            # Update location using ConfigManager
+            update_result = await self.cog.config_manager.update_user_data(
+                self.ctx.author.id,
+                {"current_location": location_name},
+                fields=["current_location"]
+            )
+            
+            if not update_result.success:
+                await interaction.response.send_message(
+                    "Error updating location. Please try again.",
+                    ephemeral=True,
+                    delete_after=2
+                )
+                return
+                
+            # Update local user data
             self.user_data["current_location"] = location_name
             
             # Return to main menu
