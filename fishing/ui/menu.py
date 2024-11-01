@@ -1,4 +1,5 @@
-# menu.py
+# ui/menu.py
+
 import discord
 import logging
 import asyncio
