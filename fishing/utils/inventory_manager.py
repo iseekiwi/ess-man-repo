@@ -20,77 +20,120 @@ class InventoryManager:
     async def add_item(self, user_id: int, item_type: str, item_name: str, amount: int = 1) -> Tuple[bool, str]:
         """Add any type of item to user inventory"""
         try:
-            async with self.config.user_from_id(user_id).all() as user_data:
-                if item_type == "fish":
-                    if item_name not in self.data["fish"]:
-                        return False, "Invalid fish type"
-                    if "inventory" not in user_data:
-                        user_data["inventory"] = []
-                    for _ in range(amount):
-                        user_data["inventory"].append(item_name)
-                        
-                elif item_type == "bait":
-                    if item_name not in self.data["bait"]:
-                        return False, "Invalid bait type"
-                    if "bait" not in user_data:
-                        user_data["bait"] = {}
-                    user_data["bait"][item_name] = user_data["bait"].get(item_name, 0) + amount
-                    
-                elif item_type == "rod":
-                    if item_name not in self.data["rods"]:
-                        return False, "Invalid rod type"
-                    if "purchased_rods" not in user_data:
-                        user_data["purchased_rods"] = {"Basic Rod": True}
-                    user_data["purchased_rods"][item_name] = True
-                    
-                else:
-                    return False, "Invalid item type"
-                    
-                return True, f"Successfully added {amount}x {item_name}"
+            # Get current user data
+            user_result = await self.config_manager.get_user_data(user_id)
+            if not user_result.success:
+                return False, "Error accessing user data"
                 
+            user_data = user_result.data
+            updates = {}
+    
+            if item_type == "fish":
+                if item_name not in self.data["fish"]:
+                    return False, "Invalid fish type"
+                if "inventory" not in user_data:
+                    user_data["inventory"] = []
+                inventory = user_data["inventory"].copy()
+                for _ in range(amount):
+                    inventory.append(item_name)
+                updates["inventory"] = inventory
+    
+            elif item_type == "bait":
+                if item_name not in self.data["bait"]:
+                    return False, "Invalid bait type"
+                if "bait" not in user_data:
+                    user_data["bait"] = {}
+                bait_inventory = user_data.get("bait", {}).copy()
+                bait_inventory[item_name] = bait_inventory.get(item_name, 0) + amount
+                updates["bait"] = bait_inventory
+    
+            elif item_type == "rod":
+                if item_name not in self.data["rods"]:
+                    return False, "Invalid rod type"
+                purchased_rods = user_data.get("purchased_rods", {"Basic Rod": True}).copy()
+                purchased_rods[item_name] = True
+                updates["purchased_rods"] = purchased_rods
+    
+            else:
+                return False, "Invalid item type"
+    
+            # Update user data with changes
+            update_result = await self.config_manager.update_user_data(
+                user_id,
+                updates,
+                fields=list(updates.keys())
+            )
+    
+            if not update_result.success:
+                return False, "Error updating inventory"
+    
+            return True, f"Successfully added {amount}x {item_name}"
+    
         except Exception as e:
-            logger.error(f"Error adding item: {e}", exc_info=True)
+            self.logger.error(f"Error adding item: {e}", exc_info=True)
             return False, "Error processing inventory update"
             
     async def remove_item(self, user_id: int, item_type: str, item_name: str, amount: int = 1) -> Tuple[bool, str]:
         """Remove any type of item from user inventory"""
         try:
-            async with self.config.user_from_id(user_id).all() as user_data:
-                if item_type == "fish":
-                    if item_name is None:
-                        # Special case: remove all fish
-                        if not user_data.get("inventory", []):
-                            return False, "No fish to remove"
-                        user_data["inventory"] = []
-                        return True, "Successfully removed all fish"
-                    else:
-                        # Remove specific fish
-                        if not user_data.get("inventory", []).count(item_name) >= amount:
-                            return False, "Not enough fish to remove"
-                        for _ in range(amount):
-                            user_data["inventory"].remove(item_name)
-                            
-                elif item_type == "bait":
-                    if user_data.get("bait", {}).get(item_name, 0) < amount:
-                        return False, "Not enough bait to remove"
-                    user_data["bait"][item_name] -= amount
-                    if user_data["bait"][item_name] <= 0:
-                        del user_data["bait"][item_name]
-                        if user_data.get("equipped_bait") == item_name:
-                            user_data["equipped_bait"] = None
-                            
-                elif item_type == "rod":
-                    if item_name not in user_data.get("purchased_rods", {}):
-                        return False, "Rod not owned"
-                    del user_data["purchased_rods"][item_name]
-                    if user_data.get("rod") == item_name:
-                        user_data["rod"] = "Basic Rod"
-                        
+            # Get current user data
+            user_result = await self.config_manager.get_user_data(user_id)
+            if not user_result.success:
+                return False, "Error accessing user data"
+                
+            user_data = user_result.data
+            updates = {}
+    
+            if item_type == "fish":
+                if item_name is None:
+                    # Special case: remove all fish
+                    if not user_data.get("inventory", []):
+                        return False, "No fish to remove"
+                    updates["inventory"] = []
                 else:
-                    return False, "Invalid item type"
-                    
-                return True, f"Successfully removed {amount}x {item_name}" if item_name else "Successfully removed items"
-                    
+                    # Remove specific fish
+                    inventory = user_data.get("inventory", []).copy()
+                    if inventory.count(item_name) < amount:
+                        return False, "Not enough fish to remove"
+                    for _ in range(amount):
+                        inventory.remove(item_name)
+                    updates["inventory"] = inventory
+    
+            elif item_type == "bait":
+                bait_inventory = user_data.get("bait", {}).copy()
+                if bait_inventory.get(item_name, 0) < amount:
+                    return False, "Not enough bait to remove"
+                bait_inventory[item_name] = bait_inventory[item_name] - amount
+                if bait_inventory[item_name] <= 0:
+                    del bait_inventory[item_name]
+                    if user_data.get("equipped_bait") == item_name:
+                        updates["equipped_bait"] = None
+                updates["bait"] = bait_inventory
+    
+            elif item_type == "rod":
+                purchased_rods = user_data.get("purchased_rods", {}).copy()
+                if item_name not in purchased_rods:
+                    return False, "Rod not owned"
+                del purchased_rods[item_name]
+                updates["purchased_rods"] = purchased_rods
+                if user_data.get("rod") == item_name:
+                    updates["rod"] = "Basic Rod"
+    
+            else:
+                return False, "Invalid item type"
+    
+            # Update user data with changes
+            update_result = await self.config_manager.update_user_data(
+                user_id,
+                updates,
+                fields=list(updates.keys())
+            )
+    
+            if not update_result.success:
+                return False, "Error updating inventory"
+    
+            return True, f"Successfully removed {amount}x {item_name}" if item_name else "Successfully removed items"
+    
         except Exception as e:
             self.logger.error(f"Error removing item: {e}", exc_info=True)
             return False, "Error processing inventory update"
