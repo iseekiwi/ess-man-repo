@@ -191,11 +191,6 @@ class ShopView(BaseView):
             if not hasattr(self.cog, 'data'):
                 self.logger.error("Cog data not accessible")
                 raise ValueError("Cog data not accessible")
-                
-            # Verify cog data is accessible
-            if not hasattr(self.cog, 'data'):
-                self.logger.error("Cog data not accessible")
-                raise ValueError("Cog data not accessible")
             
             await self.initialize_view()
             self.logger.debug("ShopView setup completed successfully")
