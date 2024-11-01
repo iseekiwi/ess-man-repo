@@ -444,17 +444,17 @@ class ShopView(BaseView):
                         ephemeral=True
                     )
     
-        async def update_view(self):
-            """Update the message with current embed and view."""
-            try:
-                # Refresh user data
-                user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
-                if user_data_result.success:
-                    self.user_data = user_data_result.data
+    async def update_view(self):
+        """Update the message with current embed and view."""
+        try:
+            # Refresh user data
+            user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+            if user_data_result.success:
+                self.user_data = user_data_result.data
                 
-                embed = await self.generate_embed()
-                await self.message.edit(embed=embed, view=self)
+            embed = await self.generate_embed()
+            await self.message.edit(embed=embed, view=self)
                 
-            except Exception as e:
-                self.logger.error(f"Error updating view: {e}", exc_info=True)
-                raise
+        except Exception as e:
+            self.logger.error(f"Error updating view: {e}", exc_info=True)
+            raise
