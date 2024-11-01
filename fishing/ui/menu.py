@@ -115,6 +115,8 @@ class FishingMenuView(BaseView):
         """Generate the appropriate embed based on current page"""
         try:
             self.logger.debug(f"Generating embed for page: {self.current_page}")
+            balance = await bank.get_balance(self.ctx.author)
+            currency_name = await bank.get_currency_name(self.ctx.guild)
             
             if self.current_page == "main":
                 embed = discord.Embed(
