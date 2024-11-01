@@ -9,6 +9,7 @@ from .ui.inventory import InventoryView
 from .ui.shop import ShopView, PurchaseConfirmView
 from .ui.menu import FishingMenuView
 from .utils.inventory_manager import InventoryManager
+from .utils.task_manager import TaskManager
 from .utils.logging_config import get_logger
 from .utils.config_manager import ConfigManager, ConfigResult
 from redbot.core import commands, Config, bank
@@ -49,8 +50,7 @@ class Fishing(commands.Cog):
         self.inventory = InventoryManager(bot, self.config_manager, self.data)
         
         # Initialize background tasks
-        self.bg_task_manager = BackgroundTasks(bot, self.config_manager, self.data)
-        self.bg_task_manager.start_tasks()
+        self.bg_task_manager = TaskManager(bot, self.config_manager, self.data)
 
     async def create_menu(self, ctx, user_data):
         """Create and setup a new menu view"""
@@ -91,7 +91,7 @@ class Fishing(commands.Cog):
                 self.logger.debug(f"Initialized bait stock: {initial_stock}")
                 
             # Start background tasks
-            self.bg_task_manager.start_tasks()
+            await self.bg_task_manager.start_tasks()
             
         except Exception as e:
             self.logger.error(f"Error in cog_load: {e}", exc_info=True)
