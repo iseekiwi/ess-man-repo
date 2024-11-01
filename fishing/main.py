@@ -539,7 +539,7 @@ class Fishing(commands.Cog):
             await ctx.send("An unexpected error occurred. Please try again later.")
     
     async def _handle_bait_purchase(self, user, bait_name: str, amount: int, user_data: dict) -> tuple[bool, str]:
-        """Handle bait purchase logic."""
+        """Handle bait purchase logic with proper inventory management."""
         try:
             self.logger.debug(f"Starting bait purchase for {user.name}: {bait_name} x {amount}")
             
@@ -562,34 +562,32 @@ class Fishing(commands.Cog):
             if current_stock < amount:
                 return False, f"🚫 Not enough {bait_name} in stock! Available: {current_stock}"
             
-            # Process purchase using transaction
-            async with self.config_manager.config_transaction() as transaction:
-                try:
-                    # Update stock
-                    new_stock = stock_result.data.copy()  # Copy the entire stock dict
-                    new_stock[bait_name] = current_stock - amount
-                    transaction["global_bait_stock"] = new_stock
-                
-                    # Update user's bait inventory
-                    updated_user_data = user_data.copy()
-                    if "bait" not in updated_user_data:
-                        updated_user_data["bait"] = {}
-                    updated_user_data["bait"][bait_name] = updated_user_data.get("bait", {}).get(bait_name, 0) + amount
-                    transaction[f"user_{user.id}"] = updated_user_data
-                    
-                    # Process payment
-                    await bank.withdraw_credits(user, total_cost)
-                    
-                    return True, f"✅ Purchased {amount} {bait_name} for {total_cost} coins!"
-                    
-                except Exception as e:
-                    # If inventory update fails, attempt to refund
-                    try:
-                        await bank.deposit_credits(user, total_cost)
-                    except Exception as refund_error:
-                        self.logger.error(f"Failed to refund after error: {refund_error}")
-                    raise
-        
+            # Update stock first
+            new_stock = stock_result.data.copy()
+            new_stock[bait_name] = current_stock - amount
+            stock_update = await self.config_manager.update_global_setting("bait_stock", new_stock)
+            if not stock_update.success:
+                return False, "Error updating stock."
+    
+            # Use inventory manager to add bait
+            success, msg = await self.inventory.add_item(user.id, "bait", bait_name, amount)
+            if not success:
+                # Rollback stock if inventory update fails
+                await self.config_manager.update_global_setting("bait_stock", stock_result.data)
+                return False, "Error updating inventory."
+    
+            # Process payment last to minimize need for rollbacks
+            try:
+                await bank.withdraw_credits(user, total_cost)
+            except Exception as e:
+                # Rollback both stock and inventory if payment fails
+                await self.config_manager.update_global_setting("bait_stock", stock_result.data)
+                await self.inventory.remove_item(user.id, "bait", bait_name, amount)
+                self.logger.error(f"Payment failed for bait purchase: {e}")
+                return False, "Error processing payment."
+    
+            return True, f"✅ Purchased {amount} {bait_name} for {total_cost} coins!"
+            
         except Exception as e:
             self.logger.error(f"Error in bait purchase: {e}", exc_info=True)
             return False, "❌ An error occurred while processing your purchase."
