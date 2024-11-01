@@ -22,12 +22,13 @@ class QuantitySelect(discord.ui.Select):
 
 class PurchaseConfirmView(BaseView):
     def __init__(self, cog, ctx, item_name: str, quantity: int, cost_per_item: int):
-        super().__init__(cog, ctx, timeout=30)
+        super().__init__(cog, ctx, timeout=60)
         self.item_name = item_name
         self.quantity = quantity
         self.total_cost = cost_per_item * quantity
         self.value = None
-        self.message = None  # Store message reference
+        self.message = None
+        self.success_message = None  # Store the success message to return to handle_purchase
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id == self.ctx.author.id:
@@ -48,7 +49,11 @@ class PurchaseConfirmView(BaseView):
                 logger.debug("Bank system ready and global.")
             except Exception as e:
                 logger.error(f"Configuration error: {e}")
-                await interaction.response.send_message("Configuration error. Please contact an admin.", ephemeral=True)
+                await interaction.response.send_message(
+                    "Configuration error. Please contact an admin.",
+                    ephemeral=True,
+                    delete_after=2
+                )
                 return
 
             # Verify the user can afford the purchase
@@ -56,7 +61,8 @@ class PurchaseConfirmView(BaseView):
                 currency_name = await bank.get_currency_name(self.ctx.guild)
                 await interaction.response.send_message(
                     f"You don't have enough {currency_name} for this purchase!", 
-                    ephemeral=True
+                    ephemeral=True,
+                    delete_after=2
                 )
                 return
 
@@ -72,13 +78,35 @@ class PurchaseConfirmView(BaseView):
                 pass  # Message was already deleted
             except Exception as e:
                 logger.error(f"Error deleting confirmation message: {e}", exc_info=True)
+
+            # Send confirmation of successful purchase
+            try:
+                await interaction.response.send_message(
+                    f"Successfully purchased {self.quantity}x {self.item_name} for {self.total_cost} coins!",
+                    ephemeral=True,
+                    delete_after=2
+                )
+            except discord.InteractionResponded:
+                await interaction.followup.send(
+                    f"Successfully purchased {self.quantity}x {self.item_name} for {self.total_cost} coins!",
+                    ephemeral=True,
+                    delete_after=2
+                )
             
         except Exception as e:
             logger.error(f"Error in purchase confirmation: {e}", exc_info=True)
-            await interaction.response.send_message(
-                "An error occurred during purchase confirmation. Please try again.",
-                ephemeral=True
-            )
+            try:
+                await interaction.response.send_message(
+                    "An error occurred during purchase confirmation. Please try again.",
+                    ephemeral=True,
+                    delete_after=2
+                )
+            except discord.InteractionResponded:
+                await interaction.followup.send(
+                    "An error occurred during purchase confirmation. Please try again.",
+                    ephemeral=True,
+                    delete_after=2
+                )
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
     async def cancel(self, interaction: discord.Interaction, button: Button):
@@ -102,10 +130,9 @@ class PurchaseConfirmView(BaseView):
                 await interaction.response.send_message(
                     "Purchase cancelled.",
                     ephemeral=True,
-                    delete_after=2  # Message will auto-delete after 2 seconds
+                    delete_after=2
                 )
             except discord.InteractionResponded:
-                # If interaction was already responded to, try followup
                 await interaction.followup.send(
                     "Purchase cancelled.",
                     ephemeral=True,
@@ -471,14 +498,14 @@ class ShopView(BaseView):
             if confirm_view.value:
                 # Process the purchase based on item type
                 if item_name in self.cog.data["bait"]:
-                    success, msg = await self.cog._handle_bait_purchase(
+                    success, _ = await self.cog._handle_bait_purchase(
                         self.ctx.author,
                         item_name,
                         quantity,
                         self.user_data
                     )
                 else:
-                    success, msg = await self.cog._handle_rod_purchase(
+                    success, _ = await self.cog._handle_rod_purchase(
                         self.ctx.author,
                         item_name,
                         self.user_data
@@ -489,32 +516,14 @@ class ShopView(BaseView):
                     self.user_data = await self.cog.config.user(self.ctx.author).all()
                     await self.initialize_view()
                     await self.update_view()
-                
-                # Try to send the result message with auto-delete
-                try:
-                    await interaction.followup.send(
-                        msg, 
-                        ephemeral=True,
-                        delete_after=2  # Message will auto-delete after 2 seconds
-                    )
-                except discord.NotFound:
-                    # If the original interaction is no longer valid, send a new message
-                    await self.ctx.send(msg, delete_after=2)
             
         except Exception as e:
             self.logger.error(f"Error in handle_purchase: {e}", exc_info=True)
-            try:
-                await interaction.followup.send(
-                    "An error occurred while processing your purchase. Please try again.",
-                    ephemeral=True,
-                    delete_after=2
-                )
-            except discord.NotFound:
-                await self.ctx.send(
-                    "An error occurred while processing your purchase. Please try again.",
-                    delete_after=2
-                )
-
+            await interaction.followup.send(
+                "An error occurred while processing your purchase. Please try again.",
+                ephemeral=True,
+                delete_after=2
+            )
     async def update_view(self):
         """Update the message with current embed and view"""
         try:
