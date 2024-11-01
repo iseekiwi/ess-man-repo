@@ -25,22 +25,7 @@ class InventoryView(BaseView):
 
     async def generate_embed(self) -> discord.Embed:
         """Generate the appropriate embed based on current page"""
-        try:
-            self.logger.debug(f"Generating embed for page: {self.current_page}")
-            try:
-                self.logger.debug(f"Attempting to get balance for user {self.ctx.author.name}")
-                balance = await bank.get_balance(self.ctx.author)
-                self.logger.debug(f"Successfully retrieved balance: {balance}")
-                    
-                self.logger.debug(f"Attempting to get currency name for guild {self.ctx.guild.name}")
-                currency_name = await bank.get_currency_name(self.ctx.guild)
-                self.logger.debug(f"Successfully retrieved currency name: {currency_name}")
-            except Exception as e:
-                self.logger.error(f"Error getting balance/currency info: {str(e)}", exc_info=True)
-                self.logger.error(f"Bank enabled: {await bank.is_global()}")
-                balance = 0
-                currency_name = "coins"
-            
+        try:         
             # Get user's balance and currency name
             try:
                 balance = await bank.get_balance(self.ctx.author)
