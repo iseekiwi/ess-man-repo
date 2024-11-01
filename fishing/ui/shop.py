@@ -65,8 +65,13 @@ class PurchaseConfirmView(BaseView):
             self.stop()
 
             # Delete the confirmation message
-            if self.message:
-                await self.message.delete()
+            try:
+                if self.message:
+                    await self.message.delete()
+            except discord.NotFound:
+                pass  # Message was already deleted
+            except Exception as e:
+                logger.error(f"Error deleting confirmation message: {e}", exc_info=True)
             
         except Exception as e:
             logger.error(f"Error in purchase confirmation: {e}", exc_info=True)
@@ -77,34 +82,59 @@ class PurchaseConfirmView(BaseView):
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
     async def cancel(self, interaction: discord.Interaction, button: Button):
-        logger.debug(f"Cancel button pressed by user {interaction.user.id} for {self.item_name}")
-        self.value = False
-        self.stop()
-        
-        # Delete the confirmation message
-        if self.message:
-            await self.message.delete()
-        else:
-            await interaction.response.defer()
+        """Handle purchase cancellation."""
+        try:
+            logger.debug(f"Cancel button pressed by user {interaction.user.id} for {self.item_name}")
+            self.value = False
+            self.stop()
+            
+            # First, try to delete the confirmation message
+            try:
+                if self.message:
+                    await self.message.delete()
+            except discord.NotFound:
+                pass  # Message was already deleted
+            except Exception as e:
+                logger.error(f"Error deleting cancellation message: {e}", exc_info=True)
+            
+            # Send cancellation confirmation
+            try:
+                await interaction.response.send_message(
+                    "Purchase cancelled.",
+                    ephemeral=True,
+                    delete_after=2  # Message will auto-delete after 2 seconds
+                )
+            except discord.InteractionResponded:
+                # If interaction was already responded to, try followup
+                await interaction.followup.send(
+                    "Purchase cancelled.",
+                    ephemeral=True,
+                    delete_after=2
+                )
+            except Exception as e:
+                logger.error(f"Error sending cancellation confirmation: {e}", exc_info=True)
+                
+        except Exception as e:
+            logger.error(f"Error in purchase cancellation: {e}", exc_info=True)
+            try:
+                await interaction.response.send_message(
+                    "An error occurred while cancelling the purchase.",
+                    ephemeral=True,
+                    delete_after=2
+                )
+            except:
+                pass
 
     async def on_timeout(self):
+        """Handle view timeout."""
         logger.info(f"Purchase view timed out for {self.item_name}")
-        if self.message:
-            await self.message.delete()
-
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
-    async def cancel(self, interaction: discord.Interaction, button: Button):
-        logger.debug(f"Cancel button pressed by user {interaction.user.id} for {self.item_name}")
-        self.value = False
-        self.stop()
-        await interaction.response.send_message("Purchase cancelled.", ephemeral=True)
-
-    async def on_timeout(self):
-        logger.info(f"Purchase view timed out for {self.item_name}")
-        for item in self.children:
-            item.disabled = True
-        if self.message:
-            await self.message.edit(view=self)
+        try:
+            if self.message:
+                await self.message.delete()
+        except discord.NotFound:
+            pass  # Message was already deleted
+        except Exception as e:
+            logger.error(f"Error handling timeout cleanup: {e}", exc_info=True)
 
 class ShopView(BaseView):
     """View for the fishing shop interface"""
