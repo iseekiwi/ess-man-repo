@@ -416,6 +416,63 @@ class FishingMenuView(BaseView):
             )
             main_embed = await self.generate_embed()
             await self.message.edit(embed=main_embed, view=self)
+
+    async def handle_location_select(self, interaction: discord.Interaction):
+        """Handle location selection button interactions"""
+        try:
+            custom_id = interaction.data["custom_id"]
+            location_name = custom_id.replace("loc_", "")
+            
+            # Verify location exists
+            if location_name not in self.cog.data["locations"]:
+                await interaction.response.send_message(
+                    "Invalid location selection.",
+                    ephemeral=True
+                )
+                return
+                
+            location_data = self.cog.data["locations"][location_name]
+            
+            # Check requirements
+            meets_req, msg = await self.cog.check_requirements(
+                self.user_data,
+                location_data["requirements"]
+            )
+            if not meets_req:
+                await interaction.response.send_message(msg, ephemeral=True)
+                return
+                
+            # Update location
+            await self.cog.config.user(self.ctx.author).current_location.set(location_name)
+            self.user_data["current_location"] = location_name
+            
+            # Return to main menu
+            self.current_page = "main"
+            await interaction.response.defer()
+            await self.update_view()
+            
+            # Send confirmation
+            await interaction.followup.send(
+                f"🌍 Now fishing at: {location_name}\n{location_data['description']}",
+                ephemeral=True
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error in handle_location_select: {e}", exc_info=True)
+            await interaction.response.send_message(
+                "An error occurred while changing location. Please try again.",
+                ephemeral=True
+            )
+
+    async def update_view(self):
+        """Update the message with current embed and view"""
+        try:
+            await self.initialize_view()
+            embed = await self.generate_embed()
+            await self.message.edit(embed=embed, view=self)
+        except Exception as e:
+            self.logger.error(f"Error updating view: {e}", exc_info=True)
+            await self.ctx.send("Error updating menu view. Please try again.")
     
     async def start(self):
         """Start the menu view"""
