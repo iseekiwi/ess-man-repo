@@ -579,10 +579,19 @@ class Fishing(commands.Cog):
             # Verify the inventory update
             verify_result = await self.config_manager.get_user_data(user.id)
             if verify_result.success:
-                updated_bait = verify_result.data.get("bait", {}).get(bait_name, 0)
-                self.logger.debug(f"Verified bait amount after purchase: {updated_bait}")
+                self.logger.debug(f"Full user data after purchase: {verify_result.data}")
+                
+                bait_data = verify_result.data.get("bait", {})
+                self.logger.debug(f"Bait inventory after purchase: {bait_data}")
+                
+                updated_bait = bait_data.get(bait_name, 0)
+                self.logger.debug(f"Attempting to verify purchase of {amount} {bait_name}, found {updated_bait}")
+                
                 if updated_bait < amount:
-                    self.logger.error("Bait amount verification failed")
+                    self.logger.error(f"Bait amount verification failed: Expected at least {amount}, got {updated_bait}")
+                    # Let's also check the raw config data
+                    raw_data = await self.config.user(user).all()
+                    self.logger.debug(f"Raw config data: {raw_data}")
                     return False, "Error verifying inventory update."
             
             # Process payment last to minimize need for rollbacks
