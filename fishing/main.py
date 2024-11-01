@@ -593,8 +593,13 @@ class Fishing(commands.Cog):
             return False, "❌ An error occurred while processing your purchase."
     
     async def _handle_rod_purchase(self, user, rod_name: str, user_data: dict) -> tuple[bool, str]:
-        """Handle rod purchase logic."""
+        """Handle rod purchase logic using inventory manager."""
         try:
+            self.logger.debug(f"Starting rod purchase for {user.name}: {rod_name}")
+            
+            if rod_name not in self.data["rods"]:
+                return False, "Invalid rod type!"
+                
             rod_data = self.data["rods"][rod_name]
             
             # Check requirements
@@ -603,35 +608,29 @@ class Fishing(commands.Cog):
                 return False, msg
     
             # Check if already owned
-            if rod_name in user_data["purchased_rods"]:
+            if rod_name in user_data.get("purchased_rods", {}):
                 return False, f"🚫 You already own a {rod_name}!"
     
             # Check balance
             if not await self._can_afford(user, rod_data["cost"]):
                 return False, f"🚫 You don't have enough coins! Cost: {rod_data['cost']}"
     
-            # Process purchase using transaction
-            async with self.config_manager.config_transaction() as transaction:
-                try:
-                    # Update user's rods
-                    updated_user_data = user_data.copy()
-                    updated_user_data["purchased_rods"] = user_data["purchased_rods"].copy()
-                    updated_user_data["purchased_rods"][rod_name] = True
-                    transaction[f"user_{user.id}"] = updated_user_data
-                    
-                    # Process payment
-                    await bank.withdraw_credits(user, rod_data["cost"])
-                    
-                    return True, f"✅ Purchased {rod_name} for {rod_data['cost']} coins!"
-                    
-                except Exception as e:
-                    # If update fails, attempt to refund
-                    try:
-                        await bank.deposit_credits(user, rod_data["cost"])
-                    except Exception as refund_error:
-                        self.logger.error(f"Failed to refund after error: {refund_error}")
-                    raise
+            # Use inventory manager to add rod
+            success, msg = await self.inventory.add_item(user.id, "rod", rod_name)
+            if not success:
+                return False, "Error updating inventory."
     
+            # Process payment last to minimize need for rollbacks
+            try:
+                await bank.withdraw_credits(user, rod_data["cost"])
+            except Exception as e:
+                # Rollback inventory if payment fails
+                await self.inventory.remove_item(user.id, "rod", rod_name)
+                self.logger.error(f"Payment failed for rod purchase: {e}")
+                return False, "Error processing payment."
+    
+            return True, f"✅ Purchased {rod_name} for {rod_data['cost']} coins!"
+            
         except Exception as e:
             self.logger.error(f"Error in rod purchase: {e}", exc_info=True)
             return False, "❌ An error occurred while processing your purchase."
