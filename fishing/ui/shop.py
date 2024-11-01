@@ -230,7 +230,10 @@ class ShopView(BaseView):
                     
                     # Get current stock
                     stock_result = await self.cog.config_manager.get_global_setting("bait_stock")
-                    bait_stock = stock_result.data if stock_result.success else {}
+                    if not stock_result.success:
+                        bait_stock = {}
+                    else:
+                        bait_stock = stock_result.data
                     
                     quantity_select = QuantitySelect()
                     quantity_select.callback = self.handle_select
@@ -483,9 +486,10 @@ class ShopView(BaseView):
     
                 if success:
                     user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
-                    user_data = user_data_result.data if user_data_result.success else None
-                    await self.initialize_view()
-                    await self.update_view()
+                    if user_data_result.success:
+                        self.user_data = user_data_result.data
+                        await self.initialize_view()
+                        await self.update_view()
                 
                 # Always show the result message
                 message = await interaction.followup.send(msg, ephemeral=True, wait=True)
