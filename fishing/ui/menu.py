@@ -429,11 +429,12 @@ class FishingMenuView(BaseView):
             
             # Verify location exists
             if location_name not in self.cog.data["locations"]:
-                await interaction.response.send_message(
+                message = await interaction.response.send_message(
                     "Invalid location selection.",
                     ephemeral=True,
-                    delete_after=2
+                    wait=True
                 )
+                self.cog.bot.loop.create_task(self.delete_after_delay(message))
                 return
                 
             location_data = self.cog.data["locations"][location_name]
@@ -444,7 +445,12 @@ class FishingMenuView(BaseView):
                 location_data["requirements"]
             )
             if not meets_req:
-                await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
+                message = await interaction.response.send_message(
+                    msg, 
+                    ephemeral=True,
+                    wait=True
+                )
+                self.cog.bot.loop.create_task(self.delete_after_delay(message))
                 return
                 
             # Update location
@@ -457,19 +463,22 @@ class FishingMenuView(BaseView):
             await self.update_view()
             
             # Send confirmation
-            await interaction.followup.send(
+            message = await interaction.followup.send(
                 f"🌍 Now fishing at: {location_name}\n{location_data['description']}",
                 ephemeral=True,
-                delete_after=3
+                wait=True
             )
+            self.cog.bot.loop.create_task(self.delete_after_delay(message))
             
         except Exception as e:
             self.logger.error(f"Error in handle_location_select: {e}", exc_info=True)
-            await interaction.response.send_message(
-                "An error occurred while changing location. Please try again.",
-                ephemeral=True,
-                delete_after=3
-            )
+            if not interaction.response.is_done():
+                message = await interaction.response.send_message(
+                    "An error occurred while changing location. Please try again.",
+                    ephemeral=True,
+                    wait=True
+                )
+                self.cog.bot.loop.create_task(self.delete_after_delay(message))
 
     async def update_view(self):
         """Update the message with current embed and view"""
