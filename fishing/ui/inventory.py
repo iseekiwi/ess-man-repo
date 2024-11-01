@@ -4,6 +4,7 @@ import discord
 import asyncio
 import logging
 from collections import Counter
+from redbot.core import bank
 from typing import Dict
 from discord.ui import Button, View
 from collections import Counter
@@ -27,6 +28,15 @@ class InventoryView(BaseView):
         try:
             self.logger.debug(f"Generating embed for page: {self.current_page}")
             
+            # Get user's balance and currency name
+            try:
+                balance = await bank.get_balance(self.ctx.author)
+                currency_name = await bank.get_currency_name(self.ctx.guild)
+            except Exception as e:
+                self.logger.error(f"Error getting balance: {e}")
+                balance = 0
+                currency_name = "coins"
+                
             if self.current_page == "main":
                 summary = await self.cog.inventory.get_inventory_summary(self.ctx.author.id)
                 if not summary:
@@ -55,7 +65,8 @@ class InventoryView(BaseView):
                         f"🎣 Rods Owned: {summary['rod_count']}\n"
                         f"🪱 Bait Available: {summary['bait_count']}\n"
                         f"🐟 Fish Caught: {summary['fish_count']}\n"
-                        f"💰 Total Fish Value: {summary['total_value']} coins"
+                        f"💰 Total Fish Value: {summary['total_value']} {currency_name}\n"
+                        f"💰 Current Balance: {balance} {currency_name}"
                     ),
                     inline=False
                 )
@@ -77,6 +88,7 @@ class InventoryView(BaseView):
                         rods_text.append(f"{rod}\n{stats}")
                 
                 embed.description = "\n\n".join(rods_text) or "No rods owned!"
+                embed.set_footer(text=f"Balance: {balance} {currency_name}")
                 
             elif self.current_page == "bait":
                 embed = discord.Embed(
@@ -96,6 +108,7 @@ class InventoryView(BaseView):
                             bait_text.append(f"{bait_name} (x{amount})\n{stats}")
                 
                 embed.description = "\n\n".join(bait_text) or "No bait available!"
+                embed.set_footer(text=f"Balance: {balance} {currency_name}")
                 
             elif self.current_page == "fish":
                 embed = discord.Embed(
@@ -113,17 +126,17 @@ class InventoryView(BaseView):
                     for fish, count in fish_counts.most_common():
                         value = self.cog.data["fish"][fish]["value"] * count
                         total_value += value
-                        fish_text.append(f"{fish}: x{count} (Worth: {value} coins)")
+                        fish_text.append(f"{fish}: x{count} (Worth: {value} {currency_name})")
                     
                     embed.description = "\n".join(fish_text)
-                    embed.set_footer(text=f"Total Value: {total_value} coins")
+                    embed.set_footer(text=f"Total Value: {total_value} {currency_name} | Balance: {balance} {currency_name}")
             
             return embed
             
         except Exception as e:
             self.logger.error(f"Error generating embed: {e}", exc_info=True)
             return discord.Embed(description="Error generating inventory view.")
-
+    
     async def start(self):
         """Start the inventory view"""
         try:
