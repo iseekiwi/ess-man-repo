@@ -415,7 +415,8 @@ class FishingMenuView(BaseView):
             await self.initialize_view()
             await interaction.followup.send(
                 "An error occurred while fishing. Please try again.",
-                ephemeral=True
+                ephemeral=True,
+                delete_after=2
             )
             main_embed = await self.generate_embed()
             await self.message.edit(embed=main_embed, view=self)
@@ -458,7 +459,8 @@ class FishingMenuView(BaseView):
             # Send confirmation
             await interaction.followup.send(
                 f"🌍 Now fishing at: {location_name}\n{location_data['description']}",
-                ephemeral=True
+                ephemeral=True,
+                delete_after=3
             )
             
         except Exception as e:
