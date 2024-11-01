@@ -1,3 +1,5 @@
+# ui/shop.py
+
 import discord
 import logging
 from typing import Dict, Optional
