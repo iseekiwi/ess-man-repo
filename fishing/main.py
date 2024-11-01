@@ -519,48 +519,22 @@ class Fishing(commands.Cog):
         try:
             self.logger.info(f"Shop command invoked by {ctx.author.name}")
             
-            # Get user data
-            user_data = await self.config.user(ctx.author).all()
+            # Ensure user data exists and is properly initialized
+            user_data = await self._ensure_user_data(ctx.author)
             if not user_data:
-                self.logger.error(f"No user data found for {ctx.author.name}")
-                await ctx.send("Error: Please try fishing first to initialize your account.")
-                return
-                
-            # Initialize bait stock if not exists
-            if not hasattr(self, '_bait_stock'):
-                self.logger.debug("Initializing bait stock")
-                self._bait_stock = {
-                    bait: data["daily_stock"] 
-                    for bait, data in self.data["bait"].items()
-                }
-            
-            # Verify required data is loaded
-            if not hasattr(self, 'data'):
-                self.logger.error("Cog data not initialized")
-                await ctx.send("Error: Shop data not initialized. Please contact an administrator.")
+                self.logger.error(f"Failed to get user data for {ctx.author.name}")
+                await ctx.send("❌ Error accessing user data. Please try again.")
                 return
             
-            # Create shop view
+            # Create and start the shop view
             try:
                 view = await ShopView(self, ctx, user_data).setup()
-                self.logger.debug("Shop view created successfully")
-            except Exception as e:
-                self.logger.error(f"Error creating shop view: {e}", exc_info=True)
-                await ctx.send("Error: Unable to create shop interface. Please try again.")
-                return
-            
-            try:
-                # Generate initial embed
                 embed = await view.generate_embed()
-                self.logger.debug("Initial embed generated successfully")
-                
-                # Send the message and store it in the view
                 view.message = await ctx.send(embed=embed, view=view)
                 self.logger.info(f"Shop displayed successfully for {ctx.author.name}")
-                
             except Exception as e:
-                self.logger.error(f"Error displaying shop: {e}", exc_info=True)
-                await ctx.send("Error: Unable to display shop information. Please try again later.")
+                self.logger.error(f"Error creating shop interface: {e}", exc_info=True)
+                await ctx.send("❌ Error displaying shop. Please try again.")
                 return
                 
         except Exception as e:
