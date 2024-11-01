@@ -5,7 +5,7 @@ import logging
 import asyncio
 import random
 import datetime
-from redbot import bank
+from redbot.core import bank
 from typing import Dict, Optional
 from discord.ui import Button
 from .base import BaseView
