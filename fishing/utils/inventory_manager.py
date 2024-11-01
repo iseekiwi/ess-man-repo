@@ -127,7 +127,3 @@ class InventoryManager:
         except Exception as e:
             self.logger.error(f"Error getting inventory summary: {e}", exc_info=True)
             return None
-            
-        except Exception as e:
-            logger.error(f"Error getting inventory summary: {e}", exc_info=True)
-            return None
