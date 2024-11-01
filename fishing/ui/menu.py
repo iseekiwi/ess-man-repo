@@ -364,7 +364,8 @@ class FishingMenuView(BaseView):
                     self.user_data,
                     self.user_data["equipped_bait"],
                     self.user_data["current_location"],
-                    await self.cog.config.current_weather(),
+                    weather_result = await self.cog.config_manager.get_global_setting("current_weather"),
+                    current_weather = weather_result.data if weather_result.success else "Sunny",
                     self.get_time_of_day()
                 )
     
