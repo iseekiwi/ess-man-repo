@@ -20,12 +20,16 @@ class InventoryManager:
     async def add_item(self, user_id: int, item_type: str, item_name: str, amount: int = 1) -> Tuple[bool, str]:
         """Add any type of item to user inventory"""
         try:
+            self.logger.debug(f"Adding item - Type: {item_type}, Name: {item_name}, Amount: {amount}, User: {user_id}")
+            
             # Get current user data
             user_result = await self.config_manager.get_user_data(user_id)
             if not user_result.success:
+                self.logger.error(f"Failed to get user data for {user_id}")
                 return False, "Error accessing user data"
                 
             user_data = user_result.data
+            self.logger.debug(f"Current user data: {user_data}")
             updates = {}
     
             if item_type == "fish":
@@ -40,12 +44,19 @@ class InventoryManager:
     
             elif item_type == "bait":
                 if item_name not in self.data["bait"]:
+                    self.logger.error(f"Invalid bait type: {item_name}")
                     return False, "Invalid bait type"
                 if "bait" not in user_data:
                     user_data["bait"] = {}
+                elif not isinstance(user_data["bait"], dict):
+                    user_data["bait"] = {}
+                
                 bait_inventory = user_data.get("bait", {}).copy()
+                current_amount = bait_inventory.get(item_name, 0)
                 bait_inventory[item_name] = bait_inventory.get(item_name, 0) + amount
                 updates["bait"] = bait_inventory
+                
+                self.logger.debug(f"Updating bait inventory: {updates}")
     
             elif item_type == "rod":
                 if item_name not in self.data["rods"]:
@@ -58,6 +69,7 @@ class InventoryManager:
                 return False, "Invalid item type"
     
             # Update user data with changes
+            self.logger.debug(f"Applying updates: {updates}")
             update_result = await self.config_manager.update_user_data(
                 user_id,
                 updates,
@@ -65,8 +77,14 @@ class InventoryManager:
             )
     
             if not update_result.success:
+                self.logger.error(f"Failed to update inventory: {update_result.error}")
                 return False, "Error updating inventory"
-    
+
+            # Verify the update
+            verify_result = await self.config_manager.get_user_data(user_id)
+            if verify_result.success:
+                self.logger.debug(f"Updated user data state: {verify_result.data}")
+            
             return True, f"Successfully added {amount}x {item_name}"
     
         except Exception as e:
