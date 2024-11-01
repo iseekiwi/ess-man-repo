@@ -196,6 +196,9 @@ class FishingMenuView(BaseView):
             elif self.current_page == "weather":
                 weather_result = await self.cog.config_manager.get_global_setting("current_weather")
                 current_weather = weather_result.data if weather_result.success else "Sunny"
+
+                # Get weather data from cog's data dictionary
+                weather_data = self.cog.data["weather"][current_weather]
                 
                 embed = discord.Embed(
                     title="🌤️ Current Weather",
