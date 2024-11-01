@@ -4,9 +4,9 @@ import logging
 from typing import Dict, Optional, Tuple, List
 from redbot.core.bot import Red
 from redbot.core import Config
-from ..utils.logging_config import setup_logging
+from ..utils.logging_config import get_logger
 
-logger = setup_logging('inventory_manager')
+logger = get_logger('inventory_manager')
 
 class InventoryManager:
     """Centralized inventory management system"""
