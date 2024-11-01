@@ -98,8 +98,8 @@ class InventoryManager:
         """Get a summary of user's inventory"""
         try:
             result = await self.config_manager.get_user_data(user_id)
-                if not result.success:
-                    return None
+            if not result.success:
+                return None
                     
                 user_data = result.data
                 if not user_data:
