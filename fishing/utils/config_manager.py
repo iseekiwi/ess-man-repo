@@ -190,11 +190,13 @@ class ConfigManager:
                     if field in updates:
                         if field == "bait":
                             # Special handling for bait dictionary
-                            if not data.get("bait"):
-                                data["bait"] = {}
+                            current_bait = data.get("bait", {})
                             new_bait = updates["bait"]
-                            self.logger.debug(f"Updating bait data from {data['bait']} to {new_bait}")
-                            data["bait"] = new_bait
+                            # Merge the dictionaries instead of replacing
+                            merged_bait = current_bait.copy()
+                            merged_bait.update(new_bait)
+                            self.logger.debug(f"Updating bait data from {current_bait} to {merged_bait}")
+                            data["bait"] = merged_bait
                         elif isinstance(updates[field], dict):
                             if not isinstance(data.get(field), dict):
                                 data[field] = {}
@@ -205,9 +207,10 @@ class ConfigManager:
                 # Update all fields
                 for key, value in updates.items():
                     if key == "bait":
-                        if not data.get("bait"):
-                            data["bait"] = {}
-                        data["bait"] = value
+                        current_bait = data.get("bait", {})
+                        merged_bait = current_bait.copy()
+                        merged_bait.update(value)
+                        data["bait"] = merged_bait
                     elif isinstance(value, dict):
                         if not isinstance(data.get(key), dict):
                             data[key] = {}
@@ -217,7 +220,7 @@ class ConfigManager:
     
             self.logger.debug(f"Updated data before save: {data}")
             
-            # Save each field individually to ensure persistence
+            # Save data using set_raw for each field
             for key, value in data.items():
                 if key in updates or not fields:
                     self.logger.debug(f"Setting {key} to {value}")
