@@ -358,14 +358,17 @@ class FishingMenuView(BaseView):
                     ),
                     timeout=5.0
                 )
+
+                #Get weather first
+                weather_result = await self.cog.config_manager.get_global_setting("current_weather")
+                current_weather = weather_result.data if weather_result.success else "Sunny"
                 
                 # Process catch
                 catch = await self.cog._catch_fish(
                     self.user_data,
                     self.user_data["equipped_bait"],
                     self.user_data["current_location"],
-                    weather_result = await self.cog.config_manager.get_global_setting("current_weather"),
-                    current_weather = weather_result.data if weather_result.success else "Sunny",
+                    current_weather,
                     self.get_time_of_day()
                 )
     
