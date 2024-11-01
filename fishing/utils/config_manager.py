@@ -28,9 +28,22 @@ class ConfigManager:
         """Register default configurations"""
         from ..data.fishing_data import BAIT_TYPES
         
-        async def get_defaults():
-            default_user = await self._get_default_user_data()
-            return default_user
+        default_user = {
+            "inventory": [],
+            "rod": "Basic Rod",
+            "total_value": 0,
+            "daily_quest": None,
+            "bait": {},
+            "purchased_rods": {"Basic Rod": True},
+            "equipped_bait": None,
+            "current_location": "Pond",
+            "fish_caught": 0,
+            "level": 1,
+            "settings": {
+                "notifications": True,
+                "auto_sell": False
+            }
+        }
     
         default_global = {
             "bait_stock": {
@@ -45,7 +58,7 @@ class ConfigManager:
             }
         }
         
-        self.config.register_user(**get_defaults())
+        self.config.register_user(**default_user)
         self.config.register_global(**default_global)
 
     async def _get_default_user_data(self) -> Dict[str, Any]:
