@@ -45,7 +45,7 @@ class PurchaseConfirmView(BaseView):
         self.logger.debug(f"Confirm button pressed by user {interaction.user.id} for {self.item_name}")
         
         try:
-            # Simply set confirmation and clean up
+            # Set confirmation value
             self.value = True
             self.stop()
             
@@ -58,23 +58,32 @@ class PurchaseConfirmView(BaseView):
             except Exception as e:
                 self.logger.error(f"Error deleting confirmation message: {e}", exc_info=True)
             
-            # Defer the interaction since the actual purchase will be handled by the shop
-            await interaction.response.defer()
+            # Send ephemeral confirmation and schedule deletion
+            confirmation_msg = await interaction.response.send_message(
+                f"Purchase confirmed! Processing...",
+                ephemeral=True,
+                wait=True
+            )
+            
+            # Schedule deletion using the cog's bot loop
+            self.cog.bot.loop.create_task(self.delete_after_delay(confirmation_msg))
             
         except Exception as e:
             self.logger.error(f"Error in purchase confirmation: {e}", exc_info=True)
             try:
-                await interaction.response.send_message(
+                error_msg = await interaction.response.send_message(
                     "An error occurred during purchase confirmation.",
                     ephemeral=True,
-                    delete_after=2
+                    wait=True
                 )
+                self.cog.bot.loop.create_task(self.delete_after_delay(error_msg))
             except discord.InteractionResponded:
-                await interaction.followup.send(
+                error_msg = await interaction.followup.send(
                     "An error occurred during purchase confirmation.",
                     ephemeral=True,
-                    delete_after=2
+                    wait=True
                 )
+                self.cog.bot.loop.create_task(self.delete_after_delay(error_msg))
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
     async def cancel(self, interaction: discord.Interaction, button: Button):
@@ -93,30 +102,35 @@ class PurchaseConfirmView(BaseView):
             except Exception as e:
                 self.logger.error(f"Error deleting cancellation message: {e}", exc_info=True)
             
-            # Send cancellation confirmation
-            try:
-                await interaction.response.send_message(
-                    "Purchase cancelled.",
-                    ephemeral=True,
-                    delete_after=2
-                )
-            except discord.InteractionResponded:
-                await interaction.followup.send(
-                    "Purchase cancelled.",
-                    ephemeral=True,
-                    delete_after=2
-                )
+            # Send cancellation message and schedule deletion
+            cancel_msg = await interaction.response.send_message(
+                "Purchase cancelled.",
+                ephemeral=True,
+                wait=True
+            )
+            self.cog.bot.loop.create_task(self.delete_after_delay(cancel_msg))
                 
         except Exception as e:
             self.logger.error(f"Error in purchase cancellation: {e}", exc_info=True)
             try:
-                await interaction.response.send_message(
+                error_msg = await interaction.response.send_message(
                     "An error occurred while cancelling the purchase.",
                     ephemeral=True,
-                    delete_after=2
+                    wait=True
                 )
+                self.cog.bot.loop.create_task(self.delete_after_delay(error_msg))
             except:
                 pass
+
+    async def delete_after_delay(self, message):
+        """Helper method to delete a message after a delay"""
+        try:
+            await asyncio.sleep(2)  # Wait 2 seconds
+            await message.delete()
+        except discord.NotFound:
+            pass  # Message was already deleted
+        except Exception as e:
+            self.logger.error(f"Error in delete_after_delay: {e}")
 
     async def on_timeout(self):
         """Handle view timeout."""
