@@ -1,15 +1,16 @@
+# main.py
+
 import discord
 import asyncio
 import os
 import random
 import datetime
-import logging
 from .ui.inventory import InventoryView
 from .ui.shop import ShopView, PurchaseConfirmView
 from .ui.menu import FishingMenuView
 from .utils.inventory_manager import InventoryManager
-from .utils.logging_config import setup_logging
-from .utils.background_tasks import BackgroundTasks
+from .utils.logging_config import get_logger
+from .utils.config_manager import ConfigManager, ConfigResult
 from redbot.core import commands, Config, bank
 from redbot.core.bot import Red
 from collections import Counter
@@ -28,44 +29,12 @@ class Fishing(commands.Cog):
     def __init__(self, bot: Red):
         self.bot = bot
         # Set up logging first
-        self.logger = setup_logging('main')
+        self.logger = get_logger('main')
         self.logger.info("Initializing Fishing cog")
         
-        self.config = Config.get_conf(self, identifier=123456789)
-            
-        # Default user settings
-        default_user = {
-            "inventory": [],
-            "rod": "Basic Rod",
-            "total_value": 0,
-            "daily_quest": None,
-            "bait": {},
-            "purchased_rods": {"Basic Rod": True},
-            "equipped_bait": None,
-            "current_location": "Pond",
-            "fish_caught": 0,
-            "level": 1,
-            "settings": {
-                "notifications": True,
-                "auto_sell": False
-            }
-        }
-            
-        # Default global settings
-        default_global = {
-            "bait_stock": {bait: data["daily_stock"] for bait, data in BAIT_TYPES.items()},
-            "current_weather": "Sunny",
-            "active_events": [],
-            "settings": {
-                "daily_reset_hour": 0,
-                "weather_change_interval": 3600
-            }
-        }
-            
-        # Register defaults
-        self.config.register_user(**default_user)
-        self.config.register_global(**default_global)
-    
+        # Initialize config manager
+        self.config_manager = ConfigManager(bot, identifier=123456789)
+        
         # Store data structures
         self.data = {
             "fish": FISH_TYPES,
@@ -77,10 +46,10 @@ class Fishing(commands.Cog):
         }
 
         # Initialize inventory manager
-        self.inventory = InventoryManager(bot, self.config, self.data)
+        self.inventory = InventoryManager(bot, self.config_manager, self.data)
         
         # Initialize background tasks
-        self.bg_task_manager = BackgroundTasks(bot, self.config, self.data)
+        self.bg_task_manager = BackgroundTasks(bot, self.config_manager, self.data)
         self.bg_task_manager.start_tasks()
 
     async def create_menu(self, ctx, user_data):
@@ -93,70 +62,32 @@ class Fishing(commands.Cog):
         """Ensure user data exists and is properly initialized."""
         try:
             self.logger.debug(f"Ensuring user data for {user.name}")
-            user_data = await self.config.user(user).all()
+            result = await self.config_manager.get_user_data(user.id)
             
-            # Define default user settings (same as in __init__)
-            default_user = {
-                "inventory": [],
-                "rod": "Basic Rod",
-                "total_value": 0,
-                "daily_quest": None,
-                "bait": {},
-                "purchased_rods": {"Basic Rod": True},
-                "equipped_bait": None,
-                "current_location": "Pond",
-                "fish_caught": 0,
-                "level": 1,
-                "settings": {
-                    "notifications": True,
-                    "auto_sell": False
-                }
-            }
+            if not result.success:
+                self.logger.error(f"Failed to get user data: {result.error}")
+                return None
+                
+            return result.data
             
-            if not user_data:
-                self.logger.debug(f"Initializing new user data for {user.name}")
-                await self.config.user(user).set(default_user)
-                return default_user.copy()
-    
-            # Check if any default keys are missing and add them
-            modified = False
-            for key, value in default_user.items():
-                if key not in user_data:
-                    user_data[key] = value
-                    modified = True
-                elif isinstance(value, dict):
-                    for subkey, subvalue in value.items():
-                        if key not in user_data or subkey not in user_data[key]:
-                            if key not in user_data:
-                                user_data[key] = {}
-                            user_data[key][subkey] = subvalue
-                            modified = True
-    
-            if modified:
-                self.logger.debug(f"Updating user data with missing defaults for {user.name}")
-                await self.config.user(user).set(user_data)
-    
-            return user_data
-    
         except Exception as e:
             self.logger.error(f"Error ensuring user data for {user.name}: {e}", exc_info=True)
-            await self.config.user(user).clear()
             return None
 
     async def cog_load(self):
         """Run setup after cog is loaded."""
         try:
             # Verify and initialize stock if needed
-            current_stock = await self.config.bait_stock()
-            self.logger.debug(f"Current bait stock on load: {current_stock}")
+            stock_result = await self.config_manager.get_global_setting("bait_stock")
+            self.logger.debug(f"Current bait stock on load: {stock_result.data if stock_result.success else 'None'}")
             
-            if not current_stock:
+            if not stock_result.success or not stock_result.data:
                 self.logger.warning("No bait stock found, initializing defaults")
                 initial_stock = {
                     bait: data["daily_stock"] 
                     for bait, data in self.data["bait"].items()
                 }
-                await self.config.bait_stock.set(initial_stock)
+                await self.config_manager.update_global_setting("bait_stock", initial_stock)
                 self.logger.debug(f"Initialized bait stock: {initial_stock}")
                 
             # Start background tasks
@@ -170,7 +101,7 @@ class Fishing(commands.Cog):
         """Clean up when cog is unloaded."""
         self.bg_task_manager.cancel_tasks()
         self.logger.info("Cog unloaded, background tasks cancelled")
-            
+
     # Location Commands
     @commands.group(name="location", invoke_without_command=True)
     async def location(self, ctx, new_location: str = None):
@@ -193,7 +124,6 @@ class Fishing(commands.Cog):
                 actual_location = location_map[new_location.lower()]
                 user_data = await self._ensure_user_data(ctx.author)
                 if not user_data:
-                    self.logger.error(f"Failed to get user data for {ctx.author.name}")
                     await ctx.send("❌ Error accessing user data. Please try again.")
                     return
     
@@ -204,14 +134,22 @@ class Fishing(commands.Cog):
                     await ctx.send(msg)
                     return
     
-                await self.config.user(ctx.author).current_location.set(actual_location)
+                result = await self.config_manager.update_user_data(
+                    ctx.author.id,
+                    {"current_location": actual_location},
+                    fields=["current_location"]
+                )
+                
+                if not result.success:
+                    await ctx.send("❌ Error updating location. Please try again.")
+                    return
+                    
                 await ctx.send(f"🌍 {ctx.author.name} is now fishing at: {actual_location}\n{location_data['description']}")
                 self.logger.debug(f"User {ctx.author.name} moved to location: {actual_location}")
     
         except Exception as e:
             self.logger.error(f"Error in location command: {e}", exc_info=True)
-            await ctx.send(f"An error occurred: {str(e)}\nPlease try again or contact an administrator.")
-            raise
+            await ctx.send("An error occurred. Please try again.")
 
     @location.command(name="list")
     async def location_list(self, ctx):
@@ -382,6 +320,7 @@ class Fishing(commands.Cog):
                 return False, f"🚫 You need to catch {requirements['fish_caught']} fish first!"
                 
             return True, ""
+            
         except Exception as e:
             self.logger.error(f"Error checking requirements: {e}", exc_info=True)
             return False, "❌ An error occurred while checking requirements."
@@ -390,7 +329,12 @@ class Fishing(commands.Cog):
     async def check_weather(self, ctx):
         """Check the current weather conditions for fishing."""
         try:
-            current_weather = await self.config.current_weather()
+            weather_result = await self.config_manager.get_global_setting("current_weather")
+            if not weather_result.success:
+                await ctx.send("❌ Error checking weather. Please try again.")
+                return
+                
+            current_weather = weather_result.data
             weather_data = self.data["weather"][current_weather]
             
             embed = discord.Embed(
@@ -433,8 +377,8 @@ class Fishing(commands.Cog):
         except Exception as e:
             self.logger.error(f"Error in weather command: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while checking the weather. Please try again.")
-    
-            # Core Fishing Commands
+
+    # Core Fishing Commands
     @commands.command(name="fish")
     async def fish_command(self, ctx):
         """Open the fishing menu interface"""
@@ -444,7 +388,6 @@ class Fishing(commands.Cog):
             # Ensure user data is properly initialized
             user_data = await self._ensure_user_data(ctx.author)
             if not user_data:
-                self.logger.error(f"Failed to initialize user data for {ctx.author.name}")
                 await ctx.send("❌ Error initializing user data. Please try again.")
                 return
             
@@ -522,15 +465,39 @@ class Fishing(commands.Cog):
     async def _update_total_value(self, user, value: int) -> bool:
         """Update total value and check for level up."""
         try:
-            async with self.config.user(user).all() as user_data:
-                user_data["total_value"] += value
-                old_level = user_data["level"]
-                new_level = max(1, user_data["fish_caught"] // 50)
-                user_data["level"] = new_level
+            user_data_result = await self.config_manager.get_user_data(user.id)
+            if not user_data_result.success:
+                return False
                 
-                if new_level > old_level:
-                    self.logger.info(f"User {user.name} leveled up from {old_level} to {new_level}")
+            user_data = user_data_result.data
+            old_level = user_data["level"]
+            
+            # Calculate new level
+            fish_caught = user_data["fish_caught"] + 1  # Increment fish count
+            new_level = max(1, fish_caught // 50)
+            
+            # Prepare updates
+            updates = {
+                "total_value": user_data["total_value"] + value,
+                "fish_caught": fish_caught,
+                "level": new_level
+            }
+            
+            # Update user data
+            update_result = await self.config_manager.update_user_data(
+                user.id,
+                updates,
+                fields=["total_value", "fish_caught", "level"]
+            )
+            
+            if not update_result.success:
+                return False
+                
+            if new_level > old_level:
+                self.logger.info(f"User {user.name} leveled up from {old_level} to {new_level}")
+                
             return True
+            
         except Exception as e:
             self.logger.error(f"Error updating total value: {e}", exc_info=True)
             return False
@@ -545,7 +512,6 @@ class Fishing(commands.Cog):
             # Ensure user data exists and is properly initialized
             user_data = await self._ensure_user_data(ctx.author)
             if not user_data:
-                self.logger.error(f"Failed to get user data for {ctx.author.name}")
                 await ctx.send("❌ Error accessing user data. Please try again.")
                 return
             
@@ -579,27 +545,29 @@ class Fishing(commands.Cog):
             if not await self._can_afford(user, total_cost):
                 return False, f"🚫 You don't have enough coins! Cost: {total_cost}"
             
-            # Use atomic operation for the entire purchase process
-            async with self.config.bait_stock() as bait_stock:
-                current_stock = bait_stock.get(bait_name, 0)
-                if current_stock < amount:
-                    return False, f"🚫 Not enough {bait_name} in stock! Available: {current_stock}"
+            # Get current stock
+            stock_result = await self.config_manager.get_global_setting("bait_stock")
+            if not stock_result.success:
+                return False, "Error checking stock."
                 
-                # Attempt to process payment first
-                try:
-                    await bank.withdraw_credits(user, total_cost)
-                except Exception as e:
-                    self.logger.error(f"Payment failed: {e}")
-                    return False, "Payment processing failed!"
-                
-                # If payment successful, update stock and user inventory
+            current_stock = stock_result.data.get(bait_name, 0)
+            if current_stock < amount:
+                return False, f"🚫 Not enough {bait_name} in stock! Available: {current_stock}"
+            
+            # Process purchase using transaction
+            async with self.config_manager.config_transaction() as transaction:
                 try:
                     # Update stock
-                    bait_stock[bait_name] = current_stock - amount
+                    new_stock = {bait_name: current_stock - amount}
+                    transaction["global_bait_stock"] = new_stock
                     
                     # Update user's bait
-                    async with self.config.user(user).bait() as user_bait:
-                        user_bait[bait_name] = user_bait.get(bait_name, 0) + amount
+                    current_bait = user_data.get("bait", {})
+                    current_bait[bait_name] = current_bait.get(bait_name, 0) + amount
+                    transaction[f"user_{user.id}"] = {"bait": current_bait}
+                    
+                    # Process payment
+                    await bank.withdraw_credits(user, total_cost)
                     
                     return True, f"✅ Purchased {amount} {bait_name} for {total_cost} coins!"
                     
@@ -633,19 +601,26 @@ class Fishing(commands.Cog):
             if not await self._can_afford(user, rod_data["cost"]):
                 return False, f"🚫 You don't have enough coins! Cost: {rod_data['cost']}"
     
-            # Process purchase atomically
-            async with self.config.user(user).purchased_rods() as purchased_rods:
-                # Verify not purchased during transaction
-                if rod_name in purchased_rods:
-                    return False, f"🚫 You already own this rod!"
-                
-                # Process payment
-                await bank.withdraw_credits(user, rod_data["cost"])
-                
-                # Update user's rods
-                purchased_rods[rod_name] = True
-                
-            return True, f"✅ Purchased {rod_name} for {rod_data['cost']} coins!"
+            # Process purchase using transaction
+            async with self.config_manager.config_transaction() as transaction:
+                try:
+                    # Update user's rods
+                    purchased_rods = user_data["purchased_rods"].copy()
+                    purchased_rods[rod_name] = True
+                    transaction[f"user_{user.id}"] = {"purchased_rods": purchased_rods}
+                    
+                    # Process payment
+                    await bank.withdraw_credits(user, rod_data["cost"])
+                    
+                    return True, f"✅ Purchased {rod_name} for {rod_data['cost']} coins!"
+                    
+                except Exception as e:
+                    # If update fails, attempt to refund
+                    try:
+                        await bank.deposit_credits(user, rod_data["cost"])
+                    except Exception as refund_error:
+                        self.logger.error(f"Failed to refund after error: {refund_error}")
+                    raise
     
         except Exception as e:
             self.logger.error(f"Error in rod purchase: {e}", exc_info=True)
@@ -669,7 +644,6 @@ class Fishing(commands.Cog):
             # Ensure user data exists and is properly initialized
             user_data = await self._ensure_user_data(ctx.author)
             if not user_data:
-                self.logger.error(f"Failed to get user data for {ctx.author.name}")
                 await ctx.send("❌ Error accessing user data. Please try again.")
                 return
             
@@ -692,12 +666,23 @@ class Fishing(commands.Cog):
     async def _equip_rod(self, user: discord.Member, rod_name: str) -> tuple[bool, str]:
         """Helper method to equip a fishing rod"""
         try:
-            user_data = await self.config.user(user).all()
-            
+            result = await self.config_manager.get_user_data(user.id)
+            if not result.success:
+                return False, "Error accessing user data."
+                
+            user_data = result.data
             if rod_name not in user_data.get("purchased_rods", {}):
                 return False, "You don't own this rod!"
                 
-            await self.config.user(user).rod.set(rod_name)
+            update_result = await self.config_manager.update_user_data(
+                user.id,
+                {"rod": rod_name},
+                fields=["rod"]
+            )
+            
+            if not update_result.success:
+                return False, "Error equipping rod."
+                
             self.logger.debug(f"User {user.name} equipped rod: {rod_name}")
             return True, f"Successfully equipped {rod_name}!"
             
@@ -708,12 +693,23 @@ class Fishing(commands.Cog):
     async def _equip_bait(self, user: discord.Member, bait_name: str) -> tuple[bool, str]:
         """Helper method to equip bait"""
         try:
-            user_data = await self.config.user(user).all()
-            
+            result = await self.config_manager.get_user_data(user.id)
+            if not result.success:
+                return False, "Error accessing user data."
+                
+            user_data = result.data
             if not user_data.get("bait", {}).get(bait_name, 0):
                 return False, "You don't have any of this bait!"
                 
-            await self.config.user(user).equipped_bait.set(bait_name)
+            update_result = await self.config_manager.update_user_data(
+                user.id,
+                {"equipped_bait": bait_name},
+                fields=["equipped_bait"]
+            )
+            
+            if not update_result.success:
+                return False, "Error equipping bait."
+                
             self.logger.debug(f"User {user.name} equipped bait: {bait_name}")
             return True, f"Successfully equipped {bait_name}!"
             
@@ -721,7 +717,6 @@ class Fishing(commands.Cog):
             self.logger.error(f"Error equipping bait: {e}", exc_info=True)
             return False, "An error occurred while equipping the bait."
 
-    # Update the sell_fish command to return the amount sold
     async def sell_fish(self, ctx: commands.Context) -> tuple[bool, int, str]:
         """Sell all fish in inventory and return status, amount earned, and message"""
         try:
@@ -735,20 +730,21 @@ class Fishing(commands.Cog):
             
             total_value = summary["total_value"]
             
-            # Process sale - explicitly pass None for item_name to trigger "remove all" behavior
-            success, msg = await self.inventory.remove_item(
-                ctx.author.id, 
-                "fish", 
-                None,  # Special case for removing all fish
-                summary["fish_count"]
-            )
-            
-            if success:
-                await bank.deposit_credits(ctx.author, total_value)
-                self.logger.info(f"User {ctx.author.name} sold fish for {total_value} coins")
-                return True, total_value, f"Successfully sold all fish for {total_value} coins!"
-            
-            return False, 0, msg
+            # Process sale using transaction
+            async with self.config_manager.config_transaction() as transaction:
+                try:
+                    # Clear inventory
+                    transaction[f"user_{ctx.author.id}"] = {"inventory": []}
+                    
+                    # Process payment
+                    await bank.deposit_credits(ctx.author, total_value)
+                    
+                    self.logger.info(f"User {ctx.author.name} sold fish for {total_value} coins")
+                    return True, total_value, f"Successfully sold all fish for {total_value} coins!"
+                    
+                except Exception as e:
+                    self.logger.error(f"Error processing sale: {e}")
+                    raise
             
         except Exception as e:
             self.logger.error(f"Error in sell_fish: {e}", exc_info=True)
@@ -758,7 +754,12 @@ class Fishing(commands.Cog):
     async def fisherboard(self, ctx):
         """Display detailed fishing leaderboard in an embed."""
         try:
-            all_users = await self.config.all_users()
+            all_users_result = await self.config_manager.get_all_global_settings()
+            if not all_users_result.success:
+                await ctx.send("❌ Error accessing leaderboard data. Please try again.")
+                return
+                
+            all_users = all_users_result.data.get("users", {})
             
             # Filter and sort users
             fisher_stats = [
@@ -785,15 +786,14 @@ class Fishing(commands.Cog):
                 try:
                     user = await self.bot.fetch_user(user_id)
                     if user:
-                        # Calculate catch rate (avoiding division by zero)
-                        total_casts = all_users[user_id].get("total_casts", fish_caught)  # Fallback if total_casts not tracked
+                        # Calculate catch rate
+                        total_casts = all_users[user_id].get("total_casts", fish_caught)
                         catch_rate = (fish_caught / total_casts * 100) if total_casts > 0 else 0
                         
                         # Format stats with thousands separators
                         value_formatted = "{:,}".format(value)
                         fish_formatted = "{:,}".format(fish_caught)
                         
-                        # Create field for each user
                         embed.add_field(
                             name=f"#{rank} {user.name}",
                             value=(
@@ -807,10 +807,7 @@ class Fishing(commands.Cog):
                     self.logger.warning(f"Could not fetch user {user_id}: {e}")
                     continue
     
-            # Add footer with total registered fishers
-            total_fishers = len(fisher_stats)
-            embed.set_footer(text=f"Total Registered Fishers: {total_fishers}")
-            
+            embed.set_footer(text=f"Total Registered Fishers: {len(fisher_stats)}")
             await ctx.send(embed=embed)
             self.logger.debug("Leaderboard displayed successfully")
     
@@ -861,10 +858,12 @@ class Fishing(commands.Cog):
     async def reset_user(self, ctx, member: discord.Member):
         """Reset a user's fishing data."""
         try:
-            await self.config.user(member).clear()
-            await self._ensure_user_data(member)  # Reinitialize with defaults
-            await ctx.send(f"✅ Reset fishing data for {member.name}")
-            self.logger.warning(f"Admin {ctx.author.name} reset fishing data for {member.name}")
+            result = await self.config_manager.reset_user_data(member.id)
+            if result.success:
+                await ctx.send(f"✅ Reset fishing data for {member.name}")
+                self.logger.warning(f"Admin {ctx.author.name} reset fishing data for {member.name}")
+            else:
+                await ctx.send("❌ Error resetting user data.")
         except Exception as e:
             self.logger.error(f"Error resetting user data: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while resetting user data. Please try again.")
@@ -875,9 +874,13 @@ class Fishing(commands.Cog):
         """Reset the shop's bait stock."""
         try:
             default_stock = {bait: data["daily_stock"] for bait, data in self.data["bait"].items()}
-            await self.config.bait_stock.set(default_stock)
-            await ctx.send("✅ Shop stock has been reset!")
-            self.logger.info(f"Admin {ctx.author.name} reset shop stock")
+            result = await self.config_manager.update_global_setting("bait_stock", default_stock)
+            
+            if result.success:
+                await ctx.send("✅ Shop stock has been reset!")
+                self.logger.info(f"Admin {ctx.author.name} reset shop stock")
+            else:
+                await ctx.send("❌ Error resetting shop stock.")
         except Exception as e:
             self.logger.error(f"Error resetting shop stock: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while resetting shop stock. Please try again.")
@@ -887,8 +890,12 @@ class Fishing(commands.Cog):
     async def stock_status(self, ctx):
         """Check the current status of bait stock."""
         try:
-            current_stock = await self.config.bait_stock()
-            last_reset = self.bg_task_manager.last_stock_reset
+            stock_result = await self.config_manager.get_global_setting("bait_stock")
+            if not stock_result.success:
+                await ctx.send("❌ Error accessing stock data.")
+                return
+                
+            current_stock = stock_result.data
             
             embed = discord.Embed(
                 title="🏪 Bait Stock Status",
@@ -905,18 +912,16 @@ class Fishing(commands.Cog):
                 inline=False
             )
             
-            # Add last reset time
-            embed.add_field(
-                name="Last Reset",
-                value=last_reset.strftime("%Y-%m-%d %H:%M:%S") if last_reset else "Never",
-                inline=False
+            # Add background task status
+            tasks_status = self.bg_task_manager.status
+            status_text = "\n".join(
+                f"{name}: {'✅ Running' if status['running'] else '❌ Stopped'}"
+                for name, status in tasks_status.items()
             )
             
-            # Add background task status
-            tasks_running = len([t for t in self.bg_task_manager.tasks if not t.done()])
             embed.add_field(
                 name="Background Tasks",
-                value=f"Running: {tasks_running}/{len(self.bg_task_manager.tasks)}",
+                value=status_text or "No tasks running",
                 inline=False
             )
             
@@ -931,9 +936,9 @@ def setup(bot: Red):
     try:
         cog = Fishing(bot)
         bot.add_cog(cog)
-        logger = setup_logging('setup')  # Create a temporary logger for setup
+        logger = get_logger('setup')
         logger.info("Fishing cog loaded successfully")
     except Exception as e:
-        logger = setup_logging('setup')
+        logger = get_logger('setup')
         logger.error(f"Error loading Fishing cog: {e}", exc_info=True)
         raise
