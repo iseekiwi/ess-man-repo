@@ -117,9 +117,9 @@ BAIT_TYPES: Dict[str, BaitData] = {
         }
     },
     "Shrimp": {
-        "value": 3,
+        "value": 2,
         "catch_bonus": 0.2,
-        "cost": 2,
+        "cost": 3,
         "description": "Medium-grade bait, good for various fish types.",
         "daily_stock": 10,
         "preferred_by": ["Uncommon Fish"],
@@ -129,9 +129,9 @@ BAIT_TYPES: Dict[str, BaitData] = {
         }
     },
     "Cricket": {
-        "value": 5,
+        "value": 3,
         "catch_bonus": 0.3,
-        "cost": 3,
+        "cost": 5,
         "description": "Premium bait with high catch bonus.",
         "daily_stock": 10,
         "preferred_by": ["Rare Fish"],
