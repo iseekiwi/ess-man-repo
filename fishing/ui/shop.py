@@ -489,15 +489,24 @@ class ShopView(BaseView):
                     # Refresh user data from config
                     user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
                     if user_data_result.success:
+                        # Log the state before update
+                        self.logger.debug(f"User data before view update: {user_data_result.data}")
+                        
                         # Update the view's user data
                         self.user_data = user_data_result.data
+                        
                         # Force refresh the cache
                         await self.cog.config_manager.refresh_cache(self.ctx.author.id)
+                        
+                        # Get fresh data after cache refresh
+                        fresh_data = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+                        if fresh_data.success:
+                            self.logger.debug(f"Fresh user data after cache refresh: {fresh_data.data}")
+                        
                         # Reinitialize the view with new data
                         await self.initialize_view()
                         # Update the display
                         await self.update_view()
-
                 
                 # Always show the result message
                 message = await interaction.followup.send(msg, ephemeral=True, wait=True)
