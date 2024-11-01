@@ -1,3 +1,5 @@
+# utils/inventory_manager.py
+
 import logging
 from typing import Dict, Optional, Tuple, List
 from redbot.core.bot import Red
