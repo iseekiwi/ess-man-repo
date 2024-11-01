@@ -1,3 +1,5 @@
+# ui/inventory.py
+
 import discord
 import asyncio
 import logging
