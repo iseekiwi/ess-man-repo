@@ -223,7 +223,7 @@ class InventoryView(BaseView):
                     self.user_data = await self.cog.config.user(self.ctx.author).all()
                     await interaction.response.defer()
                     await self.update_view()
-                await interaction.followup.send(msg, ephemeral=True)
+                await interaction.followup.send(msg, ephemeral=True, delete_after=2)
                 
             elif custom_id.startswith("equip_rod_"):
                 rod_name = custom_id.replace("equip_rod_", "")
@@ -233,9 +233,9 @@ class InventoryView(BaseView):
                     self.user_data["rod"] = rod_name
                     await interaction.response.defer()
                     await self.update_view()
-                    await interaction.followup.send(msg, ephemeral=True)
+                    await interaction.followup.send(msg, ephemeral=True, delete_after=2)
                 else:
-                    await interaction.response.send_message(msg, ephemeral=True)
+                    await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
                     
             elif custom_id.startswith("equip_bait_"):
                 bait_name = custom_id.replace("equip_bait_", "")
@@ -245,9 +245,9 @@ class InventoryView(BaseView):
                     self.user_data["equipped_bait"] = bait_name
                     await interaction.response.defer()
                     await self.update_view()
-                    await interaction.followup.send(msg, ephemeral=True)
+                    await interaction.followup.send(msg, ephemeral=True, delete_after=2)
                 else:
-                    await interaction.response.send_message(msg, ephemeral=True)
+                    await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
                     
             elif custom_id in ["rods", "bait", "fish"]:
                 self.current_page = custom_id
@@ -258,7 +258,8 @@ class InventoryView(BaseView):
             self.logger.error(f"Error in handle_button: {e}", exc_info=True)
             await interaction.response.send_message(
                 "An error occurred. Please try again.",
-                ephemeral=True
+                ephemeral=True,
+                delete_after=2
             )
 
     async def update_view(self):
