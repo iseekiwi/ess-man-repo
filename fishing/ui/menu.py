@@ -319,11 +319,12 @@ class FishingMenuView(BaseView):
             if not self.user_data["equipped_bait"]:
                 self.fishing_in_progress = False
                 await self.initialize_view()
-                await interaction.followup.send(
+                message = await interaction.followup.send(
                     "🚫 You need to equip bait first! Use the Inventory menu to equip some bait.",
                     ephemeral=True,
-                    delete_after=3
+                    wait=True
                 )
+                self.cog.bot.loop.create_task(self.delete_after_delay(message))
                 main_embed = await self.generate_embed()
                 await self.message.edit(embed=main_embed, view=self)
                 return
@@ -429,12 +430,11 @@ class FishingMenuView(BaseView):
             
             # Verify location exists
             if location_name not in self.cog.data["locations"]:
-                message = await interaction.response.send_message(
+                await interaction.response.send_message(
                     "Invalid location selection.",
                     ephemeral=True,
-                    wait=True
+                    delete_after=2
                 )
-                self.cog.bot.loop.create_task(self.delete_after_delay(message))
                 return
                 
             location_data = self.cog.data["locations"][location_name]
@@ -445,12 +445,11 @@ class FishingMenuView(BaseView):
                 location_data["requirements"]
             )
             if not meets_req:
-                message = await interaction.response.send_message(
+                await interaction.response.send_message(
                     msg, 
                     ephemeral=True,
-                    wait=True
+                    delete_after=2
                 )
-                self.cog.bot.loop.create_task(self.delete_after_delay(message))
                 return
                 
             # Update location
@@ -462,7 +461,7 @@ class FishingMenuView(BaseView):
             await interaction.response.defer()
             await self.update_view()
             
-            # Send confirmation
+            # Send confirmation with manual deletion
             message = await interaction.followup.send(
                 f"🌍 Now fishing at: {location_name}\n{location_data['description']}",
                 ephemeral=True,
@@ -473,13 +472,22 @@ class FishingMenuView(BaseView):
         except Exception as e:
             self.logger.error(f"Error in handle_location_select: {e}", exc_info=True)
             if not interaction.response.is_done():
-                message = await interaction.response.send_message(
+                await interaction.response.send_message(
                     "An error occurred while changing location. Please try again.",
                     ephemeral=True,
-                    wait=True
+                    delete_after=2
                 )
-                self.cog.bot.loop.create_task(self.delete_after_delay(message))
 
+    async def delete_after_delay(self, message):
+        """Helper method to delete a message after a delay"""
+        try:
+            await asyncio.sleep(2)  # Wait 2 seconds
+            await message.delete()
+        except discord.NotFound:
+            pass  # Message already deleted
+        except Exception as e:
+            self.logger.error(f"Error in delete_after_delay: {e}")
+    
     async def update_view(self):
         """Update the message with current embed and view"""
         try:
