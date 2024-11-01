@@ -190,13 +190,11 @@ class ConfigManager:
                     if field in updates:
                         if field == "bait":
                             # Special handling for bait dictionary
-                            current_bait = data.get("bait", {})
+                            if not data.get("bait"):
+                                data["bait"] = {}
                             new_bait = updates["bait"]
-                            # Merge the dictionaries instead of replacing
-                            merged_bait = current_bait.copy()
-                            merged_bait.update(new_bait)
-                            self.logger.debug(f"Updating bait data from {current_bait} to {merged_bait}")
-                            data["bait"] = merged_bait
+                            self.logger.debug(f"Updating bait data from {data['bait']} to {new_bait}")
+                            data["bait"] = new_bait
                         elif isinstance(updates[field], dict):
                             if not isinstance(data.get(field), dict):
                                 data[field] = {}
@@ -207,10 +205,9 @@ class ConfigManager:
                 # Update all fields
                 for key, value in updates.items():
                     if key == "bait":
-                        current_bait = data.get("bait", {})
-                        merged_bait = current_bait.copy()
-                        merged_bait.update(value)
-                        data["bait"] = merged_bait
+                        if not data.get("bait"):
+                            data["bait"] = {}
+                        data["bait"] = value
                     elif isinstance(value, dict):
                         if not isinstance(data.get(key), dict):
                             data[key] = {}
@@ -220,27 +217,11 @@ class ConfigManager:
     
             self.logger.debug(f"Updated data before save: {data}")
             
-            # Save data using set_raw for each field
+            # Save each field individually to ensure persistence
             for key, value in data.items():
                 if key in updates or not fields:
                     self.logger.debug(f"Setting {key} to {value}")
                     await group.set_raw(key, value=value)
-    
-            # Invalidate cache
-            await self.invalidate_cache(f"user_{user_id}")
-            
-            # Verify the update
-            verify_data = await group.all()
-            self.logger.debug(f"Verification data from config: {verify_data}")
-            
-            if "bait" in verify_data:
-                self.logger.debug(f"Verified bait data: {verify_data['bait']}")
-    
-            return ConfigResult(True, True)
-            
-        except Exception as e:
-            self.logger.error(f"Error updating user data: {e}", exc_info=True)
-            return ConfigResult(False, error=str(e))
     
             # Invalidate cache
             await self.invalidate_cache(f"user_{user_id}")
