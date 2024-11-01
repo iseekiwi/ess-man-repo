@@ -249,22 +249,25 @@ class ShopView(BaseView):
                 self.add_item(back_button)
                 
                 if self.current_page == "bait":
-                    self.logger.debug("Setting up bait page")
-                    quantity_select = QuantitySelect()
-                    quantity_select.callback = self.handle_select
-                    self.add_item(quantity_select)
-    
-                    for bait_name, bait_data in self.cog.data["bait"].items():
-                        stock = self.cog._bait_stock.get(bait_name, 0)
-                        self.logger.debug(f"Bait {bait_name} stock: {stock}")
-                        if stock > 0:
-                            purchase_button = Button(
-                                label=f"Buy {bait_name}",
-                                style=discord.ButtonStyle.green,
-                                custom_id=f"buy_{bait_name}"
-                            )
-                            purchase_button.callback = self.handle_purchase
-                            self.add_item(purchase_button)
+                self.logger.debug("Setting up bait page")
+                
+                # Get current stock
+                bait_stock = await self.cog.config.bait_stock()
+                
+                quantity_select = QuantitySelect()
+                quantity_select.callback = self.handle_select
+                self.add_item(quantity_select)
+
+                for bait_name, bait_data in self.cog.data["bait"].items():
+                    stock = bait_stock.get(bait_name, 0)
+                    if stock > 0:
+                        purchase_button = Button(
+                            label=f"Buy {bait_name}",
+                            style=discord.ButtonStyle.green,
+                            custom_id=f"buy_{bait_name}"
+                        )
+                        purchase_button.callback = self.handle_purchase
+                        self.add_item(purchase_button)
     
                 elif self.current_page == "rods":
                     self.logger.debug("Setting up rods page")
@@ -459,18 +462,19 @@ class ShopView(BaseView):
             
             # Determine item type and cost
             if item_name in self.cog.data["bait"]:
-                cost = self.cog.data["bait"][item_name]["cost"]
-                quantity = self.selected_quantity
-                stock = self.cog._bait_stock.get(item_name, 0)
+                bait_stock = await self.cog.config.bait_stock()
+                stock = bait_stock.get(item_name, 0)
                 
-                # Check stock availability
-                if stock < quantity:
+                if stock < self.selected_quantity:
                     await interaction.response.send_message(
                         f"Not enough {item_name} in stock! Available: {stock}",
                         ephemeral=True,
                         delete_after=2
                     )
                     return
+                
+                cost = self.cog.data["bait"][item_name]["cost"]
+                quantity = self.selected_quantity
             else:
                 cost = self.cog.data["rods"][item_name]["cost"]
                 quantity = 1
@@ -496,14 +500,14 @@ class ShopView(BaseView):
             
             if confirm_view.value:
                 if item_name in self.cog.data["bait"]:
-                    success, _ = await self.cog._handle_bait_purchase(
+                    success, msg = await self.cog._handle_bait_purchase(
                         self.ctx.author,
                         item_name,
                         quantity,
                         self.user_data
                     )
                 else:
-                    success, _ = await self.cog._handle_rod_purchase(
+                    success, msg = await self.cog._handle_rod_purchase(
                         self.ctx.author,
                         item_name,
                         self.user_data
@@ -513,6 +517,10 @@ class ShopView(BaseView):
                     self.user_data = await self.cog.config.user(self.ctx.author).all()
                     await self.initialize_view()
                     await self.update_view()
+                
+                # Always show the result message
+                message = await interaction.followup.send(msg, ephemeral=True, wait=True)
+                self.cog.bot.loop.create_task(self.delete_after_delay(message))
             
         except Exception as e:
             self.logger.error(f"Error in handle_purchase: {e}", exc_info=True)
