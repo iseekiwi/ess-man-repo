@@ -274,10 +274,11 @@ class ShopView(BaseView):
             try:
                 self.current_balance = await bank.get_balance(self.ctx.author)
                 currency_name = await bank.get_currency_name(self.ctx.guild)
-                bait_stock = await self.cog.config.bait_stock()
+                current_stock = await self.cog.config.bait_stock()  # Get current stock from Config
                 self.logger.debug(f"User balance: {self.current_balance} {currency_name}")
+                self.logger.debug(f"Current bait stock: {current_stock}")
             except Exception as e:
-                self.logger.error(f"Error getting balance: {e}")
+                self.logger.error(f"Error getting balance or stock: {e}")
                 self.current_balance = 0
                 currency_name = "coins"
                 bait_stock = {}
@@ -301,7 +302,7 @@ class ShopView(BaseView):
                 bait_list = []
                 
                 for bait_name, bait_data in self.cog.data["bait"].items():
-                    stock = self.cog._bait_stock.get(bait_name, 0)
+                    stock = current_stock.get(bait_name, 0)
                     status = "📦 Stock: {}".format(stock) if stock > 0 else "❌ Out of stock!"
                     
                     bait_entry = (
@@ -347,7 +348,7 @@ class ShopView(BaseView):
             
             self.logger.debug("Embed generated successfully")
             return embed
-
+    
         except Exception as e:
             self.logger.error(f"Error generating embed: {str(e)}", exc_info=True)
             raise
