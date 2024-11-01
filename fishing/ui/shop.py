@@ -59,11 +59,13 @@ class PurchaseConfirmView(BaseView):
             except Exception as e:
                 self.logger.error(f"Error deleting confirmation message: {e}", exc_info=True)
             
-            # Send ephemeral confirmation and schedule deletion
-            confirmation_msg = await interaction.response.send_message(
-                f"Purchase confirmed! Processing...",
-                ephemeral=True,
-                wait=True
+            # First defer the response
+            await interaction.response.defer(ephemeral=True)
+            
+            # Then send the confirmation message
+            confirmation_msg = await interaction.followup.send(
+                "Purchase confirmed! Processing...",
+                ephemeral=True
             )
             
             # Schedule deletion using the cog's bot loop
@@ -71,18 +73,15 @@ class PurchaseConfirmView(BaseView):
             
         except Exception as e:
             self.logger.error(f"Error in purchase confirmation: {e}", exc_info=True)
-            try:
-                error_msg = await interaction.response.send_message(
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
                     "An error occurred during purchase confirmation.",
-                    ephemeral=True,
-                    wait=True
+                    ephemeral=True
                 )
-                self.cog.bot.loop.create_task(self.delete_after_delay(error_msg))
-            except discord.InteractionResponded:
+            else:
                 error_msg = await interaction.followup.send(
                     "An error occurred during purchase confirmation.",
-                    ephemeral=True,
-                    wait=True
+                    ephemeral=True
                 )
                 self.cog.bot.loop.create_task(self.delete_after_delay(error_msg))
 
@@ -103,25 +102,29 @@ class PurchaseConfirmView(BaseView):
             except Exception as e:
                 self.logger.error(f"Error deleting cancellation message: {e}", exc_info=True)
             
-            # Send cancellation message and schedule deletion
-            cancel_msg = await interaction.response.send_message(
+            # First defer the response
+            await interaction.response.defer(ephemeral=True)
+            
+            # Then send the cancellation message
+            cancel_msg = await interaction.followup.send(
                 "Purchase cancelled.",
-                ephemeral=True,
-                wait=True
+                ephemeral=True
             )
             self.cog.bot.loop.create_task(self.delete_after_delay(cancel_msg))
                 
         except Exception as e:
             self.logger.error(f"Error in purchase cancellation: {e}", exc_info=True)
-            try:
-                error_msg = await interaction.response.send_message(
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
                     "An error occurred while cancelling the purchase.",
-                    ephemeral=True,
-                    wait=True
+                    ephemeral=True
+                )
+            else:
+                error_msg = await interaction.followup.send(
+                    "An error occurred while cancelling the purchase.",
+                    ephemeral=True
                 )
                 self.cog.bot.loop.create_task(self.delete_after_delay(error_msg))
-            except:
-                pass
 
     async def delete_after_delay(self, message):
         """Helper method to delete a message after a delay"""
