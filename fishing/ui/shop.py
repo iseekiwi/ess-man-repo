@@ -229,7 +229,8 @@ class ShopView(BaseView):
                     self.logger.debug("Setting up bait page")
                     
                     # Get current stock
-                    bait_stock = await self.cog.config.bait_stock()
+                    stock_result = await self.cog.config_manager.get_global_setting("bait_stock")
+                    bait_stock = stock_result.data if stock_result.success else {}
                     
                     quantity_select = QuantitySelect()
                     quantity_select.callback = self.handle_select
@@ -481,7 +482,8 @@ class ShopView(BaseView):
                     )
     
                 if success:
-                    self.user_data = await self.cog.config.user(self.ctx.author).all()
+                    user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+                    user_data = user_data_result.data if user_data_result.success else None
                     await self.initialize_view()
                     await self.update_view()
                 
