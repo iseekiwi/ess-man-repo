@@ -100,26 +100,6 @@ class ConfigManager:
                 "settings": {}
             }
     
-    async def get_user_data(self, user_id: int) -> ConfigResult[Dict[str, Any]]:
-        """Get user data with validation and caching"""
-        try:
-            # Check cache first
-            cache_key = f"user_{user_id}"
-            if cache_key in self._cache:
-                return ConfigResult(True, self._cache[cache_key])
-                
-            data = await self.config.user_from_id(user_id).all()
-            validated_data = await self._validate_user_data(data)
-            
-            # Update cache
-            self._cache[cache_key] = validated_data
-            
-            return ConfigResult(True, validated_data)
-            
-        except Exception as e:
-            self.logger.error(f"Error getting user data: {e}")
-            return ConfigResult(False, error=str(e))
-            
     async def _validate_user_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and repair user data if needed"""
         try:
@@ -189,12 +169,16 @@ class ConfigManager:
     ) -> ConfigResult[bool]:
         """Update user data with validation and field filtering"""
         try:
+            self.logger.debug(f"Updating user data for {user_id} with updates: {updates}")
             async with self.config.user_from_id(user_id).all() as data:
                 if fields:
                     # Only update specified fields
                     for field in fields:
                         if field in updates:
                             if isinstance(updates[field], dict) and field in data:
+                                # Merge dictionary fields instead of replacing
+                                if not isinstance(data[field], dict):
+                                    data[field] = {}
                                 data[field].update(updates[field])
                             else:
                                 data[field] = updates[field]
@@ -202,12 +186,19 @@ class ConfigManager:
                     # Update all fields
                     for key, value in updates.items():
                         if isinstance(value, dict) and key in data:
+                            # Merge dictionary fields instead of replacing
+                            if not isinstance(data[key], dict):
+                                data[key] = {}
                             data[key].update(value)
                         else:
                             data[key] = value
                             
             # Invalidate cache
             await self.invalidate_cache(f"user_{user_id}")
+            
+            # Debug log the final state
+            result = await self.get_user_data(user_id)
+            self.logger.debug(f"Updated user data state: {result.data if result.success else 'Failed to get updated state'}")
             
             return ConfigResult(True, True)
             
