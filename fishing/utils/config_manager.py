@@ -173,68 +173,63 @@ class ConfigManager:
             self.logger.debug(f"Update content: {updates}")
             self.logger.debug(f"Specified fields: {fields}")
     
-            group = self.config.user_from_id(user_id)
-            current_data = await group.all()
-            self.logger.debug(f"Current data from config: {current_data}")
-    
-            # Ensure we have a valid data structure
-            if not current_data:
-                current_data = await self._get_default_user_data()
-    
-            # Create a working copy
-            data = current_data.copy()
-    
-            if fields:
-                # Only update specified fields
-                for field in fields:
-                    if field in updates:
-                        if field == "bait":
-                            # Special handling for bait dictionary
-                            if not data.get("bait"):
-                                data["bait"] = {}
-                            new_bait = updates["bait"]
-                            self.logger.debug(f"Updating bait data from {data['bait']} to {new_bait}")
-                            data["bait"] = new_bait
-                        elif isinstance(updates[field], dict):
-                            if not isinstance(data.get(field), dict):
-                                data[field] = {}
-                            data[field].update(updates[field])
+            # Get the user's Config group
+            user_group = self.config.user_from_id(user_id)
+            
+            try:
+                # Get current data
+                current_data = await user_group.all()
+                self.logger.debug(f"Current data from config: {current_data}")
+                
+                # Ensure we have a valid data structure
+                if not current_data:
+                    current_data = await self._get_default_user_data()
+                    
+                # Create a working copy
+                updated_data = current_data.copy()
+                
+                if fields:
+                    # Update only specified fields
+                    for field in fields:
+                        if field in updates:
+                            if field == "bait":
+                                # Special handling for bait dictionary
+                                current_bait = updated_data.get("bait", {})
+                                if not isinstance(current_bait, dict):
+                                    current_bait = {}
+                                current_bait.update(updates["bait"])
+                                self.logger.debug(f"Setting bait to: {current_bait}")
+                                await user_group.bait.set(current_bait)
+                            else:
+                                self.logger.debug(f"Setting {field} to {updates[field]}")
+                                await getattr(user_group, field).set(updates[field])
+                else:
+                    # Update all fields
+                    for key, value in updates.items():
+                        if key == "bait":
+                            current_bait = updated_data.get("bait", {})
+                            if not isinstance(current_bait, dict):
+                                current_bait = {}
+                            current_bait.update(value)
+                            self.logger.debug(f"Setting bait to: {current_bait}")
+                            await user_group.bait.set(current_bait)
                         else:
-                            data[field] = updates[field]
-            else:
-                # Update all fields
-                for key, value in updates.items():
-                    if key == "bait":
-                        if not data.get("bait"):
-                            data["bait"] = {}
-                        data["bait"] = value
-                    elif isinstance(value, dict):
-                        if not isinstance(data.get(key), dict):
-                            data[key] = {}
-                        data[key].update(value)
-                    else:
-                        data[key] = value
-    
-            self.logger.debug(f"Updated data before save: {data}")
-            
-            # Save each field individually to ensure persistence
-            for key, value in data.items():
-                if key in updates or not fields:
-                    self.logger.debug(f"Setting {key} to {value}")
-                    await group.set_raw(key, value=value)
-    
-            # Invalidate cache
-            await self.invalidate_cache(f"user_{user_id}")
-            
-            # Verify the update
-            verify_data = await group.all()
-            self.logger.debug(f"Verification data from config: {verify_data}")
-            
-            if "bait" in verify_data:
-                self.logger.debug(f"Verified bait data: {verify_data['bait']}")
-    
-            return ConfigResult(True, True)
-            
+                            self.logger.debug(f"Setting {key} to {value}")
+                            await getattr(user_group, key).set(value)
+                
+                # Verify the update
+                verify_data = await user_group.all()
+                self.logger.debug(f"Verification data after update: {verify_data}")
+                
+                # Clear the cache
+                await self.invalidate_cache(f"user_{user_id}")
+                
+                return ConfigResult(True, True)
+                
+            except AttributeError as e:
+                self.logger.error(f"Config attribute error: {e}")
+                return ConfigResult(False, error=str(e))
+                
         except Exception as e:
             self.logger.error(f"Error updating user data: {e}", exc_info=True)
             return ConfigResult(False, error=str(e))
