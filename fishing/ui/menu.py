@@ -116,8 +116,6 @@ class FishingMenuView(BaseView):
         """Generate the appropriate embed based on current page"""
         try:
             self.logger.debug(f"Generating embed for page: {self.current_page}")
-            balance = await bank.get_balance(self.ctx.author)
-            currency_name = await bank.get_currency_name(self.ctx.guild)
             
             if self.current_page == "main":
                 embed = discord.Embed(
@@ -128,14 +126,20 @@ class FishingMenuView(BaseView):
                 
                 # Get currency name
                 try:
-                    currency_name = await self.cog.bot.get_currency_name(self.ctx.guild)
-                except:
+                    is_global = await bank.is_global()
+                    if is_global:
+                        currency_name = await bank.get_currency_name()
+                    else:
+                        currency_name = await bank.get_currency_name(self.ctx.guild)
+                except Exception as e:
+                    self.logger.error(f"Error getting currency name: {e}")
                     currency_name = "coins"
                 
                 # Get balance
                 try:
-                    balance = await self.cog.bot.get_balance(self.ctx.author)
-                except:
+                    balance = await bank.get_balance(self.ctx.author)
+                except Exception as e:
+                    self.logger.error(f"Error getting balance: {e}")
                     balance = 0
                 
                 # Add current status
@@ -145,7 +149,7 @@ class FishingMenuView(BaseView):
                         f"🎣 Rod: {self.user_data['rod']}\n"
                         f"🪱 Bait: {self.user_data.get('equipped_bait', 'None')}\n"
                         f"📍 Location: {self.user_data['current_location']}\n"
-                        f"💰 Balance: {balance} {currency_name}"
+                        f"💰 Balance: {balance:,} {currency_name}"
                     ),
                     inline=False
                 )
