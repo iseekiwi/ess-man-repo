@@ -546,46 +546,50 @@ class Fishing(commands.Cog):
         try:
             self.logger.debug(f"Starting bait purchase for {user.name}: {bait_name} x {amount}")
             
+            if bait_name not in self.data["bait"]:
+                return False, "Invalid bait type!"
+                
             bait_data = self.data["bait"][bait_name]
             total_cost = bait_data["cost"] * amount
-            self.logger.debug(f"Total cost: {total_cost} coins")
             
-            # Get current stock from config
+            # Check balance first to fail fast
+            if not await self._can_afford(user, total_cost):
+                return False, f"🚫 You don't have enough coins! Cost: {total_cost}"
+            
+            # Use atomic operation for stock check and update
             async with self.config.bait_stock() as bait_stock:
-                self.logger.debug(f"Current bait stock: {bait_stock}")
-                if bait_stock[bait_name] < amount:
-                    self.logger.debug(f"Insufficient stock: {bait_name} x {amount}")
-                    return False, f"🚫 Not enough {bait_name} in stock! Available: {bait_stock[bait_name]}"
-        
-                # Check balance
-                self.logger.debug(f"Checking balance for {user.name}")
-                if not await self._can_afford(user, total_cost):
-                    self.logger.debug(f"Insufficient balance for {user.name}")
-                    return False, f"🚫 You don't have enough coins! Cost: {total_cost}"
-        
-                # Process purchase
+                current_stock = bait_stock.get(bait_name, 0)
+                if current_stock < amount:
+                    return False, f"🚫 Not enough {bait_name} in stock! Available: {current_stock}"
+                
+                # Attempt to process payment first
+                try:
+                    await bank.withdraw_credits(user, total_cost)
+                except Exception as e:
+                    self.logger.error(f"Payment failed: {e}")
+                    return False, "Payment processing failed!"
+                
+                # If payment successful, update stock and user inventory
                 try:
                     # Update stock
-                    bait_stock[bait_name] -= amount
-                    self.logger.debug(f"Updated bait stock: {bait_stock}")
+                    bait_stock[bait_name] = current_stock - amount
                     
                     # Update user's bait
                     async with self.config.user(user).bait() as user_bait:
                         user_bait[bait_name] = user_bait.get(bait_name, 0) + amount
-                        self.logger.debug(f"Updated user bait: {user_bait}")
-                    
-                    # Process payment
-                    await bank.withdraw_credits(user, total_cost)
-                    self.logger.debug(f"Payment processed for {user.name}: {total_cost} coins")
                     
                     return True, f"✅ Purchased {amount} {bait_name} for {total_cost} coins!"
                     
                 except Exception as e:
-                    self.logger.error(f"Error processing purchase: {e}")
+                    # If inventory update fails, attempt to refund
+                    try:
+                        await bank.deposit_credits(user, total_cost)
+                    except Exception as refund_error:
+                        self.logger.error(f"Failed to refund after error: {refund_error}")
                     raise
-    
+        
         except Exception as e:
-            self.logger.exception(f"Error in bait purchase for {user.name}: {e}")
+            self.logger.error(f"Error in bait purchase: {e}", exc_info=True)
             return False, "❌ An error occurred while processing your purchase."
     
     async def _handle_rod_purchase(self, user, rod_name: str, user_data: dict) -> tuple[bool, str]:
