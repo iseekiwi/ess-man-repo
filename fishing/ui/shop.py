@@ -249,25 +249,25 @@ class ShopView(BaseView):
                 self.add_item(back_button)
                 
                 if self.current_page == "bait":
-                self.logger.debug("Setting up bait page")
-                
-                # Get current stock
-                bait_stock = await self.cog.config.bait_stock()
-                
-                quantity_select = QuantitySelect()
-                quantity_select.callback = self.handle_select
-                self.add_item(quantity_select)
-
-                for bait_name, bait_data in self.cog.data["bait"].items():
-                    stock = bait_stock.get(bait_name, 0)
-                    if stock > 0:
-                        purchase_button = Button(
-                            label=f"Buy {bait_name}",
-                            style=discord.ButtonStyle.green,
-                            custom_id=f"buy_{bait_name}"
-                        )
-                        purchase_button.callback = self.handle_purchase
-                        self.add_item(purchase_button)
+                    self.logger.debug("Setting up bait page")
+                    
+                    # Get current stock
+                    bait_stock = await self.cog.config.bait_stock()
+                    
+                    quantity_select = QuantitySelect()
+                    quantity_select.callback = self.handle_select
+                    self.add_item(quantity_select)
+    
+                    for bait_name, bait_data in self.cog.data["bait"].items():
+                        stock = bait_stock.get(bait_name, 0)
+                        if stock > 0:
+                            purchase_button = Button(
+                                label=f"Buy {bait_name}",
+                                style=discord.ButtonStyle.green,
+                                custom_id=f"buy_{bait_name}"
+                            )
+                            purchase_button.callback = self.handle_purchase
+                            self.add_item(purchase_button)
     
                 elif self.current_page == "rods":
                     self.logger.debug("Setting up rods page")
