@@ -335,6 +335,8 @@ class ShopView(BaseView):
                 self.logger.debug("Generating bait page embed")
                 embed.title = "🪱 Bait Shop"
                 bait_list = []
+
+                bait_stock = await self.cog.config.bait_stock()
                 
                 for bait_name, bait_data in self.cog.data["bait"].items():
                     stock = self.cog._bait_stock.get(bait_name, 0)
