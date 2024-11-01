@@ -101,7 +101,17 @@ class InventoryManager:
             # Verify the update
             verify_result = await self.config_manager.get_user_data(user_id)
             if verify_result.success:
-                self.logger.debug(f"Verified data after update: {verify_result.data}")
+                self.logger.debug(f"Full verification data: {verify_result.data}")
+                
+                if item_type == "bait":
+                    bait_data = verify_result.data.get("bait", {})
+                    verified_amount = bait_data.get(item_name, 0)
+                    expected_amount = current_amount + amount
+                    self.logger.debug(f"Bait verification - Data: {bait_data}")
+                    self.logger.debug(f"Verifying bait amount - Expected: {expected_amount}, Got: {verified_amount}")
+                    if verified_amount != expected_amount:
+                        self.logger.error(f"Bait amount verification failed - Expected: {expected_amount}, Got: {verified_amount}")
+                        return False, "Error verifying inventory update"
                 
                 # Verify specific update based on item type
                 if item_type == "bait":
