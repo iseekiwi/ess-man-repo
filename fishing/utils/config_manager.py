@@ -169,14 +169,26 @@ class ConfigManager:
     ) -> ConfigResult[bool]:
         """Update user data with validation and field filtering"""
         try:
-            self.logger.debug(f"Updating user data for {user_id} with updates: {updates}")
+            self.logger.debug(f"Updating user data for {user_id}")
+            self.logger.debug(f"Update content: {updates}")
+            self.logger.debug(f"Specified fields: {fields}")
+    
             async with self.config.user_from_id(user_id).all() as data:
+                self.logger.debug(f"Current data before update: {data}")
+                
                 if fields:
                     # Only update specified fields
                     for field in fields:
                         if field in updates:
-                            if isinstance(updates[field], dict) and field in data:
-                                # Merge dictionary fields instead of replacing
+                            if field == "bait" and isinstance(updates[field], dict):
+                                # Special handling for bait dictionary
+                                if "bait" not in data or not isinstance(data["bait"], dict):
+                                    data["bait"] = {}
+                                # Update each bait type individually
+                                for bait_type, amount in updates["bait"].items():
+                                    data["bait"][bait_type] = amount
+                                self.logger.debug(f"Updated bait inventory: {data['bait']}")
+                            elif isinstance(updates[field], dict) and field in data:
                                 if not isinstance(data[field], dict):
                                     data[field] = {}
                                 data[field].update(updates[field])
@@ -185,25 +197,35 @@ class ConfigManager:
                 else:
                     # Update all fields
                     for key, value in updates.items():
-                        if isinstance(value, dict) and key in data:
-                            # Merge dictionary fields instead of replacing
+                        if key == "bait" and isinstance(value, dict):
+                            # Special handling for bait dictionary
+                            if "bait" not in data or not isinstance(data["bait"], dict):
+                                data["bait"] = {}
+                            # Update each bait type individually
+                            for bait_type, amount in value.items():
+                                data["bait"][bait_type] = amount
+                            self.logger.debug(f"Updated bait inventory: {data['bait']}")
+                        elif isinstance(value, dict) and key in data:
                             if not isinstance(data[key], dict):
                                 data[key] = {}
                             data[key].update(value)
                         else:
                             data[key] = value
+                
+                self.logger.debug(f"Final data after update: {data}")
                             
             # Invalidate cache
             await self.invalidate_cache(f"user_{user_id}")
             
-            # Debug log the final state
-            result = await self.get_user_data(user_id)
-            self.logger.debug(f"Updated user data state: {result.data if result.success else 'Failed to get updated state'}")
+            # Verify the update
+            verify_result = await self.get_user_data(user_id)
+            if verify_result.success:
+                self.logger.debug(f"Verified data after update: {verify_result.data}")
             
             return ConfigResult(True, True)
             
         except Exception as e:
-            self.logger.error(f"Error updating user data: {e}")
+            self.logger.error(f"Error updating user data: {e}", exc_info=True)
             return ConfigResult(False, error=str(e))
             
     async def get_global_setting(self, key: str) -> ConfigResult[Any]:
