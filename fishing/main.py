@@ -48,6 +48,7 @@ class Fishing(commands.Cog):
 
         # Initialize inventory manager
         self.inventory = InventoryManager(bot, self.config_manager, self.data)
+        self.logger.debug("Inventory manager initialized")
         
         # Initialize background tasks
         self.bg_task_manager = TaskManager(bot, self.config_manager, self.data)
