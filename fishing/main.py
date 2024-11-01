@@ -91,7 +91,7 @@ class Fishing(commands.Cog):
                 self.logger.debug(f"Initialized bait stock: {initial_stock}")
                 
             # Start background tasks
-            await self.bg_task_manager.start_tasks()
+            await self.bg_task_manager.start()
             
         except Exception as e:
             self.logger.error(f"Error in cog_load: {e}", exc_info=True)
@@ -99,7 +99,7 @@ class Fishing(commands.Cog):
     
     def cog_unload(self):
         """Clean up when cog is unloaded."""
-        self.bg_task_manager.cancel_tasks()
+        asyncio.create_task(self.bg_task_manager.stop())
         self.logger.info("Cog unloaded, background tasks cancelled")
 
     # Location Commands
