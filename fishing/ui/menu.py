@@ -397,8 +397,13 @@ class FishingMenuView(BaseView):
                     await self.cog._update_total_value(self.ctx.author, fish_value)
                     
                     # Update fish count
-                    async with self.cog.config.user(self.ctx.author).all() as user_data:
-                        user_data["fish_caught"] += 1
+                    update_result = await self.cog.config_manager.update_user_data(
+                        self.ctx.author.id,
+                        {"fish_caught": self.user_data["fish_caught"] + 1},
+                        fields=["fish_caught"]
+                    )
+                    if not update_result.success:
+                        self.logger.error("Failed to update fish_caught count")
                     
                     # Show catch result
                     fishing_embed.title = "🎣 Successful Catch!"
