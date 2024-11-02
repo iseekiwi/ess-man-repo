@@ -423,10 +423,21 @@ class FishingMenuView(BaseView):
     
             # Reset and return to main menu
             self.fishing_in_progress = False
-            self.user_data = await self.cog.config.user(self.ctx.author).all()
-            await self.initialize_view()
-            main_embed = await self.generate_embed()
-            await self.message.edit(embed=main_embed, view=self)
+            user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+            if user_data_result.success:
+                self.user_data = user_data_result.data
+            else:
+                self.fishing_in_progress = False
+                await self.initialize_view()
+                message = await interaction.followup.send(
+                    "Error accessing user data. Please try again.",
+                    ephemeral=True,
+                    wait=True
+                )
+                self.cog.bot.loop.create_task(self.delete_after_delay(message))
+                main_embed = await self.generate_embed()
+                await self.message.edit(embed=main_embed, view=self)
+                return
     
         except Exception as e:
             self.logger.error(f"Error in fishing process: {e}", exc_info=True)
