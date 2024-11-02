@@ -1,27 +1,27 @@
 if not isinstance(settings, dict):
-                self.logger.warning("Invalid settings format, resetting to default")
-                validated["settings"] = DEFAULT_USER_DATA["settings"].copy()
-            else:
-                validated["settings"] = {
-                    "notifications": bool(settings.get("notifications", True)),
-                    "auto_sell": bool(settings.get("auto_sell", False))
-                }
+            self.logger.warning("Invalid settings format, resetting to default")
+            validated["settings"] = DEFAULT_USER_DATA["settings"].copy()
+        else:
+            validated["settings"] = {
+                "notifications": bool(settings.get("notifications", True)),
+                "auto_sell": bool(settings.get("auto_sell", False))
+            }
                 
-            # Validate equipped bait exists in inventory
-            if validated["equipped_bait"] and validated["equipped_bait"] not in validated["bait"]:
-                self.logger.warning("Equipped bait not in inventory, resetting")
-                validated["equipped_bait"] = None
+        # Validate equipped bait exists in inventory
+        if validated["equipped_bait"] and validated["equipped_bait"] not in validated["bait"]:
+            self.logger.warning("Equipped bait not in inventory, resetting")
+            validated["equipped_bait"] = None
                 
-            # Validate rod exists in purchased rods
-            if validated["rod"] not in validated["purchased_rods"]:
-                self.logger.warning("Invalid rod equipped, resetting to Basic Rod")
-                validated["rod"] = "Basic Rod"
+        # Validate rod exists in purchased rods
+        if validated["rod"] not in validated["purchased_rods"]:
+            self.logger.warning("Invalid rod equipped, resetting to Basic Rod")
+            validated["rod"] = "Basic Rod"
                 
-            return validated
+        return validated
             
-        except Exception as e:
-            self.logger.error(f"Error in user data validation: {e}")
-            return DEFAULT_USER_DATA.copy()
+    except Exception as e:
+        self.logger.error(f"Error in user data validation: {e}")
+        return DEFAULT_USER_DATA.copy()
 
     async def get_user_data(self, user_id: int) -> ConfigResult[Dict[str, Any]]:
         """
