@@ -1,16 +1,18 @@
-# data/fishing_data.py
+from typing import Dict, Any, TypedDict, List, Union, Literal
 
-from typing import Dict, Any, TypedDict
-
+# Enhanced type definitions
 class FishData(TypedDict):
-    rarity: str
+    rarity: Literal["common", "uncommon", "rare", "legendary"]
     value: int
     chance: float
+    variants: List[str]
 
 class RodData(TypedDict):
     chance: float
     cost: int
+    durability: int
     description: str
+    requirements: Union[None, Dict[str, int]]
 
 class BaitData(TypedDict):
     value: int
@@ -18,6 +20,26 @@ class BaitData(TypedDict):
     cost: int
     description: str
     daily_stock: int
+    preferred_by: List[str]
+    effectiveness: Dict[str, float]
+
+class LocationData(TypedDict):
+    description: str
+    fish_modifiers: Dict[str, float]
+    weather_effects: bool
+    requirements: Union[None, Dict[str, int]]
+
+class WeatherData(TypedDict):
+    catch_bonus: float
+    description: str
+    affects_locations: List[str]
+    rare_bonus: float
+
+class TimeData(TypedDict):
+    catch_bonus: float
+    description: str
+    duration_hours: int
+    rare_bonus: float
 
 # Fish types with expanded details
 FISH_TYPES: Dict[str, FishData] = {
@@ -143,7 +165,7 @@ BAIT_TYPES: Dict[str, BaitData] = {
 }
 
 # Fishing locations with specific characteristics
-LOCATIONS = {
+LOCATIONS: Dict[str, LocationData] = {
     "Pond": {
         "description": "A peaceful freshwater pond.",
         "fish_modifiers": {
@@ -186,51 +208,89 @@ LOCATIONS = {
 }
 
 # Weather effects on fishing
-WEATHER_TYPES = {
+WEATHER_TYPES: Dict[str, WeatherData] = {
     "Sunny": {
         "catch_bonus": 0.1,
         "description": "Perfect weather for fishing!",
-        "affects_locations": ["Pond", "Ocean"]
+        "affects_locations": ["Pond", "Ocean"],
+        "rare_bonus": 0.0
     },
     "Rainy": {
         "catch_bonus": 0.2,
         "description": "Fish are more active in the rain.",
-        "affects_locations": ["Pond", "Ocean", "Deep Sea"]
+        "affects_locations": ["Pond", "Ocean", "Deep Sea"],
+        "rare_bonus": 0.1
     },
     "Stormy": {
         "catch_bonus": -0.1,
-        "rare_bonus": 0.15,
         "description": "Dangerous conditions, but rare fish are about!",
-        "affects_locations": ["Ocean", "Deep Sea"]
+        "affects_locations": ["Ocean", "Deep Sea"],
+        "rare_bonus": 0.15
     },
     "Foggy": {
         "catch_bonus": 0.05,
         "description": "Mysterious conditions that bring unique opportunities.",
-        "affects_locations": ["Pond", "Deep Sea"]
+        "affects_locations": ["Pond", "Deep Sea"],
+        "rare_bonus": 0.05
     }
 }
 
 # Time of day effects
-TIME_EFFECTS = {
+TIME_EFFECTS: Dict[str, TimeData] = {
     "Dawn": {
         "catch_bonus": 0.15,
         "description": "Early morning feeding time.",
-        "duration_hours": 2
+        "duration_hours": 2,
+        "rare_bonus": 0.05
     },
     "Day": {
         "catch_bonus": 0.0,
         "description": "Standard fishing conditions.",
-        "duration_hours": 8
+        "duration_hours": 8,
+        "rare_bonus": 0.0
     },
     "Dusk": {
         "catch_bonus": 0.15,
         "description": "Evening feeding time.",
-        "duration_hours": 2
+        "duration_hours": 2,
+        "rare_bonus": 0.05
     },
     "Night": {
         "catch_bonus": -0.1,
-        "rare_bonus": 0.2,
         "description": "Harder to catch fish, but rare ones are active.",
-        "duration_hours": 12
+        "duration_hours": 12,
+        "rare_bonus": 0.2
+    }
+}
+
+# Default user data structure
+DEFAULT_USER_DATA = {
+    "inventory": [],
+    "rod": "Basic Rod",
+    "total_value": 0,
+    "daily_quest": None,
+    "bait": {},
+    "purchased_rods": {"Basic Rod": True},
+    "equipped_bait": None,
+    "current_location": "Pond",
+    "fish_caught": 0,
+    "level": 1,
+    "settings": {
+        "notifications": True,
+        "auto_sell": False
+    }
+}
+
+# Default global settings
+DEFAULT_GLOBAL_SETTINGS = {
+    "bait_stock": {
+        bait: data["daily_stock"]
+        for bait, data in BAIT_TYPES.items()
+    },
+    "current_weather": "Sunny",
+    "active_events": [],
+    "settings": {
+        "daily_reset_hour": 0,
+        "weather_change_interval": 3600
     }
 }
