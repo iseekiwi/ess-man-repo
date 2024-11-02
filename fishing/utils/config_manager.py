@@ -1,27 +1,184 @@
-if not isinstance(settings, dict):
-            self.logger.warning("Invalid settings format, resetting to default")
-            validated["settings"] = DEFAULT_USER_DATA["settings"].copy()
-        else:
-            validated["settings"] = {
-                "notifications": bool(settings.get("notifications", True)),
-                "auto_sell": bool(settings.get("auto_sell", False))
-            }
-                
-        # Validate equipped bait exists in inventory
-        if validated["equipped_bait"] and validated["equipped_bait"] not in validated["bait"]:
-            self.logger.warning("Equipped bait not in inventory, resetting")
-            validated["equipped_bait"] = None
-                
-        # Validate rod exists in purchased rods
-        if validated["rod"] not in validated["purchased_rods"]:
-            self.logger.warning("Invalid rod equipped, resetting to Basic Rod")
-            validated["rod"] = "Basic Rod"
-                
-        return validated
+import logging
+from typing import Dict, Any, Optional, TypeVar, Generic, List, Union
+from dataclasses import dataclass
+from contextlib import asynccontextmanager
+from redbot.core import Config
+from .logging_config import get_logger
+from ..data.fishing_data import DEFAULT_USER_DATA, DEFAULT_GLOBAL_SETTINGS
+
+T = TypeVar('T')
+
+@dataclass
+class ConfigResult(Generic[T]):
+    """Wrapper for configuration operation results with enhanced error tracking"""
+    success: bool
+    data: Optional[T] = None
+    error: Optional[str] = None
+    error_code: Optional[str] = None
+
+class ConfigManager:
+    """Enhanced configuration management system with improved validation"""
+    
+    def __init__(self, bot, identifier: int):
+        self.config = Config.get_conf(None, identifier=identifier)
+        self.logger = get_logger('config')
+        self._cache = {}
+        self._register_defaults()
+        
+    def _register_defaults(self):
+        """Register default configurations using constants from fishing_data"""
+        self.config.register_user(**DEFAULT_USER_DATA)
+        self.config.register_global(**DEFAULT_GLOBAL_SETTINGS)
+        self.logger.debug("Registered default configurations")
+
+    async def _validate_dictionary_merge(
+        self,
+        current: Dict[str, Any],
+        updates: Dict[str, Any],
+        path: str = ""
+    ) -> Dict[str, Any]:
+        """
+        Recursively merge dictionaries while validating types and structures.
+        
+        Args:
+            current: Current dictionary
+            updates: Dictionary with updates
+            path: Current path for logging
             
-    except Exception as e:
-        self.logger.error(f"Error in user data validation: {e}")
-        return DEFAULT_USER_DATA.copy()
+        Returns:
+            Dict[str, Any]: Merged dictionary
+        """
+        try:
+            result = current.copy()
+            
+            for key, new_value in updates.items():
+                current_path = f"{path}.{key}" if path else key
+                
+                if key not in current:
+                    self.logger.warning(f"Adding new key at {current_path}")
+                    result[key] = new_value
+                    continue
+                    
+                current_value = current[key]
+                
+                # Handle nested dictionaries
+                if isinstance(current_value, dict) and isinstance(new_value, dict):
+                    result[key] = await self._validate_dictionary_merge(
+                        current_value,
+                        new_value,
+                        current_path
+                    )
+                    continue
+                    
+                # Handle lists
+                if isinstance(current_value, list) and isinstance(new_value, list):
+                    result[key] = new_value
+                    continue
+                    
+                # Handle type mismatches
+                if type(current_value) != type(new_value):
+                    self.logger.error(
+                        f"Type mismatch at {current_path}: "
+                        f"Expected {type(current_value)}, got {type(new_value)}"
+                    )
+                    continue
+                    
+                result[key] = new_value
+                
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error in dictionary merge: {e}")
+            raise
+
+    async def _validate_user_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate and repair user data structure with enhanced error handling.
+        
+        Args:
+            data: User data to validate
+            
+        Returns:
+            Dict[str, Any]: Validated and repaired data
+        """
+        try:
+            if not data:
+                self.logger.debug("Empty user data, returning defaults")
+                return DEFAULT_USER_DATA.copy()
+                
+            validated = {}
+            
+            # Validate inventory
+            if not isinstance(data.get("inventory", []), list):
+                self.logger.warning("Invalid inventory format, resetting to default")
+                validated["inventory"] = []
+            else:
+                validated["inventory"] = data["inventory"]
+                
+            # Validate bait dictionary
+            if not isinstance(data.get("bait", {}), dict):
+                self.logger.warning("Invalid bait format, resetting to default")
+                validated["bait"] = {}
+            else:
+                validated["bait"] = {
+                    str(k): int(v)
+                    for k, v in data["bait"].items()
+                    if isinstance(v, (int, float)) and v > 0
+                }
+                
+            # Validate purchased rods
+            if not isinstance(data.get("purchased_rods", {}), dict):
+                self.logger.warning("Invalid purchased_rods format, resetting to default")
+                validated["purchased_rods"] = {"Basic Rod": True}
+            else:
+                validated["purchased_rods"] = {
+                    str(k): bool(v)
+                    for k, v in data["purchased_rods"].items()
+                }
+                
+            # Ensure Basic Rod is always available
+            validated["purchased_rods"]["Basic Rod"] = True
+            
+            # Validate numeric fields
+            for field in ["total_value", "fish_caught", "level"]:
+                try:
+                    validated[field] = max(0, int(data.get(field, 0)))
+                except (ValueError, TypeError):
+                    self.logger.warning(f"Invalid {field} value, resetting to 0")
+                    validated[field] = 0
+                    
+            # Validate string fields with defaults
+            validated["rod"] = str(data.get("rod", "Basic Rod"))
+            validated["current_location"] = str(data.get("current_location", "Pond"))
+            validated["equipped_bait"] = data.get("equipped_bait")
+            
+            # Validate settings
+            settings = data.get("settings", {})
+                    
+            if not isinstance(settings, dict):
+                self.logger.warning("Invalid settings format, resetting to default")
+                validated["settings"] = DEFAULT_USER_DATA["settings"].copy()
+            else:
+                validated["settings"] = {
+                    "notifications": bool(settings.get("notifications", True)),
+                    "auto_sell": bool(settings.get("auto_sell", False))
+                }
+                
+            # Validate equipped bait exists in inventory
+            if validated["equipped_bait"] and validated["equipped_bait"] not in validated["bait"]:
+                self.logger.warning("Equipped bait not in inventory, resetting")
+                validated["equipped_bait"] = None
+                
+            # Validate rod exists in purchased rods
+            if validated["rod"] not in validated["purchased_rods"]:
+                self.logger.warning("Invalid rod equipped, resetting to Basic Rod")
+                validated["rod"] = "Basic Rod"
+                
+            return validated
+            
+        except Exception as e:
+            self.logger.error(f"Error in user data validation: {e}")
+            return DEFAULT_USER_DATA.copy()
 
     async def get_user_data(self, user_id: int) -> ConfigResult[Dict[str, Any]]:
         """
