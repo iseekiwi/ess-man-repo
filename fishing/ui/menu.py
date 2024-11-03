@@ -199,10 +199,29 @@ class FishingMenuView(BaseView):
 
                 # Get weather data from cog's data dictionary
                 weather_data = self.cog.data["weather"][current_weather]
+
+                # Calculate time until next weather change
+                now = datetime.datetime.now()
+                last_change = self.cog.bg_task_manager.last_weather_change
+                if last_change is None:
+                    time_remaining = "Unknown"
+                else:
+                    next_change = last_change + datetime.timedelta(hours=1)
+                    remaining = next_change - now
+                    if remaining.total_seconds() <= 0:
+                        time_remaining = "Soon"
+                    else:
+                        minutes = int(remaining.total_seconds() // 60)
+                        seconds = int(remaining.total_seconds() % 60)
+                        time_remaining = f"{minutes}m {seconds}s"
                 
                 embed = discord.Embed(
                     title="🌤️ Current Weather",
-                    description=f"**{current_weather}**\n{weather_data['description']}",
+                    description=(
+                        f"**{current_weather}**\n"
+                        f"{weather_data['description']}\n\n"
+                        f"⏳ Next change in: {time_remaining}"
+                    ),
                     color=discord.Color.blue()
                 )
                 
