@@ -356,6 +356,11 @@ class FishingMenuView(BaseView):
     async def do_fishing(self, interaction: discord.Interaction):
         """Handle the fishing process after initial interaction"""
         try:
+            # Get fresh user data to ensure accurate equipment check
+            user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+            if user_data_result.success:
+                self.user_data = user_data_result.data
+                
             if not self.user_data["equipped_bait"]:
                 self.fishing_in_progress = False
                 await self.initialize_view()
