@@ -489,9 +489,6 @@ class ShopView(BaseView):
                     # Refresh user data from config
                     user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
                     if user_data_result.success:
-                        # Log the state before update
-                        self.logger.debug(f"User data before view update: {user_data_result.data}")
-                        
                         # Update the view's user data
                         self.user_data = user_data_result.data
                         
@@ -501,11 +498,19 @@ class ShopView(BaseView):
                         # Get fresh data after cache refresh
                         fresh_data = await self.cog.config_manager.get_user_data(self.ctx.author.id)
                         if fresh_data.success:
-                            self.logger.debug(f"Fresh user data after cache refresh: {fresh_data.data}")
-                        
+                            self.user_data = fresh_data.data
+                            
+                            # NEW: Update parent menu view if it exists
+                            if hasattr(self, 'message') and hasattr(self.message, 'parent_view'):
+                                parent_view = self.message.parent_view
+                                if isinstance(parent_view, FishingMenuView):
+                                    parent_view.user_data = fresh_data.data
+                                    await parent_view.initialize_view()
+                                    menu_embed = await parent_view.generate_embed()
+                                    await parent_view.message.edit(embed=menu_embed, view=parent_view)
+                                    
                         # Reinitialize the view with new data
                         await self.initialize_view()
-                        # Update the display
                         await self.update_view()
                 
                 # Always show the result message
