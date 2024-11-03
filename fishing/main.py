@@ -210,9 +210,24 @@ class Fishing(commands.Cog):
                 return None
 
             caught_fish = random.choices(weighted_fish, weights=weights, k=1)[0]
+            fish_data = self.data["fish"][caught_fish]
             self.logger.debug(f"Fish caught: {caught_fish}")
             return {"name": caught_fish, "value": self.data["fish"][caught_fish]["value"]}
-            
+
+            # Calculate XP reward
+            location_data = self.data["locations"][location]
+            xp_reward = self.level_manager.calculate_xp_reward(
+                fish_data["rarity"],
+                location_mods[caught_fish]  # Use location modifier as XP modifier
+            )
+    
+            self.logger.debug(f"Fish caught: {caught_fish}, XP reward: {xp_reward}")
+            return {
+                "name": caught_fish,
+                "value": fish_data["value"],
+                "xp_gained": xp_reward
+            }
+        
         except Exception as e:
             self.logger.error(f"Error in _catch_fish: {e}", exc_info=True)
             return None
