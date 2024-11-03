@@ -8,6 +8,9 @@ from discord.ui import Button, Select
 from redbot.core import bank
 from .base import BaseView
 from ..utils.logging_config import get_logger
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .menu import FishingMenuView
 
 logger = get_logger('shop')
 
@@ -502,13 +505,14 @@ class ShopView(BaseView):
                             
                             # Update parent menu view if it exists
                             if hasattr(self, 'parent_menu_view'):
-                                parent_view = self.parent_menu_view
-                                if isinstance(parent_view, FishingMenuView):
-                                    parent_view.user_data = fresh_data.data
-                                    await parent_view.initialize_view()
-                                    menu_embed = await parent_view.generate_embed()
-                                    await parent_view.message.edit(embed=menu_embed, view=parent_view)
-                                    
+                                # Import here to avoid circular import
+                                from .menu import FishingMenuView
+                                if isinstance(self.parent_menu_view, FishingMenuView):
+                                    self.parent_menu_view.user_data = fresh_data.data
+                                    await self.parent_menu_view.initialize_view()
+                                    menu_embed = await self.parent_menu_view.generate_embed()
+                                    await self.parent_menu_view.message.edit(embed=menu_embed, view=self.parent_menu_view)
+                            
                         # Reinitialize the view with new data
                         await self.initialize_view()
                         await self.update_view()
