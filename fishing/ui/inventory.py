@@ -24,126 +24,26 @@ class InventoryView(BaseView):
         self.logger = get_logger('inventory.view')
 
     async def generate_embed(self) -> discord.Embed:
-        """Generate the appropriate embed based on current page"""
-        try:         
-            # Get user's balance and currency name
-            try:
-                balance = await bank.get_balance(self.ctx.author)
-                currency_name = await bank.get_currency_name(self.ctx.guild)
-            except Exception as e:
-                self.logger.error(f"Error getting balance: {e}")
-                balance = 0
-                currency_name = "coins"
-                
+        try:
             if self.current_page == "main":
-                summary = await self.cog.inventory.get_inventory_summary(self.ctx.author.id)
-                self.logger.debug(f"Inventory summary for {self.ctx.author.id}: {summary}")
-                
-                if not summary:
-                    self.logger.error(f"Failed to get inventory summary for user {self.ctx.author.id}")
-                    return discord.Embed(
-                        title="❌ Inventory Error",
-                        description="Failed to load inventory data. Please try again later.",
-                        color=discord.Color.red()
-                    )
-                    
-                embed = discord.Embed(
-                    title=f"🎒 {self.ctx.author.display_name}'s Inventory",
-                    color=discord.Color.blue()
-                )
+                embed = MenuLayout.style_2(f"🎒 {self.ctx.author.display_name}'s Inventory")
                 
                 # Currently equipped section
-                embed.add_field(
-                    name="Currently Equipped",
-                    value=(
-                        f"🎣 Rod: {summary['equipped_rod']}\n"
-                        f"🪱 Bait: {summary['equipped_bait'] or 'None'}"
-                    ),
-                    inline=False
+                equipped_text = (
+                    f"🎣 Rod: {summary['equipped_rod']}\n"
+                    f"🪱 Bait: {summary['equipped_bait'] or 'None'}"
                 )
+                MenuLayout.add_field_styled(embed, "Currently Equipped", equipped_text)
                 
-                # Inventory summary section
-                embed.add_field(
-                    name="Summary",
-                    value=(
-                        f"🎣 Rods Owned: {summary['rod_count']}\n"
-                        f"🪱 Bait Available: {summary['bait_count']}\n"
-                        f"🐟 Fish Caught: {summary['fish_count']}\n"
-                        f"💰 Total Fish Value: {summary['total_value']} {currency_name}\n"
-                        f"💰 Current Balance: {balance} {currency_name}"
-                    ),
-                    inline=False
+                # Summary section
+                summary_text = (
+                    f"🎣 Rods Owned: {summary['rod_count']}\n"
+                    f"🪱 Bait Available: {summary['bait_count']}\n"
+                    f"🐟 Fish Caught: {summary['fish_count']}\n"
+                    f"💰 Total Fish Value: {summary['total_value']} {currency_name}\n"
+                    f"💰 Current Balance: {balance} {currency_name}"
                 )
-                
-            elif self.current_page == "rods":
-                embed = discord.Embed(
-                    title="🎣 Your Fishing Rods",
-                    color=discord.Color.blue()
-                )
-                
-                rods_text = []
-                for rod in self.user_data.get("purchased_rods", {}):
-                    rod_data = self.cog.data["rods"][rod]
-                    stats = f"Catch Bonus: +{rod_data['chance']*100}%"
-                    
-                    if rod == self.user_data['rod']:
-                        rods_text.append(f"**{rod}** *(Equipped)*\n{stats}")
-                    else:
-                        rods_text.append(f"{rod}\n{stats}")
-                
-                embed.description = "\n\n".join(rods_text) or "No rods owned!"
-                embed.set_footer(text=f"Balance: {balance} {currency_name}")
-                
-            elif self.current_page == "bait":
-                embed = discord.Embed(
-                    title="🪱 Your Bait",
-                    color=discord.Color.blue()
-                )
-                
-                bait_text = []
-                for bait_name, amount in self.user_data.get("bait", {}).items():
-                    if amount > 0:
-                        bait_data = self.cog.data["bait"][bait_name]
-                        stats = f"Catch Bonus: +{bait_data['catch_bonus']*100}%"
-                        
-                        if bait_name == self.user_data.get('equipped_bait'):
-                            bait_text.append(f"**{bait_name}** (x{amount}) *(Equipped)*\n{stats}")
-                        else:
-                            bait_text.append(f"{bait_name} (x{amount})\n{stats}")
-                
-                embed.description = "\n\n".join(bait_text) or "No bait available!"
-                embed.set_footer(text=f"Balance: {balance} {currency_name}")
-                
-            elif self.current_page == "fish":
-                embed = discord.Embed(
-                    title="🐟 Your Caught Fish",
-                    color=discord.Color.blue()
-                )
-                
-                if not self.user_data.get("inventory"):
-                    embed.description = "No fish caught yet!"
-                else:
-                    fish_counts = Counter(self.user_data["inventory"])
-                    fish_text = []
-                    total_value = 0
-                    
-                    for fish, count in fish_counts.most_common():
-                        value = self.cog.data["fish"][fish]["value"] * count
-                        total_value += value
-                        fish_text.append(f"{fish}: x{count} (Worth: {value} {currency_name})")
-                    
-                    embed.description = "\n".join(fish_text)
-                    embed.set_footer(text=f"Total Value: {total_value} {currency_name} | Balance: {balance} {currency_name}")
-            
-            return embed
-            
-        except Exception as e:
-            self.logger.error(f"Error generating embed: {e}", exc_info=True)
-            return discord.Embed(
-            title="Error",
-            description="An error occurred while loading the inventory. Please try again.",
-            color=discord.Color.red()
-        )
+                MenuLayout.add_field_styled(embed, "Summary", summary_text)
     
     async def start(self):
         """Start the inventory view"""
