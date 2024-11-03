@@ -1,0 +1,180 @@
+# utils/level_manager.py
+
+from typing import Dict, Tuple, Optional
+from .logging_config import get_logger
+from .config_manager import ConfigManager, ConfigResult
+
+class LevelManager:
+    """
+    Manages experience and leveling mechanics for the fishing system.
+    
+    Attributes:
+        config_manager (ConfigManager): Configuration management system
+        logger (logging.Logger): Logger instance
+        xp_thresholds (Dict[int, int]): XP required for each level
+        rarity_xp (Dict[str, int]): Base XP rewards for each fish rarity
+    """
+    
+    def __init__(self, config_manager: ConfigManager):
+        self.config_manager = config_manager
+        self.logger = get_logger('level_manager')
+        
+        # Define XP thresholds for each level
+        self.xp_thresholds = {
+            1: 0,
+            2: 100,
+            3: 250,
+            4: 500,
+            5: 1000,
+            6: 2000,
+            7: 4000,
+            8: 8000,
+            9: 16000,
+            10: 32000
+        }
+        
+        # Define base XP rewards for each rarity
+        self.rarity_xp = {
+            "common": 10,
+            "uncommon": 25,
+            "rare": 75,
+            "legendary": 200
+        }
+        
+    async def initialize_user_xp(self, user_id: int) -> None:
+        """Initialize or verify XP data structure for user."""
+        try:
+            result = await self.config_manager.get_user_data(user_id)
+            if not result.success:
+                self.logger.error(f"Failed to get user data for XP initialization: {result.error}")
+                return
+                
+            user_data = result.data
+            if "experience" not in user_data:
+                update_result = await self.config_manager.update_user_data(
+                    user_id,
+                    {"experience": 0},
+                    fields=["experience"]
+                )
+                if not update_result.success:
+                    self.logger.error(f"Failed to initialize user XP: {update_result.error}")
+                    
+        except Exception as e:
+            self.logger.error(f"Error in initialize_user_xp: {e}")
+
+    def calculate_xp_reward(self, fish_rarity: str, location_mod: float = 1.0) -> int:
+        """
+        Calculate XP reward for catching a fish.
+        
+        Args:
+            fish_rarity: Rarity of the caught fish
+            location_mod: Location-based XP modifier
+            
+        Returns:
+            int: XP reward amount
+        """
+        base_xp = self.rarity_xp.get(fish_rarity, 0)
+        return int(base_xp * location_mod)
+
+    def get_level_for_xp(self, xp: int) -> int:
+        """Determine level based on total XP."""
+        for level, threshold in sorted(self.xp_thresholds.items(), reverse=True):
+            if xp >= threshold:
+                return level
+        return 1
+
+    async def award_xp(self, user_id: int, xp_amount: int) -> Tuple[bool, Optional[int], Optional[int]]:
+        """
+        Award XP to user and check for level up.
+        
+        Args:
+            user_id: Discord user ID
+            xp_amount: Amount of XP to award
+            
+        Returns:
+            Tuple[bool, Optional[int], Optional[int]]: 
+                - Success status
+                - Old level (if leveled up)
+                - New level (if leveled up)
+        """
+        try:
+            # Get current user data
+            result = await self.config_manager.get_user_data(user_id)
+            if not result.success:
+                self.logger.error(f"Failed to get user data for XP award: {result.error}")
+                return False, None, None
+                
+            user_data = result.data
+            current_xp = user_data.get("experience", 0)
+            old_level = self.get_level_for_xp(current_xp)
+            
+            # Calculate new XP and level
+            new_xp = current_xp + xp_amount
+            new_level = self.get_level_for_xp(new_xp)
+            
+            # Update user data
+            update_result = await self.config_manager.update_user_data(
+                user_id,
+                {
+                    "experience": new_xp,
+                    "level": new_level
+                },
+                fields=["experience", "level"]
+            )
+            
+            if not update_result.success:
+                self.logger.error(f"Failed to update user XP: {update_result.error}")
+                return False, None, None
+                
+            # Return level up information if applicable
+            if new_level > old_level:
+                self.logger.info(f"User {user_id} leveled up from {old_level} to {new_level}")
+                return True, old_level, new_level
+                
+            return True, None, None
+            
+        except Exception as e:
+            self.logger.error(f"Error in award_xp: {e}")
+            return False, None, None
+
+    async def get_level_progress(self, user_id: int) -> Optional[Dict]:
+        """
+        Get detailed level progress information.
+        
+        Returns:
+            Optional[Dict]: Dictionary containing:
+                - current_level: Current level
+                - current_xp: Total XP
+                - xp_for_next: XP needed for next level
+                - progress: Progress percentage to next level
+        """
+        try:
+            result = await self.config_manager.get_user_data(user_id)
+            if not result.success:
+                return None
+                
+            current_xp = result.data.get("experience", 0)
+            current_level = self.get_level_for_xp(current_xp)
+            
+            # Find next level threshold
+            next_level = current_level + 1
+            if next_level not in self.xp_thresholds:
+                progress = 100
+                xp_for_next = None
+            else:
+                current_threshold = self.xp_thresholds[current_level]
+                next_threshold = self.xp_thresholds[next_level]
+                xp_for_next = next_threshold - current_xp
+                progress = ((current_xp - current_threshold) / 
+                           (next_threshold - current_threshold) * 100)
+                
+            return {
+                "current_level": current_level,
+                "current_xp": current_xp,
+                "xp_for_next": xp_for_next,
+                "progress": min(100, max(0, progress))
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error in get_level_progress: {e}")
+            return None
