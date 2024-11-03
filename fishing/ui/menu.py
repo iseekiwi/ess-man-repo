@@ -24,6 +24,7 @@ class FishingMenuView(BaseView):
         self.inventory_view = None
         self.fishing_in_progress = False
         self.stored_buttons = []
+        self.correct_action = None
         
     async def setup(self):
         """Async setup method to initialize the view"""
@@ -362,34 +363,117 @@ class FishingMenuView(BaseView):
                 main_embed = await self.generate_embed()
                 await self.message.edit(embed=main_embed, view=self)
                 return
-
-            # Store current buttons before clearing them
+    
+            # Clear UI of menu buttons during fishing
             self.stored_buttons = self.children.copy()
             self.clear_items()
-            await self.message.edit(view=self)
-            
-            # Wait for fish to bite
-            await asyncio.sleep(random.uniform(2, 5))
-            
-            keyword = random.choice(["catch", "grab", "snag", "hook", "reel"])
+                
+            # Initial response showing casting
             fishing_embed = discord.Embed(
                 title="🎣 Fishing in Progress",
-                description=f"Quick! Type **{keyword}** to catch the fish!",
+                description="Casting line...",
                 color=discord.Color.blue()
             )
-            await self.message.edit(embed=fishing_embed)
-    
-            try:
-                await self.cog.bot.wait_for(
-                    'message',
-                    check=lambda m: (
-                        m.author == self.ctx.author and 
-                        m.content.lower() == keyword and 
-                        m.channel == self.ctx.channel
-                    ),
-                    timeout=5.0
+            await interaction.response.edit_message(embed=fishing_embed, view=self)
+                
+            # Wait for fish to bite
+            await asyncio.sleep(random.uniform(2, 5))
+                
+            # Set up catch attempt buttons
+            catch_actions = ["catch", "grab", "snag", "hook", "reel"]
+            self.correct_action = random.choice(catch_actions)
+                
+            # Create all catch attempt buttons
+            for action in catch_actions:
+                button = Button(
+                    label=action.capitalize(),
+                    custom_id=f"catch_{action}",
+                    style=discord.ButtonStyle.primary
                 )
+                button.callback = self.handle_catch_attempt
+                self.add_item(button)
+                
+            fishing_embed = discord.Embed(
+                title="🎣 Fishing in Progress",
+                description="Quick! Click the right button to catch the fish!",
+                color=discord.Color.blue()
+            )
+            await self.message.edit(embed=fishing_embed, view=self)
+                
+            # Set up timeout for catch attempt
+            await asyncio.sleep(5.0)
+                
+            # Check if buttons are still enabled (meaning no attempt was made)
+            if not self.children[0].disabled:
+                # Time ran out - handle bait consumption for failed attempt
+                user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+                if user_data_result.success:
+                    update_data = {"bait": user_data_result.data.get("bait", {})}
+                    equipped_bait = user_data_result.data.get("equipped_bait")
+                    if equipped_bait:
+                        update_data["bait"][equipped_bait] = update_data["bait"].get(equipped_bait, 0) - 1
+                        if update_data["bait"][equipped_bait] <= 0:
+                            del update_data["bait"][equipped_bait]
+                            update_data["equipped_bait"] = None
+                        await self.cog.config_manager.update_user_data(self.ctx.author.id, update_data)
     
+                fishing_embed = discord.Embed(
+                    title="🎣 Too Slow!",
+                    description="The fish got away!\n\nReturning to menu...",
+                    color=discord.Color.red()
+                )
+                await self.message.edit(embed=fishing_embed)
+                await asyncio.sleep(2)
+    
+                # Reset fishing state and get fresh user data
+                self.fishing_in_progress = False
+                user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+                if user_data_result.success:
+                    self.user_data = user_data_result.data
+                    self.current_page = "main"  # Reset to main page
+                    await self.initialize_view()  # Reinitialize the view with updated data
+                    main_embed = await self.generate_embed()  # Generate new embed
+                    await self.message.edit(embed=main_embed, view=self)  # Update the message
+                else:
+                    self.fishing_in_progress = False
+                    await self.initialize_view()
+                    message = await interaction.followup.send(
+                        "Error accessing user data. Please try again.",
+                        ephemeral=True,
+                        wait=True
+                    )
+                    self.cog.bot.loop.create_task(self.delete_after_delay(message))
+                    main_embed = await self.generate_embed()
+                    await self.message.edit(embed=main_embed, view=self)
+                    return
+    
+        except Exception as e:
+            self.logger.error(f"Error in fishing process: {e}", exc_info=True)
+            self.fishing_in_progress = False
+            await self.initialize_view()
+            message = await interaction.followup.send(
+                "An error occurred while fishing. Please try again.",
+                ephemeral=True,
+                wait=True
+            )
+            self.cog.bot.loop.create_task(self.delete_after_delay(message))
+            main_embed = await self.generate_embed()
+            await self.message.edit(embed=main_embed, view=self)
+
+    async def handle_catch_attempt(self, interaction: discord.Interaction):
+        """Handle fishing catch attempt button press"""
+        try:
+            # Get the button that was pressed
+            button_id = interaction.data["custom_id"]
+            action = button_id.replace("catch_", "")
+            
+            # Disable all buttons immediately
+            for child in self.children:
+                child.disabled = True
+            await interaction.response.edit_message(view=self)
+            
+            # Check if correct button was pressed
+            if action == self.correct_action:
                 # Get weather first
                 weather_result = await self.cog.config_manager.get_global_setting("current_weather")
                 current_weather = weather_result.data if weather_result.success else "Sunny"
@@ -402,7 +486,7 @@ class FishingMenuView(BaseView):
                     current_weather,
                     self.get_time_of_day()
                 )
-    
+                
                 # Update bait inventory
                 user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
                 if user_data_result.success:
@@ -414,7 +498,7 @@ class FishingMenuView(BaseView):
                             del update_data["bait"][equipped_bait]
                             update_data["equipped_bait"] = None
                     await self.cog.config_manager.update_user_data(self.ctx.author.id, update_data)
-    
+                
                 if catch:
                     fish_name = catch["name"]
                     fish_value = catch["value"]
@@ -434,26 +518,33 @@ class FishingMenuView(BaseView):
                         self.logger.error("Failed to update fish_caught count")
                     
                     # Show catch result
-                    fishing_embed.title = "🎣 Successful Catch!"
-                    fishing_embed.description = (
-                        f"You caught a {variant} ({fish_name}) worth {fish_value} coins!\n\n"
-                        f"Location: {self.user_data['current_location']}\n"
-                        f"Weather: {current_weather}\n\n"
-                        "Returning to menu..."
+                    fishing_embed = discord.Embed(
+                        title="🎣 Successful Catch!",
+                        description=(
+                            f"You caught a {variant} ({fish_name}) worth {fish_value} coins!\n\n"
+                            f"Location: {self.user_data['current_location']}\n"
+                            f"Weather: {current_weather}\n\n"
+                            "Returning to menu..."
+                        ),
+                        color=discord.Color.blue()
                     )
                 else:
-                    fishing_embed.title = "🎣 Almost Had It!"
-                    fishing_embed.description = "The fish got away!\n\nReturning to menu..."
-    
-                await self.message.edit(embed=fishing_embed)
-                await asyncio.sleep(2)  # Brief pause to show result
-    
-            except asyncio.TimeoutError:
-                fishing_embed.title = "🎣 Too Slow!"
-                fishing_embed.description = "The fish got away!\n\nReturning to menu..."
-                await self.message.edit(embed=fishing_embed)
-                await asyncio.sleep(2)  # Brief pause to show result
-    
+                    fishing_embed = discord.Embed(
+                        title="🎣 Almost Had It!",
+                        description="The fish got away!\n\nReturning to menu...",
+                        color=discord.Color.red()
+                    )
+            else:
+                # Wrong button pressed
+                fishing_embed = discord.Embed(
+                    title="🎣 Wrong Move!",
+                    description="The fish got away!\n\nReturning to menu...",
+                    color=discord.Color.red()
+                )
+            
+            await self.message.edit(embed=fishing_embed)
+            await asyncio.sleep(2)  # Brief pause to show result
+            
             # Reset fishing state and get fresh user data
             self.fishing_in_progress = False
             user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
@@ -463,32 +554,14 @@ class FishingMenuView(BaseView):
                 await self.initialize_view()  # Reinitialize the view with updated data
                 main_embed = await self.generate_embed()  # Generate new embed
                 await self.message.edit(embed=main_embed, view=self)  # Update the message
-            else:
-                self.fishing_in_progress = False
-                await self.initialize_view()
-                message = await interaction.followup.send(
-                    "Error accessing user data. Please try again.",
-                    ephemeral=True,
-                    wait=True
-                )
-                self.cog.bot.loop.create_task(self.delete_after_delay(message))
-                main_embed = await self.generate_embed()
-                await self.message.edit(embed=main_embed, view=self)
-                return
-    
+                
         except Exception as e:
-            self.logger.error(f"Error in fishing process: {e}", exc_info=True)
-            self.fishing_in_progress = False
-            await self.initialize_view()
-            message = await interaction.followup.send(
-                "An error occurred while fishing. Please try again.",
-                ephemeral=True,
-                wait=True
+            self.logger.error(f"Error in catch attempt: {e}", exc_info=True)
+            await interaction.followup.send(
+                "An error occurred while processing your catch. Please try again.",
+                ephemeral=True
             )
-            self.cog.bot.loop.create_task(self.delete_after_delay(message))
-            main_embed = await self.generate_embed()
-            await self.message.edit(embed=main_embed, view=self)
-
+    
     async def handle_location_select(self, interaction: discord.Interaction):
         """Handle location selection button interactions"""
         try:
