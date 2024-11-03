@@ -309,11 +309,13 @@ class FishingMenuView(BaseView):
                 # Use dynamic import to avoid circular dependency
                 if custom_id == "shop":
                     self.shop_view = await ShopView(self.cog, self.ctx, self.user_data).setup()
+                    self.shop_view.parent_menu_view = self
                     embed = await self.shop_view.generate_embed()
                     await interaction.response.edit_message(embed=embed, view=self.shop_view)
                     # Set up the parent view reference after the message is created
                     self.shop_view.message = await interaction.original_response()
-                    self.shop_view.parent_menu_view = self  # Store reference to parent view directly
+                    if not self.message:  # Store message reference in parent menu if needed
+                        self.message = self.shop_view.message
                 else:  # Inventory
                     # Import here to avoid circular import
                     from .inventory import InventoryView
