@@ -275,6 +275,11 @@ class FishingMenuView(BaseView):
                 # Start fishing process immediately with the interaction
                 self.fishing_in_progress = True
                 await interaction.response.defer()  # Defer the response since we'll handle it in do_fishing
+
+                # Ensure we have the current message reference
+                if not self.message:
+                    self.message = interaction.message
+                    
                 await self.initialize_view()
                 await self.do_fishing(interaction)
                 return
@@ -360,7 +365,11 @@ class FishingMenuView(BaseView):
             user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
             if user_data_result.success:
                 self.user_data = user_data_result.data
-                
+
+            # Ensure we have the message reference
+            if not self.message:
+                self.message = interaction.message
+            
             if not self.user_data["equipped_bait"]:
                 self.fishing_in_progress = False
                 await self.initialize_view()
@@ -371,7 +380,8 @@ class FishingMenuView(BaseView):
                 )
                 self.cog.bot.loop.create_task(self.delete_after_delay(message))
                 main_embed = await self.generate_embed()
-                await self.message.edit(embed=main_embed, view=self)
+                if self.message:
+                    await self.message.edit(embed=main_embed, view=self)
                 return
     
             # Clear UI of menu buttons during fishing
@@ -386,7 +396,8 @@ class FishingMenuView(BaseView):
             )
             
             # Since interaction was already responded to, use message edit directly
-            await self.message.edit(embed=fishing_embed, view=self)
+            if self.message:
+                await self.message.edit(embed=fishing_embed, view=self)
                 
             # Wait for fish to bite
             await asyncio.sleep(random.uniform(2, 5))
@@ -470,7 +481,8 @@ class FishingMenuView(BaseView):
             )
             self.cog.bot.loop.create_task(self.delete_after_delay(message))
             main_embed = await self.generate_embed()
-            await self.message.edit(embed=main_embed, view=self)
+            if self.message:  # Add null check here too
+                await self.message.edit(embed=main_embed, view=self)
 
     async def handle_catch_attempt(self, interaction: discord.Interaction):
         """Handle fishing catch attempt button press"""
