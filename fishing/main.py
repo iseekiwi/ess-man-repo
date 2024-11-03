@@ -90,7 +90,10 @@ class Fishing(commands.Cog):
                 }
                 await self.config_manager.update_global_setting("bait_stock", initial_stock)
                 self.logger.debug(f"Initialized bait stock: {initial_stock}")
-                
+
+            # Initialize last weather change time
+            self.bg_task_manager.last_weather_change = datetime.datetime.now()
+            
             # Start background tasks
             await self.bg_task_manager.start()
             
