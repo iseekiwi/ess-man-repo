@@ -24,34 +24,53 @@ class BaseView(View):
         
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         """Enhanced interaction check with logging and timeout management"""
-        is_author = interaction.user.id == self.ctx.author.id
-        if not is_author:
-            self.logger.warning(
-                f"Unauthorized interaction attempt by {interaction.user.id} "
-                f"on view owned by {self.ctx.author.id}"
-            )
-            await MessageManager.send_temp_message(
-                interaction,
-                "This menu is not for you!",
-                ephemeral=True
-            )
+        try:
+            is_author = interaction.user.id == self.ctx.author.id
+            if not is_author:
+                self.logger.warning(
+                    f"Unauthorized interaction attempt by {interaction.user.id} "
+                    f"on view owned by {self.ctx.author.id}"
+                )
+                await MessageManager.send_temp_message(
+                    interaction,
+                    "This menu is not for you!",
+                    ephemeral=True
+                )
+                return False
+                
+            # Reset timeout on valid interaction
+            if self.timeout is not None:
+                # Cancel existing timeout task if it exists
+                if hasattr(self, '_timeout_task') and self._timeout_task:
+                    try:
+                        self._timeout_task.cancel()
+                        await self._timeout_task
+                    except asyncio.CancelledError:
+                        pass
+                    except Exception as e:
+                        self.logger.error(f"Error cancelling timeout task: {e}")
+                
+                # Create new timeout task
+                self._timeout_task = asyncio.create_task(self._handle_timeout())
+                self.logger.debug(f"Reset timeout for view owned by {self.ctx.author.id}")
+                
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error in interaction check: {e}")
             return False
             
-        # Reset timeout on valid interaction
-        if self.timeout is not None:
-            if self._timeout_task:
-                self._timeout_task.cancel()
-            self._timeout_task = self.cog.bot.loop.create_task(self._handle_timeout())
-            
-        return True
-
     async def _handle_timeout(self):
         """Handle view timeout with delay from last interaction"""
         try:
-            await asyncio.sleep(self.timeout)
-            await self.on_timeout()
+            if self.timeout is not None:
+                await asyncio.sleep(self.timeout)
+                await self.on_timeout()
         except asyncio.CancelledError:
+            # Task was cancelled due to new interaction
             pass
+        except Exception as e:
+            self.logger.error(f"Error in timeout handler: {e}")
         
     async def on_timeout(self):
         """Enhanced timeout handler with logging"""
