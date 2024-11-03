@@ -13,6 +13,7 @@ class TaskManager:
         self.data = data
         self.tasks: Dict[str, asyncio.Task] = {}
         self.last_reset = None
+        self.last_weather_change = None
         self.logger = get_logger('task_manager')
         self._running = False
         
@@ -54,6 +55,7 @@ class TaskManager:
                 await asyncio.sleep(3600)
                 weather = random.choice(list(self.data["weather"].keys()))
                 await self.config.current_weather.set(weather)
+                self.last_weather_change = datetime.datetime.now()
                 self.logger.debug(f"Weather changed to {weather}")
                 
             except asyncio.CancelledError:
