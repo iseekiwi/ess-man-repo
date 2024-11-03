@@ -293,6 +293,7 @@ class ShopView(BaseView):
         """Generate the appropriate embed based on current page"""
         try:
             self.logger.debug(f"Generating embed for page: {self.current_page}")
+            embed = discord.Embed(color=discord.Color.green())
             
             # Get current balance
             try:
@@ -306,45 +307,42 @@ class ShopView(BaseView):
                 self.logger.error(f"Error getting balance or stock: {e}")
                 self.current_balance = 0
                 currency_name = "coins"
-                current_stock = {}
-    
+                bait_stock = {}
+
             if self.current_page == "main":
                 self.logger.debug("Generating main page embed")
-                embed = MenuLayout.style_2("🏪 Fishing Shop", "Welcome! What would you like to buy?")
-                
-                # Categories section
-                categories_text = (
-                    "🪱 **Bait** - Various baits for fishing\n"
-                    "🎣 **Rods** - Better rods, better catches!"
+                embed.title = "🏪 Fishing Shop"
+                embed.description = "Welcome! What would you like to buy?"
+                embed.add_field(
+                    name="Categories",
+                    value=(
+                        "🪱 **Bait** - Various baits for fishing\n"
+                        "🎣 **Rods** - Better rods, better catches!"
+                    ),
+                    inline=False
                 )
-                MenuLayout.add_field_styled(embed, "Categories", categories_text)
-    
+
             elif self.current_page == "bait":
                 self.logger.debug("Generating bait page embed")
-                embed = MenuLayout.style_2("🪱 Bait Shop")
+                embed.title = "🪱 Bait Shop"
                 bait_list = []
                 
                 for bait_name, bait_data in self.cog.data["bait"].items():
                     stock = current_stock.get(bait_name, 0)
                     status = "📦 Stock: {}".format(stock) if stock > 0 else "❌ Out of stock!"
                     
-                    bait_text = (
+                    bait_entry = (
                         f"**{bait_name}** - {bait_data['cost']} {currency_name}\n"
                         f"{bait_data['description']}\n"
-                        f"Catch Bonus: +{bait_data['catch_bonus']*100}%\n"
                         f"{status}\n"
                     )
-                    bait_list.append(bait_text)
+                    bait_list.append(bait_entry)
                 
-                MenuLayout.add_field_styled(
-                    embed,
-                    "Available Bait",
-                    "\n".join(bait_list) if bait_list else "No bait available!"
-                )
-    
+                embed.description = "\n".join(bait_list) if bait_list else "No bait available!"
+
             elif self.current_page == "rods":
                 self.logger.debug("Generating rods page embed")
-                embed = MenuLayout.style_2("🎣 Rod Shop")
+                embed.title = "🎣 Rod Shop"
                 rod_list = []
                 
                 for rod_name, rod_data in self.cog.data["rods"].items():
@@ -359,36 +357,27 @@ class ShopView(BaseView):
                     if requirements:
                         req_text = f"\nRequires: Level {requirements['level']}, {requirements['fish_caught']} fish caught"
                     
-                    rod_text = (
+                    rod_entry = (
                         f"**{rod_name}**\n"
                         f"{rod_data['description']}\n"
-                        f"Catch Bonus: +{rod_data['chance']*100}%\n"
                         f"{status}{req_text}\n"
                     )
-                    rod_list.append(rod_text)
+                    rod_list.append(rod_entry)
                 
-                MenuLayout.add_field_styled(
-                    embed,
-                    "Available Rods",
-                    "\n".join(rod_list) if rod_list else "No rods available!"
-                )
-    
+                embed.description = "\n".join(rod_list) if rod_list else "No rods available!"
+
             # Add footer with balance
-            footer_text = f"Your balance: {self.current_balance} {currency_name}"
             if self.current_page == "bait" and self.selected_quantity > 1:
-                footer_text += f" | Quantity: {self.selected_quantity}"
-            embed.set_footer(text=footer_text)
+                embed.set_footer(text=f"Your balance: {self.current_balance} {currency_name} | Quantity: {self.selected_quantity}")
+            else:
+                embed.set_footer(text=f"Your balance: {self.current_balance} {currency_name}")
             
             self.logger.debug("Embed generated successfully")
             return embed
-        
+    
         except Exception as e:
-            self.logger.error(f"Error generating embed: {e}", exc_info=True)
-            return discord.Embed(
-                title="Error",
-                description="An error occurred while loading the shop. Please try again.",
-                color=discord.Color.red()
-            )
+            self.logger.error(f"Error generating embed: {str(e)}", exc_info=True)
+            raise
 
     async def handle_button(self, interaction: discord.Interaction):
         """Handle navigation button interactions"""
