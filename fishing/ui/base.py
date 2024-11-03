@@ -4,7 +4,7 @@ import discord
 import logging
 import asyncio
 from discord.ext import commands
-from discord.ui import View
+from discord.ui import View, Button
 from typing import Optional
 from ..utils.logging_config import get_logger
 from .components import MessageManager
@@ -79,30 +79,43 @@ class BaseView(View):
             ephemeral=True
         )
 
-class ConfirmView(View):
+    async def update_message(self, **kwargs):
+        """Update view message with error handling"""
+        try:
+            if self.message:
+                await self.message.edit(**kwargs)
+        except discord.NotFound:
+            self.logger.warning("Message not found when updating")
+        except Exception as e:
+            self.logger.error(f"Error updating message: {e}")
+
+class ConfirmView(BaseView):
     """Enhanced confirmation view with improved feedback and error handling"""
     
-    def __init__(self, owner: discord.Member, timeout: int = 30):
-        super().__init__(timeout=timeout)
-        self.owner = owner
+    def __init__(self, cog, ctx, timeout: int = 30):
+        super().__init__(cog, ctx, timeout=timeout)
         self.value = None
-        self.logger = get_logger('base.confirm')
-        self.message = None
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        is_owner = interaction.user.id == self.owner.id
-        if not is_owner:
-            await MessageManager.send_temp_message(
-                interaction,
-                "This confirmation is not for you!",
-                ephemeral=True
-            )
-        return is_owner
-
-    async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item):
-        self.logger.error(f"Error in confirmation view: {error}", exc_info=True)
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
+    async def confirm(self, interaction: discord.Interaction, button: Button):
+        """Handle confirmation"""
+        self.value = True
+        await self.cleanup()
         await MessageManager.send_temp_message(
             interaction,
-            "An error occurred while processing your response.",
+            "Confirmed!",
             ephemeral=True
         )
+        self.stop()
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
+    async def cancel(self, interaction: discord.Interaction, button: Button):
+        """Handle cancellation"""
+        self.value = False
+        await self.cleanup()
+        await MessageManager.send_temp_message(
+            interaction,
+            "Cancelled!",
+            ephemeral=True
+        )
+        self.stop()
