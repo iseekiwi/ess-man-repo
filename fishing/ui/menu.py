@@ -12,92 +12,6 @@ from .base import BaseView
 from ..utils.logging_config import get_logger
 from .shop import ShopView
 
-MENU_EMBED_COLOR = discord.Color.from_rgb(47, 49, 54)  # Dark theme matching color
-MENU_LAYOUT_STYLE = 2
-
-class MenuLayout:
-    """Standardized menu layouts for consistent appearance"""
-    
-    @staticmethod
-    def apply_base_styling(embed: discord.Embed) -> discord.Embed:
-        """Apply consistent base styling to any embed"""
-        embed.color = MENU_EMBED_COLOR
-        # Add empty field to ensure minimum height
-        embed.add_field(name="\u200b", value="\u200b", inline=False)
-        return embed
-    
-    @staticmethod
-    def style_1(title: str, description: str = None) -> discord.Embed:
-        """
-        Clean, modern layout with consistent spacing
-        - Large title
-        - Generous padding
-        - Clear section separation
-        """
-        embed = discord.Embed(title=f"⠀\n{title}", color=MENU_EMBED_COLOR)
-        if description:
-            embed.description = f"{description}\n⠀"
-        return MenuLayout.apply_base_styling(embed)
-    
-    @staticmethod
-    def style_2(title: str, description: str = None) -> discord.Embed:
-        """
-        Bordered layout with enhanced visual hierarchy
-        - Decorative borders
-        - Section dividers
-        - Emphasized headers
-        """
-        border = "─" * 40
-        embed = discord.Embed(
-            title=f"⠀\n{border}\n{title}\n{border}",
-            color=MENU_EMBED_COLOR
-        )
-        if description:
-            embed.description = f"\n{description}\n⠀"
-        return MenuLayout.apply_base_styling(embed)
-    
-    @staticmethod
-    def style_3(title: str, description: str = None) -> discord.Embed:
-        """
-        Minimal layout with subtle decorative elements
-        - Clean spacing
-        - Subtle dividers
-        - Focused content areas
-        """
-        embed = discord.Embed(title=f"⠀\n{title}", color=MENU_EMBED_COLOR)
-        if description:
-            embed.description = f"```\n{description}\n```\n⠀"
-        return MenuLayout.apply_base_styling(embed)
-    
-    @staticmethod
-    def add_field_styled(
-        embed: discord.Embed,
-        name: str,
-        value: str,
-        style: int = MENU_LAYOUT_STYLE,
-        inline: bool = False
-    ):
-        """Add a styled field based on the selected layout"""
-        if style == 1:
-            embed.add_field(
-                name=f"\n{name}",
-                value=f"{value}\n⠀",
-                inline=inline
-            )
-        elif style == 2:
-            divider = "─" * 20
-            embed.add_field(
-                name=f"\n{divider}\n{name}\n{divider}",
-                value=f"{value}\n⠀",
-                inline=inline
-            )
-        elif style == 3:
-            embed.add_field(
-                name=f"▹ {name}",
-                value=f"```\n{value}\n```",
-                inline=inline
-            )
-
 class FishingMenuView(BaseView):
     """Main menu interface for the fishing cog"""
     
@@ -209,7 +123,11 @@ class FishingMenuView(BaseView):
             self.logger.debug(f"Generating embed for page: {self.current_page}")
             
             if self.current_page == "main":
-                embed = MenuLayout.style_2("🎣 Fishing Menu")
+                embed = discord.Embed(
+                    title="🎣 Fishing Menu",
+                    description="Welcome to the fishing menu! What would you like to do?",
+                    color=discord.Color.blue()
+                )
                 
                 # Get currency name
                 try:
@@ -229,26 +147,37 @@ class FishingMenuView(BaseView):
                     self.logger.error(f"Error getting balance: {e}")
                     balance = 0
                 
-                # Current Status section
-                status_text = (
-                    f"🎣 Rod: {self.user_data['rod']}\n"
-                    f"🪱 Bait: {self.user_data.get('equipped_bait', 'None')}\n"
-                    f"📍 Location: {self.user_data['current_location']}\n"
-                    f"💰 Balance: {balance:,} {currency_name}"
+                # Add current status
+                embed.add_field(
+                    name="Current Status",
+                    value=(
+                        f"🎣 Rod: {self.user_data['rod']}\n"
+                        f"🪱 Bait: {self.user_data.get('equipped_bait', 'None')}\n"
+                        f"📍 Location: {self.user_data['current_location']}\n"
+                        f"💰 Balance: {balance:,} {currency_name}"
+                    ),
+                    inline=False
                 )
-                MenuLayout.add_field_styled(embed, "Current Status", status_text)
                 
-                # Statistics section
-                stats_text = (
-                    f"🐟 Fish Caught: {self.user_data['fish_caught']}\n"
-                    f"📊 Level: {self.user_data['level']}"
+                # Add statistics
+                embed.add_field(
+                    name="Statistics",
+                    value=(
+                        f"🐟 Fish Caught: {self.user_data['fish_caught']}\n"
+                        f"📊 Level: {self.user_data['level']}"
+                    ),
+                    inline=False
                 )
-                MenuLayout.add_field_styled(embed, "Statistics", stats_text)
                 
             elif self.current_page == "location":
-                embed = MenuLayout.style_2("🗺️ Select Location", "Choose a fishing location:")
+                embed = discord.Embed(
+                    title="🗺️ Select Location",
+                    description="Choose a fishing location:",
+                    color=discord.Color.blue()
+                )
                 
                 for loc_name, loc_data in self.cog.data["locations"].items():
+                    # Check if location is locked
                     requirements = loc_data.get("requirements", {})
                     is_locked = False
                     if requirements:
@@ -263,16 +192,19 @@ class FishingMenuView(BaseView):
                     if requirements:
                         req_text = f"\nRequires: Level {requirements['level']}, {requirements['fish_caught']} fish caught"
                     
-                    location_text = f"{loc_data['description']}{req_text}"
-                    MenuLayout.add_field_styled(embed, f"{loc_name} ({status})", location_text)
-                
+                    embed.add_field(
+                        name=f"{loc_name} ({status})",
+                        value=f"{loc_data['description']}{req_text}",
+                        inline=False
+                    )
+                    
             elif self.current_page == "weather":
                 weather_result = await self.cog.config_manager.get_global_setting("current_weather")
                 current_weather = weather_result.data if weather_result.success else "Sunny"
-    
+
                 # Get weather data from cog's data dictionary
                 weather_data = self.cog.data["weather"][current_weather]
-    
+
                 # Calculate time until next weather change
                 now = datetime.datetime.now()
                 last_change = self.cog.bg_task_manager.last_weather_change
@@ -288,9 +220,14 @@ class FishingMenuView(BaseView):
                         seconds = int(remaining.total_seconds() % 60)
                         time_remaining = f"{minutes}m {seconds}s"
                 
-                embed = MenuLayout.style_2(
-                    "🌤️ Current Weather",
-                    f"**{current_weather}**\n{weather_data['description']}\n\n⏳ Next change in: {time_remaining}"
+                embed = discord.Embed(
+                    title="🌤️ Current Weather",
+                    description=(
+                        f"**{current_weather}**\n"
+                        f"{weather_data['description']}\n\n"
+                        f"⏳ Next change in: {time_remaining}"
+                    ),
+                    color=discord.Color.blue()
                 )
                 
                 # Add effects
@@ -301,40 +238,26 @@ class FishingMenuView(BaseView):
                     effects.append(f"Rare fish bonus: {weather_data['rare_bonus']*100:+.0f}%")
                 
                 if effects:
-                    MenuLayout.add_field_styled(embed, "Current Effects", "\n".join(effects))
+                    embed.add_field(
+                        name="Current Effects",
+                        value="\n".join(effects),
+                        inline=False
+                    )
                     
                 # Add affected locations
                 if weather_data.get("affects_locations"):
-                    MenuLayout.add_field_styled(
-                        embed,
-                        "Affects Locations",
-                        "\n".join(f"• {loc}" for loc in weather_data["affects_locations"])
+                    embed.add_field(
+                        name="Affects Locations",
+                        value="\n".join(f"• {loc}" for loc in weather_data["affects_locations"]),
+                        inline=False
                     )
             
             return embed
             
         except Exception as e:
-            self.logger.error(f"Error generating embed: {e}", exc_info=True)
-            return discord.Embed(
-                title="Error",
-                description="An error occurred while loading the menu. Please try again.",
-                color=discord.Color.red()
-            )
+            self.logger.error(f"Error generating embed: {str(e)}", exc_info=True)
+            raise
 
-    async def create_fishing_embed(self, stage: str, description: str) -> discord.Embed:
-        """Create a consistently styled fishing process embed"""
-        embed = MenuLayout.style_2("🎣 Fishing in Progress", description)
-        
-        # Add fishing info
-        info_text = (
-            f"📍 Location: {self.user_data['current_location']}\n"
-            f"🎣 Rod: {self.user_data['rod']}\n"
-            f"🪱 Bait: {self.user_data['equipped_bait']}"
-        )
-        MenuLayout.add_field_styled(embed, "Fishing Info", info_text)
-        
-        return embed
-    
     async def handle_button(self, interaction: discord.Interaction):
         """Handle button interactions"""
         try:
@@ -465,20 +388,14 @@ class FishingMenuView(BaseView):
             self.stored_buttons = self.children.copy()
             self.clear_items()
                 
-            # Create initial fishing embed
-            fishing_embed = MenuLayout.style_2(
-                "🎣 Fishing in Progress",
-                "Casting line..."
-            )
-            MenuLayout.add_field_styled(
-                fishing_embed,
-                "Fishing Info",
-                f"📍 Location: {self.user_data['current_location']}\n"
-                f"🎣 Rod: {self.user_data['rod']}\n"
-                f"🪱 Bait: {self.user_data['equipped_bait']}"
+            # Initial response showing casting
+            fishing_embed = discord.Embed(
+                title="🎣 Fishing in Progress",
+                description="Casting line...",
+                color=discord.Color.blue()
             )
             
-            # Update message with initial embed
+            # Since interaction was already responded to, use message edit directly
             if self.message:
                 await self.message.edit(embed=fishing_embed, view=self)
                 
@@ -499,17 +416,10 @@ class FishingMenuView(BaseView):
                 button.callback = self.handle_catch_attempt
                 self.add_item(button)
                 
-            # Update embed for catch attempt
-            fishing_embed = MenuLayout.style_2(
-                "🎣 Fishing in Progress",
-                f"Quick! Click **{self.correct_action}** to catch the fish!"
-            )
-            MenuLayout.add_field_styled(
-                fishing_embed,
-                "Fishing Info",
-                f"📍 Location: {self.user_data['current_location']}\n"
-                f"🎣 Rod: {self.user_data['rod']}\n"
-                f"🪱 Bait: {self.user_data['equipped_bait']}"
+            fishing_embed = discord.Embed(
+                title="🎣 Fishing in Progress",
+                description=f"Quick! Click **{self.correct_action}** to catch the fish!",
+                color=discord.Color.blue()
             )
             await self.message.edit(embed=fishing_embed, view=self)
     
@@ -533,16 +443,10 @@ class FishingMenuView(BaseView):
                             update_data["equipped_bait"] = None
                         await self.cog.config_manager.update_user_data(self.ctx.author.id, update_data)
     
-                fishing_embed = MenuLayout.style_2(
-                    "🎣 Too Slow!",
-                    "The fish got away!\n\nReturning to menu..."
-                )
-                MenuLayout.add_field_styled(
-                    fishing_embed,
-                    "Fishing Info",
-                    f"📍 Location: {self.user_data['current_location']}\n"
-                    f"🎣 Rod: {self.user_data['rod']}\n"
-                    f"🪱 Bait: {self.user_data['equipped_bait']}"
+                fishing_embed = discord.Embed(
+                    title="🎣 Too Slow!",
+                    description="The fish got away!\n\nReturning to menu...",
+                    color=discord.Color.red()
                 )
                 await self.message.edit(embed=fishing_embed)
                 await asyncio.sleep(2)
