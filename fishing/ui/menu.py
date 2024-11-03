@@ -400,7 +400,7 @@ class FishingMenuView(BaseView):
                 
             fishing_embed = discord.Embed(
                 title="🎣 Fishing in Progress",
-                description=f"Quick! Click {correct_action} to catch the fish!",
+                description=f"Quick! Click {self.correct_action} to catch the fish!",
                 color=discord.Color.blue()
             )
             await self.message.edit(embed=fishing_embed, view=self)
