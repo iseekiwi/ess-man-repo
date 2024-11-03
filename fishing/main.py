@@ -35,6 +35,9 @@ class Fishing(commands.Cog):
         
         # Initialize config manager
         self.config_manager = ConfigManager(bot, identifier=123456789)
+
+        # Initialize level manager
+        self.level_manager = LevelManager(self.config_manager)
         
         # Store data structures
         self.data = {
