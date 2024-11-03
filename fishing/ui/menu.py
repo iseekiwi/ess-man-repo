@@ -274,7 +274,10 @@ class FishingMenuView(BaseView):
                     
                 # Start fishing process immediately with the interaction
                 self.fishing_in_progress = True
+                await interaction.response.defer()  # Defer the response since we'll handle it in do_fishing
                 await self.initialize_view()
+                await self.do_fishing(interaction)
+                return
                 
                 # Create initial fishing embed
                 fishing_embed = discord.Embed(
@@ -374,10 +377,9 @@ class FishingMenuView(BaseView):
                 description="Casting line...",
                 color=discord.Color.blue()
             )
-            # Initial response using interaction.response
-            await interaction.response.edit_message(embed=fishing_embed, view=self)
-            # Get message reference for future edits
-            self.message = await interaction.original_response()
+            
+            # Since interaction was already responded to, use message edit directly
+            await self.message.edit(embed=fishing_embed, view=self)
                 
             # Wait for fish to bite
             await asyncio.sleep(random.uniform(2, 5))
@@ -401,7 +403,6 @@ class FishingMenuView(BaseView):
                 description="Quick! Click the right button to catch the fish!",
                 color=discord.Color.blue()
             )
-            # Use message reference for subsequent edits
             await self.message.edit(embed=fishing_embed, view=self)
                 
             # Set up timeout for catch attempt
