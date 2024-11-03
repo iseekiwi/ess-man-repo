@@ -204,17 +204,37 @@ class FishingMenuView(BaseView):
             raise
 
     async def generate_embed(self) -> discord.Embed:
+        """Generate the appropriate embed based on current page"""
         try:
+            self.logger.debug(f"Generating embed for page: {self.current_page}")
+            
             if self.current_page == "main":
                 embed = MenuLayout.style_2("🎣 Fishing Menu")
+                
+                # Get currency name
+                try:
+                    is_global = await bank.is_global()
+                    if is_global:
+                        currency_name = await bank.get_currency_name()
+                    else:
+                        currency_name = await bank.get_currency_name(self.ctx.guild)
+                except Exception as e:
+                    self.logger.error(f"Error getting currency name: {e}")
+                    currency_name = "coins"
+                
+                # Get balance
+                try:
+                    balance = await bank.get_balance(self.ctx.author)
+                except Exception as e:
+                    self.logger.error(f"Error getting balance: {e}")
+                    balance = 0
                 
                 # Current Status section
                 status_text = (
                     f"🎣 Rod: {self.user_data['rod']}\n"
                     f"🪱 Bait: {self.user_data.get('equipped_bait', 'None')}\n"
                     f"📍 Location: {self.user_data['current_location']}\n"
-                    f"💰 Balance: {await bank.get_balance(self.ctx.author):,} "
-                    f"{await bank.get_currency_name(self.ctx.guild)}"
+                    f"💰 Balance: {balance:,} {currency_name}"
                 )
                 MenuLayout.add_field_styled(embed, "Current Status", status_text)
                 
@@ -238,12 +258,68 @@ class FishingMenuView(BaseView):
                     
                     status = "🔒 Locked" if is_locked else "📍 Current" if loc_name == self.user_data["current_location"] else "✅ Available"
                     
+                    # Format requirements if they exist
                     req_text = ""
                     if requirements:
                         req_text = f"\nRequires: Level {requirements['level']}, {requirements['fish_caught']} fish caught"
                     
                     location_text = f"{loc_data['description']}{req_text}"
                     MenuLayout.add_field_styled(embed, f"{loc_name} ({status})", location_text)
+                
+            elif self.current_page == "weather":
+                weather_result = await self.cog.config_manager.get_global_setting("current_weather")
+                current_weather = weather_result.data if weather_result.success else "Sunny"
+    
+                # Get weather data from cog's data dictionary
+                weather_data = self.cog.data["weather"][current_weather]
+    
+                # Calculate time until next weather change
+                now = datetime.datetime.now()
+                last_change = self.cog.bg_task_manager.last_weather_change
+                if last_change is None:
+                    time_remaining = "Unknown"
+                else:
+                    next_change = last_change + datetime.timedelta(hours=1)
+                    remaining = next_change - now
+                    if remaining.total_seconds() <= 0:
+                        time_remaining = "Soon"
+                    else:
+                        minutes = int(remaining.total_seconds() // 60)
+                        seconds = int(remaining.total_seconds() % 60)
+                        time_remaining = f"{minutes}m {seconds}s"
+                
+                embed = MenuLayout.style_2(
+                    "🌤️ Current Weather",
+                    f"**{current_weather}**\n{weather_data['description']}\n\n⏳ Next change in: {time_remaining}"
+                )
+                
+                # Add effects
+                effects = []
+                if "catch_bonus" in weather_data:
+                    effects.append(f"Catch rate: {weather_data['catch_bonus']*100:+.0f}%")
+                if "rare_bonus" in weather_data:
+                    effects.append(f"Rare fish bonus: {weather_data['rare_bonus']*100:+.0f}%")
+                
+                if effects:
+                    MenuLayout.add_field_styled(embed, "Current Effects", "\n".join(effects))
+                    
+                # Add affected locations
+                if weather_data.get("affects_locations"):
+                    MenuLayout.add_field_styled(
+                        embed,
+                        "Affects Locations",
+                        "\n".join(f"• {loc}" for loc in weather_data["affects_locations"])
+                    )
+            
+            return embed
+            
+        except Exception as e:
+            self.logger.error(f"Error generating embed: {e}", exc_info=True)
+            return discord.Embed(
+                title="Error",
+                description="An error occurred while loading the menu. Please try again.",
+                color=discord.Color.red()
+            )
 
     async def create_fishing_embed(self, stage: str, description: str) -> discord.Embed:
         """Create a consistently styled fishing process embed"""
