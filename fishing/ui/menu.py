@@ -518,7 +518,7 @@ class FishingMenuView(BaseView):
                 )
                 
                 # Update bait inventory
-                user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+                user_data_result = await self.cog.config_manager.get_user_data(interaction.user.id)
                 if user_data_result.success:
                     update_data = {"bait": user_data_result.data.get("bait", {})}
                     equipped_bait = user_data_result.data.get("equipped_bait")
@@ -527,37 +527,54 @@ class FishingMenuView(BaseView):
                         if update_data["bait"][equipped_bait] <= 0:
                             del update_data["bait"][equipped_bait]
                             update_data["equipped_bait"] = None
-                    await self.cog.config_manager.update_user_data(self.ctx.author.id, update_data)
+                    await self.cog.config_manager.update_user_data(interaction.user.id, update_data)
                 
                 if catch:
                     fish_name = catch["name"]
                     fish_value = catch["value"]
+                    xp_gained = catch.get("xp_gained", 0)
                     variant = random.choice(self.cog.data["fish"][fish_name]["variants"])
                     
                     # Update user data
-                    await self.cog._add_to_inventory(self.ctx.author, fish_name)
-                    await self.cog._update_total_value(self.ctx.author, fish_value)
+                    await self.cog._add_to_inventory(interaction.user, fish_name)
+                    await self.cog._update_total_value(interaction.user, fish_value)
+                    
+                    # Get level progress
+                    progress = await self.cog.level_manager.get_level_progress(interaction.user.id)
+                    
+                    description = [
+                        f"You caught a {variant} ({fish_name}) worth {fish_value} coins!",
+                        f"Gained {xp_gained} XP!",
+                        f"\nLocation: {self.user_data['current_location']}",
+                        f"Weather: {current_weather}"
+                    ]
+                    
+                    if "level_up" in catch:
+                        level_up = catch["level_up"]
+                        description.append(
+                            f"\n🎉 **LEVEL UP!** 🎉\n"
+                            f"Level {level_up['old_level']} → {level_up['new_level']}"
+                        )
+                    elif progress:
+                        description.append(
+                            f"\nLevel {progress['current_level']} "
+                            f"({progress['progress']:.1f}% to next level)"
+                        )
+                    
+                    fishing_embed = discord.Embed(
+                        title="🎣 Successful Catch!",
+                        description="\n".join(description),
+                        color=discord.Color.green()
+                    )
                     
                     # Update fish count
                     update_result = await self.cog.config_manager.update_user_data(
-                        self.ctx.author.id,
+                        interaction.user.id,
                         {"fish_caught": self.user_data["fish_caught"] + 1},
                         fields=["fish_caught"]
                     )
                     if not update_result.success:
                         self.logger.error("Failed to update fish_caught count")
-                    
-                    # Show catch result
-                    fishing_embed = discord.Embed(
-                        title="🎣 Successful Catch!",
-                        description=(
-                            f"You caught a {variant} ({fish_name}) worth {fish_value} coins!\n\n"
-                            f"Location: {self.user_data['current_location']}\n"
-                            f"Weather: {current_weather}\n\n"
-                            "Returning to menu..."
-                        ),
-                        color=discord.Color.blue()
-                    )
                 else:
                     fishing_embed = discord.Embed(
                         title="🎣 Almost Had It!",
@@ -577,7 +594,7 @@ class FishingMenuView(BaseView):
             
             # Reset fishing state and get fresh user data
             self.fishing_in_progress = False
-            user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+            user_data_result = await self.cog.config_manager.get_user_data(interaction.user.id)
             if user_data_result.success:
                 self.user_data = user_data_result.data
                 self.current_page = "main"  # Reset to main page
