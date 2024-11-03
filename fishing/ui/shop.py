@@ -500,9 +500,9 @@ class ShopView(BaseView):
                         if fresh_data.success:
                             self.user_data = fresh_data.data
                             
-                            # NEW: Update parent menu view if it exists
-                            if hasattr(self, 'message') and hasattr(self.message, 'parent_view'):
-                                parent_view = self.message.parent_view
+                            # Update parent menu view if it exists
+                            if hasattr(self, 'parent_menu_view'):
+                                parent_view = self.parent_menu_view
                                 if isinstance(parent_view, FishingMenuView):
                                     parent_view.user_data = fresh_data.data
                                     await parent_view.initialize_view()
