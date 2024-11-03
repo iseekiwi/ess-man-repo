@@ -361,8 +361,8 @@ class FishingMenuView(BaseView):
                     ),
                     timeout=5.0
                 )
-
-                #Get weather first
+    
+                # Get weather first
                 weather_result = await self.cog.config_manager.get_global_setting("current_weather")
                 current_weather = weather_result.data if weather_result.success else "Sunny"
                 
@@ -410,7 +410,7 @@ class FishingMenuView(BaseView):
                     fishing_embed.description = (
                         f"You caught a {variant} ({fish_name}) worth {fish_value} coins!\n\n"
                         f"Location: {self.user_data['current_location']}\n"
-                        f"Weather: {await self.cog.config.current_weather()}\n\n"
+                        f"Weather: {current_weather}\n\n"
                         "Returning to menu..."
                     )
                 else:
@@ -426,11 +426,15 @@ class FishingMenuView(BaseView):
                 await self.message.edit(embed=fishing_embed)
                 await asyncio.sleep(2)  # Brief pause to show result
     
-            # Reset and return to main menu
+            # Reset fishing state and get fresh user data
             self.fishing_in_progress = False
             user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
             if user_data_result.success:
                 self.user_data = user_data_result.data
+                self.current_page = "main"  # Reset to main page
+                await self.initialize_view()  # Reinitialize the view with updated data
+                main_embed = await self.generate_embed()  # Generate new embed
+                await self.message.edit(embed=main_embed, view=self)  # Update the message
             else:
                 self.fishing_in_progress = False
                 await self.initialize_view()
