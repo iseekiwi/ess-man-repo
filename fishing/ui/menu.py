@@ -357,7 +357,7 @@ class FishingMenuView(BaseView):
             return "Dusk"
         else:
             return "Night"
-        
+
     async def do_fishing(self, interaction: discord.Interaction):
         """Handle the fishing process after initial interaction"""
         try:
@@ -365,7 +365,7 @@ class FishingMenuView(BaseView):
             user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
             if user_data_result.success:
                 self.user_data = user_data_result.data
-
+    
             # Ensure we have the message reference
             if not self.message:
                 self.message = interaction.message
@@ -422,12 +422,15 @@ class FishingMenuView(BaseView):
                 color=discord.Color.blue()
             )
             await self.message.edit(embed=fishing_embed, view=self)
+    
+            # Add a catch_attempted flag
+            self.catch_attempted = False
                 
             # Set up timeout for catch attempt
             await asyncio.sleep(5.0)
                 
-            # Check if buttons are still enabled (meaning no attempt was made)
-            if not self.children[0].disabled:
+            # Only handle timeout if no catch attempt was made
+            if not self.catch_attempted and not self.children[0].disabled:
                 # Time ran out - handle bait consumption for failed attempt
                 user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
                 if user_data_result.success:
@@ -487,6 +490,9 @@ class FishingMenuView(BaseView):
     async def handle_catch_attempt(self, interaction: discord.Interaction):
         """Handle fishing catch attempt button press"""
         try:
+            # Set catch_attempted flag
+            self.catch_attempted = True
+            
             # Get the button that was pressed
             button_id = interaction.data["custom_id"]
             action = button_id.replace("catch_", "")
