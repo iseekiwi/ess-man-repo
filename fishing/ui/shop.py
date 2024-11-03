@@ -518,9 +518,9 @@ class ShopView(BaseView):
                                     if hasattr(self.parent_menu_view, 'fishing_in_progress'):
                                         self.parent_menu_view.fishing_in_progress = False
                             
-                        # Reinitialize the view with new data
-                        await self.initialize_view()
-                        await self.update_view()
+                            # Reinitialize the view with new data
+                            await self.initialize_view()
+                            await self.update_view()
                 
                 # Always show the result message
                 message = await interaction.followup.send(msg, ephemeral=True, wait=True)
