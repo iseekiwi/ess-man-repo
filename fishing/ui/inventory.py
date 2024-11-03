@@ -25,7 +25,7 @@ class InventoryView(BaseView):
 
     async def generate_embed(self) -> discord.Embed:
         """Generate the appropriate embed based on current page"""
-        try:
+        try:         
             # Get user's balance and currency name
             try:
                 balance = await bank.get_balance(self.ctx.author)
@@ -34,7 +34,7 @@ class InventoryView(BaseView):
                 self.logger.error(f"Error getting balance: {e}")
                 balance = 0
                 currency_name = "coins"
-    
+                
             if self.current_page == "main":
                 summary = await self.cog.inventory.get_inventory_summary(self.ctx.author.id)
                 self.logger.debug(f"Inventory summary for {self.ctx.author.id}: {summary}")
@@ -47,27 +47,39 @@ class InventoryView(BaseView):
                         color=discord.Color.red()
                     )
                     
-                embed = MenuLayout.style_2(f"🎒 {self.ctx.author.display_name}'s Inventory")
+                embed = discord.Embed(
+                    title=f"🎒 {self.ctx.author.display_name}'s Inventory",
+                    color=discord.Color.blue()
+                )
                 
                 # Currently equipped section
-                equipped_text = (
-                    f"🎣 Rod: {summary['equipped_rod']}\n"
-                    f"🪱 Bait: {summary['equipped_bait'] or 'None'}"
+                embed.add_field(
+                    name="Currently Equipped",
+                    value=(
+                        f"🎣 Rod: {summary['equipped_rod']}\n"
+                        f"🪱 Bait: {summary['equipped_bait'] or 'None'}"
+                    ),
+                    inline=False
                 )
-                MenuLayout.add_field_styled(embed, "Currently Equipped", equipped_text)
                 
-                # Summary section
-                summary_text = (
-                    f"🎣 Rods Owned: {summary['rod_count']}\n"
-                    f"🪱 Bait Available: {summary['bait_count']}\n"
-                    f"🐟 Fish Caught: {summary['fish_count']}\n"
-                    f"💰 Total Fish Value: {summary['total_value']} {currency_name}\n"
-                    f"💰 Current Balance: {balance} {currency_name}"
+                # Inventory summary section
+                embed.add_field(
+                    name="Summary",
+                    value=(
+                        f"🎣 Rods Owned: {summary['rod_count']}\n"
+                        f"🪱 Bait Available: {summary['bait_count']}\n"
+                        f"🐟 Fish Caught: {summary['fish_count']}\n"
+                        f"💰 Total Fish Value: {summary['total_value']} {currency_name}\n"
+                        f"💰 Current Balance: {balance} {currency_name}"
+                    ),
+                    inline=False
                 )
-                MenuLayout.add_field_styled(embed, "Summary", summary_text)
                 
             elif self.current_page == "rods":
-                embed = MenuLayout.style_2("🎣 Your Fishing Rods")
+                embed = discord.Embed(
+                    title="🎣 Your Fishing Rods",
+                    color=discord.Color.blue()
+                )
                 
                 rods_text = []
                 for rod in self.user_data.get("purchased_rods", {}):
@@ -83,7 +95,10 @@ class InventoryView(BaseView):
                 embed.set_footer(text=f"Balance: {balance} {currency_name}")
                 
             elif self.current_page == "bait":
-                embed = MenuLayout.style_2("🪱 Your Bait")
+                embed = discord.Embed(
+                    title="🪱 Your Bait",
+                    color=discord.Color.blue()
+                )
                 
                 bait_text = []
                 for bait_name, amount in self.user_data.get("bait", {}).items():
@@ -100,7 +115,10 @@ class InventoryView(BaseView):
                 embed.set_footer(text=f"Balance: {balance} {currency_name}")
                 
             elif self.current_page == "fish":
-                embed = MenuLayout.style_2("🐟 Your Caught Fish")
+                embed = discord.Embed(
+                    title="🐟 Your Caught Fish",
+                    color=discord.Color.blue()
+                )
                 
                 if not self.user_data.get("inventory"):
                     embed.description = "No fish caught yet!"
@@ -122,10 +140,10 @@ class InventoryView(BaseView):
         except Exception as e:
             self.logger.error(f"Error generating embed: {e}", exc_info=True)
             return discord.Embed(
-                title="Error",
-                description="An error occurred while loading the inventory. Please try again.",
-                color=discord.Color.red()
-            )
+            title="Error",
+            description="An error occurred while loading the inventory. Please try again.",
+            color=discord.Color.red()
+        )
     
     async def start(self):
         """Start the inventory view"""
