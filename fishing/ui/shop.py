@@ -512,6 +512,11 @@ class ShopView(BaseView):
                                     await self.parent_menu_view.initialize_view()
                                     menu_embed = await self.parent_menu_view.generate_embed()
                                     await self.parent_menu_view.message.edit(embed=menu_embed, view=self.parent_menu_view)
+                                    
+                                    # Force refresh the menu view's buttons
+                                    await self.parent_menu_view.setup()
+                                    if hasattr(self.parent_menu_view, 'fishing_in_progress'):
+                                        self.parent_menu_view.fishing_in_progress = False
                             
                         # Reinitialize the view with new data
                         await self.initialize_view()
