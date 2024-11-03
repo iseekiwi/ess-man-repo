@@ -23,6 +23,7 @@ class FishingMenuView(BaseView):
         self.shop_view = None
         self.inventory_view = None
         self.fishing_in_progress = False
+        self.stored_buttons = []
         
     async def setup(self):
         """Async setup method to initialize the view"""
@@ -67,6 +68,9 @@ class FishingMenuView(BaseView):
                 ]
                 
                 for label, custom_id, style in buttons:
+                    if self.fishing_in_progress and custom_id != "fish":
+                        continue  # Skip non-fishing buttons during fishing
+                        
                     button = Button(
                         label=label,
                         custom_id=custom_id,
@@ -358,7 +362,12 @@ class FishingMenuView(BaseView):
                 main_embed = await self.generate_embed()
                 await self.message.edit(embed=main_embed, view=self)
                 return
-    
+
+            # Store current buttons before clearing them
+            self.stored_buttons = self.children.copy()
+            self.clear_items()
+            await self.message.edit(view=self)
+            
             # Wait for fish to bite
             await asyncio.sleep(random.uniform(2, 5))
             
