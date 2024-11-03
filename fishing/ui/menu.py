@@ -539,6 +539,18 @@ class FishingMenuView(BaseView):
                     await self.cog._add_to_inventory(interaction.user, fish_name)
                     await self.cog._update_total_value(interaction.user, fish_value)
                     
+                    # Award XP and check for level up
+                    xp_success, old_level, new_level = await self.cog.level_manager.award_xp(
+                        interaction.user.id,
+                        xp_gained
+                    )
+                    
+                    if xp_success and old_level and new_level:
+                        catch["level_up"] = {
+                            "old_level": old_level,
+                            "new_level": new_level
+                        }
+                    
                     # Get level progress
                     progress = await self.cog.level_manager.get_level_progress(interaction.user.id)
                     
