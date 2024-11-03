@@ -245,6 +245,20 @@ class FishingMenuView(BaseView):
                     location_text = f"{loc_data['description']}{req_text}"
                     MenuLayout.add_field_styled(embed, f"{loc_name} ({status})", location_text)
 
+    async def create_fishing_embed(self, stage: str, description: str) -> discord.Embed:
+        """Create a consistently styled fishing process embed"""
+        embed = MenuLayout.style_2("🎣 Fishing in Progress", description)
+        
+        # Add fishing info
+        info_text = (
+            f"📍 Location: {self.user_data['current_location']}\n"
+            f"🎣 Rod: {self.user_data['rod']}\n"
+            f"🪱 Bait: {self.user_data['equipped_bait']}"
+        )
+        MenuLayout.add_field_styled(embed, "Fishing Info", info_text)
+        
+        return embed
+    
     async def handle_button(self, interaction: discord.Interaction):
         """Handle button interactions"""
         try:
@@ -375,14 +389,20 @@ class FishingMenuView(BaseView):
             self.stored_buttons = self.children.copy()
             self.clear_items()
                 
-            # Initial response showing casting
-            fishing_embed = discord.Embed(
-                title="🎣 Fishing in Progress",
-                description="Casting line...",
-                color=discord.Color.blue()
+            # Create initial fishing embed
+            fishing_embed = MenuLayout.style_2(
+                "🎣 Fishing in Progress",
+                "Casting line..."
+            )
+            MenuLayout.add_field_styled(
+                fishing_embed,
+                "Fishing Info",
+                f"📍 Location: {self.user_data['current_location']}\n"
+                f"🎣 Rod: {self.user_data['rod']}\n"
+                f"🪱 Bait: {self.user_data['equipped_bait']}"
             )
             
-            # Since interaction was already responded to, use message edit directly
+            # Update message with initial embed
             if self.message:
                 await self.message.edit(embed=fishing_embed, view=self)
                 
@@ -403,10 +423,17 @@ class FishingMenuView(BaseView):
                 button.callback = self.handle_catch_attempt
                 self.add_item(button)
                 
-            fishing_embed = discord.Embed(
-                title="🎣 Fishing in Progress",
-                description=f"Quick! Click **{self.correct_action}** to catch the fish!",
-                color=discord.Color.blue()
+            # Update embed for catch attempt
+            fishing_embed = MenuLayout.style_2(
+                "🎣 Fishing in Progress",
+                f"Quick! Click **{self.correct_action}** to catch the fish!"
+            )
+            MenuLayout.add_field_styled(
+                fishing_embed,
+                "Fishing Info",
+                f"📍 Location: {self.user_data['current_location']}\n"
+                f"🎣 Rod: {self.user_data['rod']}\n"
+                f"🪱 Bait: {self.user_data['equipped_bait']}"
             )
             await self.message.edit(embed=fishing_embed, view=self)
     
@@ -430,10 +457,16 @@ class FishingMenuView(BaseView):
                             update_data["equipped_bait"] = None
                         await self.cog.config_manager.update_user_data(self.ctx.author.id, update_data)
     
-                fishing_embed = discord.Embed(
-                    title="🎣 Too Slow!",
-                    description="The fish got away!\n\nReturning to menu...",
-                    color=discord.Color.red()
+                fishing_embed = MenuLayout.style_2(
+                    "🎣 Too Slow!",
+                    "The fish got away!\n\nReturning to menu..."
+                )
+                MenuLayout.add_field_styled(
+                    fishing_embed,
+                    "Fishing Info",
+                    f"📍 Location: {self.user_data['current_location']}\n"
+                    f"🎣 Rod: {self.user_data['rod']}\n"
+                    f"🪱 Bait: {self.user_data['equipped_bait']}"
                 )
                 await self.message.edit(embed=fishing_embed)
                 await asyncio.sleep(2)
