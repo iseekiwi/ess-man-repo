@@ -158,13 +158,25 @@ class FishingMenuView(BaseView):
                     ),
                     inline=False
                 )
+    
+                # Get level progress
+                progress = await self.cog.level_manager.get_level_progress(self.ctx.author.id)
+                if progress:
+                    xp_info = (
+                        f"📊 Level: {progress['current_level']}\n"
+                        f"🎯 Progress: {progress['progress']:.1f}%"
+                    )
+                    if progress['xp_for_next'] is not None:
+                        xp_info += f"\n⭐ XP until next level: {progress['xp_for_next']:,}"
+                else:
+                    xp_info = f"📊 Level: {self.user_data['level']}"
                 
-                # Add statistics
+                # Add statistics with enhanced XP info
                 embed.add_field(
                     name="Statistics",
                     value=(
                         f"🐟 Fish Caught: {self.user_data['fish_caught']}\n"
-                        f"📊 Level: {self.user_data['level']}"
+                        f"{xp_info}"
                     ),
                     inline=False
                 )
