@@ -280,13 +280,14 @@ class FishingMenuView(BaseView):
             if not await self.interaction_check(interaction):
                 return
             
-            if custom_id == "fish" and self.fishing_in_progress:
-                await interaction.response.send_message(
-                    "You're already fishing!",
-                    ephemeral=True,
-                    delete_after=2
-                )
-                return
+            if custom_id == "fish":
+                if self.fishing_in_progress:
+                    await interaction.response.send_message(
+                        "You're already fishing!",
+                        ephemeral=True,
+                        delete_after=2
+                    )
+                    return
     
             # Interaction check
             if not await self.interaction_check(interaction):
@@ -303,13 +304,6 @@ class FishingMenuView(BaseView):
                 await self.initialize_view()
                 await self.do_fishing(interaction)
                 return
-                
-                # Create initial fishing embed
-                fishing_embed = discord.Embed(
-                    title="🎣 Fishing in Progress",
-                    description="Casting line...",
-                    color=discord.Color.blue()
-                )
                 
                 # Initial response and store the message reference
                 await interaction.response.edit_message(embed=fishing_embed, view=self)
