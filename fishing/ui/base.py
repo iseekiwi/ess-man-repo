@@ -38,6 +38,7 @@ class BaseView(View):
             return None
     
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Verify interaction and manage timeouts"""
         try:
             is_author = interaction.user.id == self.ctx.author.id
             if not is_author:
@@ -51,14 +52,15 @@ class BaseView(View):
                     ephemeral=True
                 )
                 return False
-
+    
             # Reset timeout on valid interaction
             if self.timeout is not None:
                 self.logger.debug(
-                    f"Resetting timeout for {self.ctx.author.name} "
-                    f"in {self.__class__.__name__}"
+                    f"Processing interaction in {self.__class__.__name__} "
+                    f"for user {self.ctx.author.name}"
                 )
                 await self.timeout_manager.reset_timeout(self)
+                self.logger.debug(f"Timeout reset completed for {self.__class__.__name__}")
                 
             return True
             
