@@ -146,8 +146,10 @@ class TimeoutManager:
                 parent_id = self._timeouts[child_id].get('parent_id')
                 if parent_id and parent_id in self._timeouts:
                     self._timeouts[parent_id]['paused'] = False
-                    await self.reset_timeout(self._views.get(parent_id))
-                    
+                    # Important: Reset the parent view's timeout
+                    if parent_view := self._views.get(parent_id):
+                        await self.reset_timeout(parent_view)
+                        
         except Exception as e:
             self.logger.error(f"Error in resume_parent_view: {e}")
     
