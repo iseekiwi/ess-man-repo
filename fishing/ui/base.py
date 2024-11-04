@@ -21,15 +21,17 @@ class BaseView(View):
         self.logger = get_logger('base.view')
         self.timeout_manager = TimeoutManager()
         self._timeout_task = None
-        self.logger.debug(f"Initializing BaseView for {ctx.author.name}")
+        self.logger.debug(f"Initializing BaseView for {ctx.author.name} with timeout {timeout}")
 
     async def start(self):
         """Start the view and register with timeout manager"""
         try:
+            self.logger.debug(f"Starting view for {self.ctx.author.name}")
             await self.timeout_manager.start()
             await self.timeout_manager.add_view(self, self.timeout)
             embed = await self.generate_embed()
             self.message = await self.ctx.send(embed=embed, view=self)
+            self.logger.debug(f"View started successfully for {self.ctx.author.name}")
             return self
         except Exception as e:
             self.logger.error(f"Error starting view: {e}")
@@ -52,8 +54,11 @@ class BaseView(View):
 
             # Reset timeout on valid interaction
             if self.timeout is not None:
+                self.logger.debug(
+                    f"Resetting timeout for {self.ctx.author.name} "
+                    f"in {self.__class__.__name__}"
+                )
                 await self.timeout_manager.reset_timeout(self)
-                self.logger.debug(f"Reset timeout for view owned by {self.ctx.author.id}")
                 
             return True
             
@@ -76,20 +81,35 @@ class BaseView(View):
     async def on_timeout(self):
         """Enhanced timeout handler"""
         try:
-            self.logger.info(f"View timed out for user {self.ctx.author.id}")
+            self.logger.info(
+                f"View timed out for user {self.ctx.author.id} "
+                f"in {self.__class__.__name__}"
+            )
             await self.cleanup()
             await self.timeout_manager.remove_view(self)
+            
+            # Disable all components
+            for item in self.children:
+                item.disabled = True
+            if self.message:
+                try:
+                    await self.message.edit(view=self)
+                except discord.NotFound:
+                    pass
+                    
         except Exception as e:
             self.logger.error(f"Error in timeout handler: {e}")
 
     async def cleanup(self):
         """Clean up view resources"""
         try:
+            self.logger.debug(f"Cleaning up view for {self.ctx.author.name}")
             for item in self.children:
                 item.disabled = True
             if self.message:
                 await self.message.edit(view=self)
                 await self.timeout_manager.remove_view(self)
+            self.logger.debug(f"View cleanup completed for {self.ctx.author.name}")
         except Exception as e:
             self.logger.error(f"Error in cleanup: {e}")
 
