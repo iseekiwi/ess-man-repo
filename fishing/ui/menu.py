@@ -272,9 +272,6 @@ class FishingMenuView(BaseView):
 
     async def handle_button(self, interaction: discord.Interaction):
         """Handle button interactions"""
-        if not await self.interaction_check(interaction):
-            return
-        
         try:
             custom_id = interaction.data["custom_id"]
             
@@ -284,6 +281,10 @@ class FishingMenuView(BaseView):
                     ephemeral=True,
                     delete_after=2
                 )
+                return
+    
+            # Interaction check
+            if not await self.interaction_check(interaction):
                 return
                     
                 # Start fishing process immediately with the interaction
