@@ -226,11 +226,12 @@ class InventoryView(BaseView):
 
     async def handle_button(self, interaction: discord.Interaction):
         """Handle button interactions"""
-        if not await self.interaction_check(interaction):
-            return
-        
         try:
             custom_id = interaction.data["custom_id"]
+            
+            # Do the interaction check after getting custom_id
+            if not await self.interaction_check(interaction):
+                return
             
             if custom_id == "menu":
                 menu_view = await self.cog.create_menu(self.ctx, self.user_data)
