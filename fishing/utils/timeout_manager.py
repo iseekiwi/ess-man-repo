@@ -122,18 +122,20 @@ class TimeoutManager:
         """Handle timeout management for view transitions"""
         try:
             parent_id = self.generate_view_id(parent_view)
+            child_id = self.generate_view_id(child_view)
             
-            # Pause parent view timeout
+            # Store parent view timeout settings
             if parent_id in self._timeouts:
                 parent_timeout = self._timeouts[parent_id]['duration']
-                self._timeouts[parent_id]['paused'] = True
                 
-                # Set up child view with same timeout
+                # Add child view with same timeout duration
                 await self.add_view(child_view, parent_timeout)
                 
-                # Store parent reference
-                child_id = self.generate_view_id(child_view)
+                # Link child to parent
                 self._timeouts[child_id]['parent_id'] = parent_id
+                
+                # Pause parent view timeout without removing it
+                self._timeouts[parent_id]['paused'] = True
                 
         except Exception as e:
             self.logger.error(f"Error in handle_view_transition: {e}")
@@ -145,10 +147,13 @@ class TimeoutManager:
             if child_id in self._timeouts:
                 parent_id = self._timeouts[child_id].get('parent_id')
                 if parent_id and parent_id in self._timeouts:
+                    # Unpause parent view
                     self._timeouts[parent_id]['paused'] = False
-                    # Important: Reset the parent view's timeout
+                    
+                    # Reset parent view timeout
                     if parent_view := self._views.get(parent_id):
-                        await self.reset_timeout(parent_view)
+                        self._timeouts[parent_id]['expiry'] = time.time() + self._timeouts[parent_id]['duration']
+                        self.logger.debug(f"Reset timeout for parent view {parent_id}")
                         
         except Exception as e:
             self.logger.error(f"Error in resume_parent_view: {e}")
