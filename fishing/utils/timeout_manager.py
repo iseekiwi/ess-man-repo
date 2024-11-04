@@ -4,6 +4,8 @@ import weakref
 from typing import Dict, Any, Optional
 from .logging_config import get_logger
 
+logger = get_logger('timeout_manager')
+
 class TimeoutManager:
     """
     Centralized timeout management system for views.
