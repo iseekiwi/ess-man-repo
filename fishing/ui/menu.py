@@ -455,8 +455,16 @@ class FishingMenuView(BaseView):
                 
             # Only handle timeout if no catch attempt was made
             if not self.catch_attempted and not self.children[0].disabled:
-                # Consume bait regardless of success
-                await self.consume_bait(interaction)
+                # Consume bait on timeout
+                update_data = {"bait": self.user_data.get("bait", {})}
+                equipped_bait = self.user_data.get("equipped_bait")
+                if equipped_bait:
+                    update_data["bait"][equipped_bait] = update_data["bait"].get(equipped_bait, 0) - 1
+                    if update_data["bait"][equipped_bait] <= 0:
+                        del update_data["bait"][equipped_bait]
+                        update_data["equipped_bait"] = None
+                    await self.cog.config_manager.update_user_data(self.ctx.author.id, update_data)
+                    self.logger.debug("Bait consumed on timeout")
     
                 fishing_embed = discord.Embed(
                     title="🎣 Too Slow!",
@@ -518,6 +526,19 @@ class FishingMenuView(BaseView):
             for child in self.children:
                 child.disabled = True
             await interaction.response.edit_message(view=self)
+
+            # Always consume bait on attempt
+            user_data_result = await self.cog.config_manager.get_user_data(interaction.user.id)
+            if user_data_result.success:
+                update_data = {"bait": user_data_result.data.get("bait", {})}
+                equipped_bait = user_data_result.data.get("equipped_bait")
+                if equipped_bait:
+                    update_data["bait"][equipped_bait] = update_data["bait"].get(equipped_bait, 0) - 1
+                    if update_data["bait"][equipped_bait] <= 0:
+                        del update_data["bait"][equipped_bait]
+                        update_data["equipped_bait"] = None
+                    await self.cog.config_manager.update_user_data(interaction.user.id, update_data)
+                    self.logger.debug("Bait consumed")
             
             # Check if correct button was pressed
             if action == self.correct_action:
@@ -643,7 +664,7 @@ class FishingMenuView(BaseView):
                 )
             
             await self.message.edit(embed=fishing_embed)
-            await asyncio.sleep(2)  # Brief pause to show result
+            await asyncio.sleep(4)  # Brief pause to show result
             
             # Reset fishing state and get fresh user data
             self.fishing_in_progress = False
