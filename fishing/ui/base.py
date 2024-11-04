@@ -27,11 +27,23 @@ class BaseView(View):
         """Start the view and register with timeout manager"""
         try:
             self.logger.debug(f"Starting view for {self.ctx.author.name}")
+            
+            # Start timeout manager first
             await self.timeout_manager.start()
-            await self.timeout_manager.add_view(self, self.timeout)
+            
+            # Generate embed before registering with timeout manager
             embed = await self.generate_embed()
+            
+            # Send message first so we have the message reference
             self.message = await self.ctx.send(embed=embed, view=self)
-            self.logger.debug(f"View started successfully for {self.ctx.author.name}")
+            
+            # Register with timeout manager after message is sent
+            await self.timeout_manager.add_view(self, self.timeout)
+            self.logger.debug(
+                f"View registered with timeout manager: "
+                f"{self.__class__.__name__}"
+            )
+            
             return self
         except Exception as e:
             self.logger.error(f"Error starting view: {e}")
