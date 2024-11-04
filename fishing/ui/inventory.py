@@ -243,11 +243,12 @@ class InventoryView(BaseView):
             elif custom_id == "sell_all":
                 success, amount, msg = await self.cog.sell_fish(self.ctx)
                 if success:
+                    # Get fresh user data after sale
                     user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
-                    user_data = user_data_result.data if user_data_result.success else None
-                    await interaction.response.defer()
-                    await self.update_view()
-                    
+                    if user_data_result.success:
+                        self.user_data = user_data_result.data  # Update the view's user data
+                        await self.update_view()
+                
                 # Send ephemeral message and schedule deletion
                 message = await interaction.followup.send(msg, ephemeral=True, wait=True)
                 self.cog.bot.loop.create_task(self.delete_after_delay(message))
