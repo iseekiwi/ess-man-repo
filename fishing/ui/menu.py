@@ -393,6 +393,7 @@ class FishingMenuView(BaseView):
             if not self.message:
                 self.message = interaction.message
             
+            # Check for equipped bait first
             if not self.user_data["equipped_bait"]:
                 self.fishing_in_progress = False
                 await self.initialize_view()
@@ -454,17 +455,8 @@ class FishingMenuView(BaseView):
                 
             # Only handle timeout if no catch attempt was made
             if not self.catch_attempted and not self.children[0].disabled:
-                # Time ran out - handle bait consumption for failed attempt
-                user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
-                if user_data_result.success:
-                    update_data = {"bait": user_data_result.data.get("bait", {})}
-                    equipped_bait = user_data_result.data.get("equipped_bait")
-                    if equipped_bait:
-                        update_data["bait"][equipped_bait] = update_data["bait"].get(equipped_bait, 0) - 1
-                        if update_data["bait"][equipped_bait] <= 0:
-                            del update_data["bait"][equipped_bait]
-                            update_data["equipped_bait"] = None
-                        await self.cog.config_manager.update_user_data(self.ctx.author.id, update_data)
+                # Consume bait regardless of success
+                await self.consume_bait(interaction)
     
                 fishing_embed = discord.Embed(
                     title="🎣 Too Slow!",
@@ -744,6 +736,23 @@ class FishingMenuView(BaseView):
                     delete_after=2
                 )
 
+    async def consume_bait(self, interaction: discord.Interaction):
+        """Helper method to consume bait"""
+        try:
+            user_data_result = await self.cog.config_manager.get_user_data(interaction.user.id)
+            if user_data_result.success:
+                update_data = {"bait": user_data_result.data.get("bait", {})}
+                equipped_bait = user_data_result.data.get("equipped_bait")
+                if equipped_bait:
+                    update_data["bait"][equipped_bait] = update_data["bait"].get(equipped_bait, 0) - 1
+                    if update_data["bait"][equipped_bait] <= 0:
+                        del update_data["bait"][equipped_bait]
+                        update_data["equipped_bait"] = None
+                    await self.cog.config_manager.update_user_data(interaction.user.id, update_data)
+                    self.logger.debug("Bait consumed")
+        except Exception as e:
+            self.logger.error(f"Error consuming bait: {e}")
+    
     async def delete_after_delay(self, message):
         """Helper method to delete a message after a delay"""
         try:
