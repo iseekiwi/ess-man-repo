@@ -8,7 +8,7 @@ from discord.ext import commands
 from discord.ui import View, Button
 from typing import Optional
 from ..utils.logging_config import get_logger
-from .utils.timeout_manager import TimeoutManager
+from ..utils.timeout_manager import TimeoutManager
 from .components import MessageManager
 
 class BaseView(View):
