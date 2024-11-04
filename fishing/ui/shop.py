@@ -427,6 +427,9 @@ class ShopView(BaseView):
             else:
                 cost = self.cog.data["rods"][item_name]["cost"]
                 quantity = 1
+
+             # Defer the interaction response
+            await interaction.response.defer(ephemeral=True)
             
             # Create confirmation view with 30s timeout
             confirm_view = PurchaseConfirmView(
@@ -437,11 +440,10 @@ class ShopView(BaseView):
                 cost
             )
             
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"Confirm purchase of {quantity}x {item_name} for {cost * quantity} coins?",
                 view=confirm_view,
-                ephemeral=True,
-                delete_after=2
+                ephemeral=True
             )
             
             confirm_view.message = await interaction.original_response()
