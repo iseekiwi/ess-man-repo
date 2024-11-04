@@ -474,6 +474,21 @@ class FishingMenuView(BaseView):
             user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
             if user_data_result.success:
                 self.user_data = user_data_result.data
+
+            # Check for equipped bait before starting fishing process
+            if not self.user_data.get("equipped_bait"):
+                self.fishing_in_progress = False
+                await self.initialize_view()
+                message = await interaction.followup.send(
+                    "🚫 You need to equip bait first! Use the Inventory menu to equip some bait.",
+                    ephemeral=True,
+                    wait=True
+                )
+                self.cog.bot.loop.create_task(self.delete_after_delay(message))
+                main_embed = await self.generate_embed()
+                if self.message:
+                    await self.message.edit(embed=main_embed, view=self)
+                return
             
             # Use existing message reference
             if not self.message:
