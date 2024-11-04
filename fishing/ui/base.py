@@ -31,17 +31,15 @@ class BaseView(View):
             # Start timeout manager first
             await self.timeout_manager.start()
             
-            # Generate embed before registering with timeout manager
+            # Register this view with timeout manager
+            await self.timeout_manager.add_view(self, self.timeout)
+            self.logger.debug(f"View registered with timeout manager: {self.__class__.__name__}")
+            
+            # Generate embed before sending message
             embed = await self.generate_embed()
             
-            # Send message first so we have the message reference
+            # Send message
             self.message = await self.ctx.send(embed=embed, view=self)
-            
-            # Register with timeout manager after message is sent
-            if not any(vid for vid, v in self.timeout_manager._views.items() 
-                      if isinstance(v, self.__class__) and v.ctx.author.id == self.ctx.author.id):
-                await self.timeout_manager.add_view(self, self.timeout)
-                self.logger.debug(f"View registered with timeout manager: {self.__class__.__name__}")
             
             return self
         except Exception as e:
