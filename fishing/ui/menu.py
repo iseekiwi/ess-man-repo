@@ -276,6 +276,10 @@ class FishingMenuView(BaseView):
         try:
             custom_id = interaction.data["custom_id"]
             
+            # First do interaction check before any other logic
+            if not await self.interaction_check(interaction):
+                return
+            
             if custom_id == "fish" and self.fishing_in_progress:
                 await interaction.response.send_message(
                     "You're already fishing!",
