@@ -281,89 +281,89 @@ class FishingMenuView(BaseView):
             self.logger.error(f"Error generating embed: {str(e)}", exc_info=True)
             raise
 
-async def handle_button(self, interaction: discord.Interaction):
-    """Handle button interactions"""
-    try:
-        custom_id = interaction.data["custom_id"]
-        
-        # Do the interaction check after getting custom_id
-        if not await self.interaction_check(interaction):
-            return
-        
-        if custom_id == "fish":
-            if self.fishing_in_progress:
-                await interaction.response.send_message(
-                    "You're already fishing!",
-                    ephemeral=True,
-                    delete_after=2
-                )
+    async def handle_button(self, interaction: discord.Interaction):
+        """Handle button interactions"""
+        try:
+            custom_id = interaction.data["custom_id"]
+            
+            # Do the interaction check after getting custom_id
+            if not await self.interaction_check(interaction):
                 return
             
-            try:
-                # Start fishing process immediately with the interaction
-                self.fishing_in_progress = True
-                await interaction.response.defer()  # Defer the response since we'll handle it in do_fishing
+            if custom_id == "fish":
+                if self.fishing_in_progress:
+                    await interaction.response.send_message(
+                        "You're already fishing!",
+                        ephemeral=True,
+                        delete_after=2
+                    )
+                    return
                 
-                # Ensure we have the current message reference
-                if not self.message:
-                    self.message = interaction.message
+                try:
+                    # Start fishing process immediately with the interaction
+                    self.fishing_in_progress = True
+                    await interaction.response.defer()  # Defer the response since we'll handle it in do_fishing
                     
-                await self.initialize_view()
-                await self.do_fishing(interaction)
-                return
+                    # Ensure we have the current message reference
+                    if not self.message:
+                        self.message = interaction.message
+                        
+                    await self.initialize_view()
+                    await self.do_fishing(interaction)
+                    return
+                    
+                except Exception as e:
+                    self.logger.error(f"Error in handle_button fishing process: {e}", exc_info=True)
+                    await interaction.followup.send(
+                        "An error occurred while processing your request. Please try again.",
+                        ephemeral=True,
+                        delete_after=2
+                    )
+                    
+            elif custom_id in ["shop", "inventory"]:
+                # Use dynamic import to avoid circular dependency
+                if custom_id == "shop":
+                    self.shop_view = await ShopView(self.cog, self.ctx, self.user_data).setup()
+                    self.shop_view.parent_view = self  # Set parent reference
+                    embed = await self.shop_view.generate_embed()
+                    await interaction.response.edit_message(embed=embed, view=self.shop_view)
+                    self.shop_view.message = await interaction.original_response()
+                    if not self.message:  # Store message reference in parent menu if needed
+                        self.message = self.shop_view.message
+                else:  # Inventory
+                    # Import here to avoid circular import
+                    from .inventory import InventoryView
+                    self.inventory_view = InventoryView(self.cog, self.ctx, self.user_data)
+                    self.inventory_view.parent_view = self  # Set parent reference
+                    await self.inventory_view.initialize_view()
+                    embed = await self.inventory_view.generate_embed()
+                    await interaction.response.edit_message(embed=embed, view=self.inventory_view)
+                    self.inventory_view.message = await interaction.original_response()
+                    if not self.message:
+                        self.message = self.inventory_view.message
                 
-            except Exception as e:
-                self.logger.error(f"Error in handle_button fishing process: {e}", exc_info=True)
-                await interaction.followup.send(
-                    "An error occurred while processing your request. Please try again.",
+            elif custom_id in ["location", "weather"]:
+                self.current_page = custom_id
+                await self.initialize_view()
+                embed = await self.generate_embed()
+                await interaction.response.edit_message(embed=embed, view=self)
+                self.message = await interaction.original_response()
+                
+            elif custom_id == "back":
+                self.current_page = "main"
+                await self.initialize_view()
+                embed = await self.generate_embed()
+                await interaction.response.edit_message(embed=embed, view=self)
+                self.message = await interaction.original_response()
+                
+        except Exception as e:
+            self.logger.error(f"Error handling button: {e}", exc_info=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "An error occurred. Please try again.",
                     ephemeral=True,
                     delete_after=2
                 )
-                
-        elif custom_id in ["shop", "inventory"]:
-            # Use dynamic import to avoid circular dependency
-            if custom_id == "shop":
-                self.shop_view = await ShopView(self.cog, self.ctx, self.user_data).setup()
-                self.shop_view.parent_view = self  # Set parent reference
-                embed = await self.shop_view.generate_embed()
-                await interaction.response.edit_message(embed=embed, view=self.shop_view)
-                self.shop_view.message = await interaction.original_response()
-                if not self.message:  # Store message reference in parent menu if needed
-                    self.message = self.shop_view.message
-            else:  # Inventory
-                # Import here to avoid circular import
-                from .inventory import InventoryView
-                self.inventory_view = InventoryView(self.cog, self.ctx, self.user_data)
-                self.inventory_view.parent_view = self  # Set parent reference
-                await self.inventory_view.initialize_view()
-                embed = await self.inventory_view.generate_embed()
-                await interaction.response.edit_message(embed=embed, view=self.inventory_view)
-                self.inventory_view.message = await interaction.original_response()
-                if not self.message:
-                    self.message = self.inventory_view.message
-            
-        elif custom_id in ["location", "weather"]:
-            self.current_page = custom_id
-            await self.initialize_view()
-            embed = await self.generate_embed()
-            await interaction.response.edit_message(embed=embed, view=self)
-            self.message = await interaction.original_response()
-            
-        elif custom_id == "back":
-            self.current_page = "main"
-            await self.initialize_view()
-            embed = await self.generate_embed()
-            await interaction.response.edit_message(embed=embed, view=self)
-            self.message = await interaction.original_response()
-            
-    except Exception as e:
-        self.logger.error(f"Error handling button: {e}", exc_info=True)
-        if not interaction.response.is_done():
-            await interaction.response.send_message(
-                "An error occurred. Please try again.",
-                ephemeral=True,
-                delete_after=2
-            )
 
     def get_time_of_day(self) -> str:
         """Helper method to get current time of day"""
