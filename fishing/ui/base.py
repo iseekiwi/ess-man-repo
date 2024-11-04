@@ -81,28 +81,25 @@ class BaseView(View):
             self.logger.error(f"Error in timeout handler: {e}")
             
     async def cleanup(self):
-        """Enhanced cleanup with improved timeout management"""
+        """Enhanced cleanup with timeout management"""
         if self._closed:
             return
             
         self._closed = True
         
         # Clean up timeout management
-        await self.timeout_manager.remove_view(self)
+        if hasattr(self, 'timeout_manager'):
+            await self.timeout_manager.remove_view(self)
         
         # If this is a child view, resume parent timeout
         if hasattr(self, 'parent_view') and self.parent_view:
-            await self.timeout_manager.resume_parent_view(self)
-            
+            if hasattr(self.parent_view, 'timeout_manager'):
+                await self.parent_view.timeout_manager.resume_parent_view(self.parent_view)
+        
         # Clean up any child views first
-        for attr_name in dir(self):
-            if attr_name.endswith('_view'):
-                child_view = getattr(self, attr_name, None)
-                if isinstance(child_view, BaseView):
-                    try:
-                        await child_view.cleanup()
-                    except Exception as e:
-                        self.logger.error(f"Error cleaning up child view {attr_name}: {e}")
+        for item in self.children:
+            if hasattr(item, 'cleanup'):
+                await item.cleanup()
         
         # Disable all buttons
         for item in self.children:
