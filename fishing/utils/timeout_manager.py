@@ -96,10 +96,18 @@ class TimeoutManager:
                     if data.get('paused', False):
                         continue
                         
-                    if data['expiry'] <= now:
+                    # Calculate time until expiry
+                    time_left = data['expiry'] - now
+                    
+                    # Handle short timeouts more frequently
+                    if time_left <= 0:
                         if view := self._views.get(view_id):
                             expired_views.append((view_id, view))
-                
+                    elif time_left < 5:
+                        # Check more frequently for views about to expire
+                        await asyncio.sleep(0.5)
+                        continue
+                        
                 # Handle expired views
                 for view_id, view in expired_views:
                     try:
@@ -110,7 +118,9 @@ class TimeoutManager:
                     except Exception as e:
                         self.logger.error(f"Error handling timeout for view {view_id}: {e}")
                 
-                await asyncio.sleep(1)  # Check every second
+                # Sleep less for short timeouts
+                min_expiry = min((data['expiry'] - now for data in self._timeouts.values()), default=1)
+                await asyncio.sleep(min(1, max(0.1, min_expiry/2)))
                 
             except asyncio.CancelledError:
                 raise
