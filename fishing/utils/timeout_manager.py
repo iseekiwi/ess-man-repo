@@ -83,7 +83,7 @@ class TimeoutManager:
             self.logger.debug(f"Reset timeout for view {view_id}")
     
     async def _check_timeouts(self):
-        """Background task to check for expired timeouts"""
+        """Enhanced background task to check for expired timeouts"""
         self.logger.debug("Starting timeout check loop")
         while self._running:
             try:
@@ -92,6 +92,10 @@ class TimeoutManager:
                 
                 # Check for expired timeouts
                 for view_id, data in self._timeouts.items():
+                    # Skip paused views
+                    if data.get('paused', False):
+                        continue
+                        
                     if data['expiry'] <= now:
                         if view := self._views.get(view_id):
                             expired_views.append((view_id, view))
@@ -113,7 +117,40 @@ class TimeoutManager:
             except Exception as e:
                 self.logger.error(f"Error in timeout check loop: {e}")
                 await asyncio.sleep(5)  # Wait longer on error
+
+    async def handle_view_transition(self, parent_view, child_view):
+        """Handle timeout management for view transitions"""
+        try:
+            parent_id = self.generate_view_id(parent_view)
+            
+            # Pause parent view timeout
+            if parent_id in self._timeouts:
+                parent_timeout = self._timeouts[parent_id]['duration']
+                self._timeouts[parent_id]['paused'] = True
                 
+                # Set up child view with same timeout
+                await self.add_view(child_view, parent_timeout)
+                
+                # Store parent reference
+                child_id = self.generate_view_id(child_view)
+                self._timeouts[child_id]['parent_id'] = parent_id
+                
+        except Exception as e:
+            self.logger.error(f"Error in handle_view_transition: {e}")
+            
+    async def resume_parent_view(self, child_view):
+        """Resume parent view timeout when returning from child view"""
+        try:
+            child_id = self.generate_view_id(child_view)
+            if child_id in self._timeouts:
+                parent_id = self._timeouts[child_id].get('parent_id')
+                if parent_id and parent_id in self._timeouts:
+                    self._timeouts[parent_id]['paused'] = False
+                    await self.reset_timeout(self._views.get(parent_id))
+                    
+        except Exception as e:
+            self.logger.error(f"Error in resume_parent_view: {e}")
+    
     async def cleanup(self):
         """Clean up all managed views"""
         for view_id, view in list(self._views.items()):
