@@ -233,16 +233,21 @@ class InventoryView(BaseView):
             raise
 
     async def handle_button(self, interaction: discord.Interaction):
-        """Handle button interactions"""
         try:
             custom_id = interaction.data["custom_id"]
             
             if not await self.interaction_check(interaction):
                 return
             
-            if custom_id == "menu":
-                # Remove this view from timeout management
-                await self.cleanup()
+            if custom_id == "menu" or custom_id == "back" and self.current_page == "main":
+                # Return to parent menu if it exists
+                if hasattr(self, 'parent_view') and self.parent_view:
+                    await self.cleanup()  # Clean up this view
+                    self.parent_view.current_page = "main"
+                    await self.parent_view.initialize_view()
+                    embed = await self.parent_view.generate_embed()
+                    await interaction.response.edit_message(embed=embed, view=self.parent_view)
+                    return
                 
                 # Create new menu view with same timeout
                 menu_view = await self.cog.create_menu(self.ctx, self.user_data)
@@ -256,11 +261,6 @@ class InventoryView(BaseView):
                 await interaction.response.edit_message(embed=embed, view=menu_view)
                 menu_view.message = await interaction.original_response()
                 return
-                
-            elif custom_id == "back":
-                self.current_page = "main"
-                await interaction.response.defer()
-                await self.update_view()
                 
             elif custom_id == "sell_all":
                 success, amount, msg = await self.cog.sell_fish(self.ctx)
