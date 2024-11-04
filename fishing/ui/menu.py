@@ -32,12 +32,10 @@ class FishingMenuView(BaseView):
         try:
             self.logger.debug(f"Setting up FishingMenuView for user {self.ctx.author.name}")
             
-            # Verify user data
             if not self.user_data:
                 self.logger.error(f"User data is empty for {self.ctx.author.name}")
                 raise ValueError("User data is missing")
             
-            # Initialize shop stock if needed
             if not hasattr(self.cog, '_bait_stock'):
                 self.logger.debug("Initializing bait stock")
                 self.cog._bait_stock = {
@@ -53,6 +51,17 @@ class FishingMenuView(BaseView):
             self.logger.error(f"Error in FishingMenuView setup: {str(e)}", exc_info=True)
             raise
 
+    async def cleanup(self):
+        """Enhanced cleanup with timeout management"""
+        try:
+            if hasattr(self, 'shop_view') and self.shop_view:
+                await self.shop_view.cleanup()
+            if hasattr(self, 'inventory_view') and self.inventory_view:
+                await self.inventory_view.cleanup()
+            await super().cleanup()
+        except Exception as e:
+            self.logger.error(f"Error in menu view cleanup: {e}", exc_info=True)
+    
     async def initialize_view(self):
         """Initialize the view based on current page"""
         try:
