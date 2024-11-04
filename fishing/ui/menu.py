@@ -515,6 +515,9 @@ class FishingMenuView(BaseView):
 
     async def handle_catch_attempt(self, interaction: discord.Interaction):
         """Handle fishing catch attempt button press"""
+        if not await self.interaction_check(interaction):
+            return
+        
         try:
             # Set catch_attempted flag
             self.catch_attempted = True
