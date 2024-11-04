@@ -390,6 +390,10 @@ class ShopView(BaseView):
         try:
             custom_id = interaction.data["custom_id"]
             
+            # Do the interaction check after getting custom_id
+            if not await self.interaction_check(interaction):
+                return
+            
             if custom_id == "menu":
                 # Import here to avoid circular import
                 from .menu import FishingMenuView
