@@ -157,7 +157,14 @@ class InventoryView(BaseView):
         except Exception as e:
             self.logger.error(f"Error starting inventory view: {e}", exc_info=True)
             return None
-        
+
+    async def cleanup(self):
+        """Enhanced cleanup implementation"""
+        try:
+            await super().cleanup()
+        except Exception as e:
+            self.logger.error(f"Error in inventory view cleanup: {e}", exc_info=True)
+    
     async def initialize_view(self):
         """Initialize the view's buttons based on current page"""
         try:
@@ -230,21 +237,27 @@ class InventoryView(BaseView):
         try:
             custom_id = interaction.data["custom_id"]
             
-            # Do the interaction check after getting custom_id
             if not await self.interaction_check(interaction):
                 return
             
             if custom_id == "menu":
+                # Remove this view from timeout management
+                await self.cleanup()
+                
+                # Create new menu view with same timeout
                 menu_view = await self.cog.create_menu(self.ctx, self.user_data)
-                if self.timeout is not None:
-                    menu_view.timeout = self.timeout  # Preserve timeout duration
+                menu_view.timeout = self.timeout
+                
+                # Initialize and start the new view
+                await menu_view.setup()
+                await menu_view.start()
+                
                 embed = await menu_view.generate_embed()
                 await interaction.response.edit_message(embed=embed, view=menu_view)
                 menu_view.message = await interaction.original_response()
-                await self.cleanup()  # Clean up current view
                 return
                 
-            if custom_id == "back":
+            elif custom_id == "back":
                 self.current_page = "main"
                 await interaction.response.defer()
                 await self.update_view()
