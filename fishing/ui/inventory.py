@@ -232,7 +232,12 @@ class InventoryView(BaseView):
             if custom_id == "menu":
                 menu_view = await self.cog.create_menu(self.ctx, self.user_data)
                 embed = await menu_view.generate_embed()
+                
+                # Resume parent menu timeout
+                await self.timeout_manager.resume_parent_view(self)
+                
                 await interaction.response.edit_message(embed=embed, view=menu_view)
+                menu_view.message = await interaction.original_response()
                 return
                 
             if custom_id == "back":
