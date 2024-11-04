@@ -459,21 +459,41 @@ class ShopView(BaseView):
             
             confirm_view.message = await interaction.original_response()
             await confirm_view.start()
+    
+            # Use an event to handle immediate confirmation
+            confirmation_event = asyncio.Event()
             
-            # Wait for confirmation with timeout
+            # Add a callback for when user confirms/cancels
+            async def on_response(confirmed: bool):
+                confirm_view.value = confirmed
+                confirmation_event.set()
+                
+            confirm_view.confirm.callback = lambda i: on_response(True)
+            confirm_view.cancel.callback = lambda i: on_response(False)
+            
+            # Wait for either confirmation or timeout
             try:
-                await asyncio.wait_for(confirm_view.wait(), timeout=30)
+                done, pending = await asyncio.wait(
+                    [confirmation_event.wait(), confirm_view.wait()],
+                    timeout=30,
+                    return_when=asyncio.FIRST_COMPLETED
+                )
+                
+                # Cancel any pending tasks
+                for task in pending:
+                    task.cancel()
+                    
+                if not done:  # Timeout occurred
+                    self.logger.debug(f"Purchase confirmation timed out for {item_name}")
+                    await confirm_view.cleanup()
+                    return
+                    
             except asyncio.TimeoutError:
                 self.logger.debug(f"Purchase confirmation timed out for {item_name}")
-                try:
-                    await confirm_view.message.delete()
-                except discord.NotFound:
-                    pass
-                except Exception as e:
-                    self.logger.error(f"Error cleaning up timed out confirmation: {e}")
+                await confirm_view.cleanup()
                 return
                 
-            if confirm_view.value:
+            if confirm_view.value:  # User confirmed purchase
                 if item_name in self.cog.data["bait"]:
                     success, msg = await self.cog._handle_bait_purchase(
                         self.ctx.author,
@@ -489,60 +509,46 @@ class ShopView(BaseView):
                     )
     
                 if success:
-                    # Refresh user data from config
+                    # Refresh user data immediately
                     user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
                     if user_data_result.success:
-                        # Update the view's user data
                         self.user_data = user_data_result.data
-                        
-                        # Force refresh the cache
                         await self.cog.config_manager.refresh_cache(self.ctx.author.id)
                         
-                        # Get fresh data after cache refresh
                         fresh_data = await self.cog.config_manager.get_user_data(self.ctx.author.id)
                         if fresh_data.success:
                             self.user_data = fresh_data.data
                             
                             # Update parent menu view if it exists
-                            if hasattr(self, 'parent_menu_view'):
-                                # Import here to avoid circular import
+                            if hasattr(self, 'parent_view'):
                                 from .menu import FishingMenuView
-                                if isinstance(self.parent_menu_view, FishingMenuView):
-                                    self.parent_menu_view.user_data = fresh_data.data
-                                    await self.parent_menu_view.initialize_view()
-                                    menu_embed = await self.parent_menu_view.generate_embed()
-                                    await self.parent_menu_view.message.edit(embed=menu_embed, view=self.parent_menu_view)
-                                    
-                                    # Force refresh the menu view's buttons
-                                    await self.parent_menu_view.setup()
-                                    if hasattr(self.parent_menu_view, 'fishing_in_progress'):
-                                        self.parent_menu_view.fishing_in_progress = False
+                                if isinstance(self.parent_view, FishingMenuView):
+                                    self.parent_view.user_data = fresh_data.data
+                                    await self.parent_view.initialize_view()
+                                    menu_embed = await self.parent_view.generate_embed()
+                                    await self.parent_view.message.edit(
+                                        embed=menu_embed,
+                                        view=self.parent_view
+                                    )
                             
-                            # Reinitialize the view with new data
+                            # Update current view
                             await self.initialize_view()
                             await self.update_view()
                 
-                # Send the result message and schedule deletion
+                # Send result message with short deletion delay
                 message = await interaction.followup.send(msg, ephemeral=True, wait=True)
                 self.cog.bot.loop.create_task(self.delete_after_delay(message))
                 
-            else:
-                # Purchase was cancelled
-                try:
-                    if confirm_view.message:
-                        await confirm_view.message.delete()
-                except discord.NotFound:
-                    pass
-                except Exception as e:
-                    self.logger.error(f"Error cleaning up cancelled confirmation: {e}")
-                
-                # Send cancellation message
+            else:  # User cancelled
                 message = await interaction.followup.send(
                     "Purchase cancelled.",
                     ephemeral=True,
                     wait=True
                 )
                 self.cog.bot.loop.create_task(self.delete_after_delay(message))
+            
+            # Cleanup the confirmation view
+            await confirm_view.cleanup()
                 
         except Exception as e:
             self.logger.error(f"Error in handle_purchase: {e}", exc_info=True)
@@ -552,13 +558,6 @@ class ShopView(BaseView):
                     ephemeral=True,
                     delete_after=2
                 )
-            else:
-                message = await interaction.followup.send(
-                    "An error occurred while processing your purchase. Please try again.",
-                    ephemeral=True,
-                    wait=True
-                )
-                self.cog.bot.loop.create_task(self.delete_after_delay(message))
     
     async def delete_after_delay(self, message):
         """Helper method to delete a message after a delay"""
