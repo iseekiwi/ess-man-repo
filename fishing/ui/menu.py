@@ -324,22 +324,26 @@ class FishingMenuView(BaseView):
                     self.shop_view.parent_menu_view = self
                     embed = await self.shop_view.generate_embed()
                     
-                    # Handle view transition
+                    # Handle view transition with explicit timeout management
+                    self.logger.debug("Transitioning to shop view")
                     await self.timeout_manager.handle_view_transition(self, self.shop_view)
                     
                     await interaction.response.edit_message(embed=embed, view=self.shop_view)
                     self.shop_view.message = await interaction.original_response()
+                    self.logger.debug("Shop view transition complete")
                 else:  # Inventory
-                    # Import here to avoid circular import
+                    self.logger.debug("Transitioning to inventory view")
                     from .inventory import InventoryView
                     self.inventory_view = InventoryView(self.cog, self.ctx, self.user_data)
                     await self.inventory_view.initialize_view()
                     embed = await self.inventory_view.generate_embed()
-                    # Handle view transition
+                    
+                    # Handle view transition with explicit timeout management
                     await self.timeout_manager.handle_view_transition(self, self.inventory_view)
                     
                     await interaction.response.edit_message(embed=embed, view=self.inventory_view)
                     self.inventory_view.message = await interaction.original_response()
+                    self.logger.debug("Inventory view transition complete")
                 
             elif custom_id in ["location", "weather"]:
                 self.current_page = custom_id
