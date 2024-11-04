@@ -59,10 +59,14 @@ class TimeoutManager:
         view_id = self.generate_view_id(view)
         self._timeouts[view_id] = {
             'expiry': time.time() + duration,
-            'duration': duration
+            'duration': duration,
+            'last_interaction': time.time()  # Add this to track last interaction
         }
         self._views[view_id] = view
-        self.logger.debug(f"Added view {view_id} with duration {duration}s")
+        self.logger.debug(
+            f"Added view {view_id} with duration {duration}s. "
+            f"View type: {view.__class__.__name__}"
+        )
         
         if not self._task or self._task.done():
             await self.start()
@@ -79,11 +83,19 @@ class TimeoutManager:
         view_id = self.generate_view_id(view)
         if view_id in self._timeouts:
             duration = self._timeouts[view_id]['duration']
-            self._timeouts[view_id]['expiry'] = time.time() + duration
-            self.logger.debug(f"Reset timeout for view {view_id}")
+            current_time = time.time()
+            self._timeouts[view_id].update({
+                'expiry': current_time + duration,
+                'last_interaction': current_time
+            })
+            self.logger.debug(
+                f"Reset timeout for view {view_id}. "
+                f"New expiry in {duration}s. "
+                f"View type: {view.__class__.__name__}"
+            )
     
     async def _check_timeouts(self):
-        """Enhanced background task to check for expired timeouts"""
+        """Background task to check for expired timeouts"""
         self.logger.debug("Starting timeout check loop")
         while self._running:
             try:
@@ -92,41 +104,43 @@ class TimeoutManager:
                 
                 # Check for expired timeouts
                 for view_id, data in self._timeouts.items():
-                    # Skip paused views
                     if data.get('paused', False):
                         continue
                         
-                    # Calculate time until expiry
                     time_left = data['expiry'] - now
+                    last_interaction = data.get('last_interaction', 0)
+                    interaction_age = now - last_interaction
                     
-                    # Handle short timeouts more frequently
+                    self.logger.debug(
+                        f"View {view_id} status: "
+                        f"Time left: {time_left:.1f}s, "
+                        f"Last interaction: {interaction_age:.1f}s ago"
+                    )
+                    
                     if time_left <= 0:
                         if view := self._views.get(view_id):
                             expired_views.append((view_id, view))
                     elif time_left < 5:
-                        # Check more frequently for views about to expire
                         await asyncio.sleep(0.5)
                         continue
-                        
+
                 # Handle expired views
                 for view_id, view in expired_views:
                     try:
+                        self.logger.info(f"View {view_id} timeout triggered")
                         self._timeouts.pop(view_id, None)
                         self._views.pop(view_id, None)
                         await view.on_timeout()
-                        self.logger.debug(f"View {view_id} timed out")
                     except Exception as e:
                         self.logger.error(f"Error handling timeout for view {view_id}: {e}")
-                
-                # Sleep less for short timeouts
-                min_expiry = min((data['expiry'] - now for data in self._timeouts.values()), default=1)
-                await asyncio.sleep(min(1, max(0.1, min_expiry/2)))
+
+                await asyncio.sleep(1)
                 
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 self.logger.error(f"Error in timeout check loop: {e}")
-                await asyncio.sleep(5)  # Wait longer on error
+                await asyncio.sleep(5)
 
     async def handle_view_transition(self, parent_view, child_view):
         """Handle timeout management for view transitions"""
