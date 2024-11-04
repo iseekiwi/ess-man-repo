@@ -27,6 +27,10 @@ class BaseView(View):
         """Enhanced interaction check with improved timeout management"""
         try:
             if self._closed:
+                await interaction.response.send_message(
+                    "This menu has expired. Please start a new one.",
+                    ephemeral=True
+                )
                 return False
                 
             is_author = interaction.user.id == self.ctx.author.id
@@ -62,6 +66,10 @@ class BaseView(View):
             
         except Exception as e:
             self.logger.error(f"Error in interaction check: {e}")
+            await interaction.response.send_message(
+                "An error occurred. Please try again.",
+                ephemeral=True
+            )
             return False
             
     async def _handle_timeout(self):
