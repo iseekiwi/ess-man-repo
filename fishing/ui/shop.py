@@ -46,9 +46,12 @@ class PurchaseConfirmView(BaseView):
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
     async def confirm(self, interaction: discord.Interaction, button: Button):
         """Handle purchase confirmation."""
-        self.logger.debug(f"Confirm button pressed by user {interaction.user.id} for {self.item_name}")
-        
+        if not await self.interaction_check(interaction):
+            return
+            
         try:
+            self.logger.debug(f"Confirm button pressed by user {interaction.user.id} for {self.item_name}")
+            
             # Set confirmation value
             self.value = True
             self.stop()
@@ -91,6 +94,9 @@ class PurchaseConfirmView(BaseView):
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
     async def cancel(self, interaction: discord.Interaction, button: Button):
         """Handle purchase cancellation."""
+        if not await self.interaction_check(interaction):
+            return
+            
         try:
             self.logger.debug(f"Cancel button pressed by user {interaction.user.id} for {self.item_name}")
             self.value = False
