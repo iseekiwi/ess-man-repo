@@ -26,6 +26,7 @@ class FishingMenuView(BaseView):
         self.fishing_in_progress = False
         self.stored_buttons = []
         self.correct_action = None
+        self.parent_view = None
         
     async def setup(self):
         """Async setup method to initialize the view"""
@@ -332,21 +333,16 @@ class FishingMenuView(BaseView):
                 return
                 
             elif custom_id in ["shop", "inventory"]:
-                # Use dynamic import to avoid circular dependency
                 if custom_id == "shop":
                     self.shop_view = await ShopView(self.cog, self.ctx, self.user_data).setup()
-                    self.shop_view.parent_menu_view = self
+                    self.shop_view.parent_view = self  # Set parent reference
                     embed = await self.shop_view.generate_embed()
                     await interaction.response.edit_message(embed=embed, view=self.shop_view)
-                    # Set up the parent view reference after the message is created
                     self.shop_view.message = await interaction.original_response()
-                    if not self.message:  # Store message reference in parent menu if needed
-                        self.message = self.shop_view.message
                 else:  # Inventory
-                    # Import here to avoid circular import
                     from .inventory import InventoryView
-                    self.inventory_view = InventoryView(self.cog, self.ctx, self.user_data)
-                    await self.inventory_view.initialize_view()
+                    self.inventory_view = await InventoryView(self.cog, self.ctx, self.user_data).start()
+                    self.inventory_view.parent_view = self  # Set parent reference
                     embed = await self.inventory_view.generate_embed()
                     await interaction.response.edit_message(embed=embed, view=self.inventory_view)
                     self.inventory_view.message = await interaction.original_response()
@@ -388,19 +384,19 @@ class FishingMenuView(BaseView):
 
     async def do_fishing(self, interaction: discord.Interaction):
         """Handle the fishing process after initial interaction"""
-        try:
-            # Verify interaction permission
-            if not await self.interaction_check(interaction):
-                return
-                
-            # Get fresh user data to ensure accurate equipment check
-            user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
-            if user_data_result.success:
-                self.user_data = user_data_result.data
+    try:
+        # Verify interaction permission
+        if not await self.interaction_check(interaction):
+            return
+            
+        # Get fresh user data to ensure accurate equipment check
+        user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+        if user_data_result.success:
+            self.user_data = user_data_result.data
         
-            # Ensure we have the message reference
-            if not self.message:
-                self.message = interaction.message
+        # Use existing message reference
+        if not self.message:
+            self.message = interaction.message
                 
             if not self.user_data["equipped_bait"]:
                 self.fishing_in_progress = False
