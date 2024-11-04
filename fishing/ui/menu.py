@@ -33,18 +33,13 @@ class FishingMenuView(BaseView):
         try:
             self.logger.debug(f"Setting up FishingMenuView for user {self.ctx.author.name}")
             
+            # Initialize timeout manager
+            await self.timeout_manager.start()
+            
             # Verify user data
             if not self.user_data:
                 self.logger.error(f"User data is empty for {self.ctx.author.name}")
                 raise ValueError("User data is missing")
-            
-            # Initialize shop stock if needed
-            if not hasattr(self.cog, '_bait_stock'):
-                self.logger.debug("Initializing bait stock")
-                self.cog._bait_stock = {
-                    bait: data["daily_stock"] 
-                    for bait, data in self.cog.data["bait"].items()
-                }
             
             await self.initialize_view()
             self.logger.debug("FishingMenuView setup completed successfully")
