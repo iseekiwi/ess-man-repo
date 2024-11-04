@@ -112,14 +112,25 @@ class BaseView(View):
             self.logger.error(f"Error in timeout handler: {e}")
 
     async def cleanup(self):
-        """Clean up view resources"""
+        """Clean up view resources and handle timeout hierarchy"""
         try:
             self.logger.debug(f"Cleaning up view for {self.ctx.author.name}")
             for item in self.children:
                 item.disabled = True
+                
+            # Update message if it exists
             if self.message:
-                await self.message.edit(view=self)
-                await self.timeout_manager.remove_view(self)
+                try:
+                    await self.message.edit(view=self)
+                    # Remove from timeout manager
+                    await self.timeout_manager.remove_view(self)
+                    
+                    # Signal parent view if this was a child view
+                    if hasattr(self, 'parent_menu_view'):
+                        await self.timeout_manager.resume_parent_view(self)
+                except discord.NotFound:
+                    pass
+                    
             self.logger.debug(f"View cleanup completed for {self.ctx.author.name}")
         except Exception as e:
             self.logger.error(f"Error in cleanup: {e}")
