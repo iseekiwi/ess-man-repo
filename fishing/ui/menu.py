@@ -323,17 +323,21 @@ class FishingMenuView(BaseView):
                     self.shop_view = await ShopView(self.cog, self.ctx, self.user_data).setup()
                     self.shop_view.parent_menu_view = self
                     embed = await self.shop_view.generate_embed()
+                    
+                    # Handle view transition
+                    await self.timeout_manager.handle_view_transition(self, self.shop_view)
+                    
                     await interaction.response.edit_message(embed=embed, view=self.shop_view)
-                    # Set up the parent view reference after the message is created
                     self.shop_view.message = await interaction.original_response()
-                    if not self.message:  # Store message reference in parent menu if needed
-                        self.message = self.shop_view.message
                 else:  # Inventory
                     # Import here to avoid circular import
                     from .inventory import InventoryView
                     self.inventory_view = InventoryView(self.cog, self.ctx, self.user_data)
                     await self.inventory_view.initialize_view()
                     embed = await self.inventory_view.generate_embed()
+                    # Handle view transition
+                    await self.timeout_manager.handle_view_transition(self, self.inventory_view)
+                    
                     await interaction.response.edit_message(embed=embed, view=self.inventory_view)
                     self.inventory_view.message = await interaction.original_response()
                 
