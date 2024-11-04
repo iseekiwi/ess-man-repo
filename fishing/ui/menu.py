@@ -36,6 +36,10 @@ class FishingMenuView(BaseView):
             # Initialize timeout manager
             await self.timeout_manager.start()
             
+            # Register this view with timeout manager
+            await self.timeout_manager.add_view(self, self.timeout)
+            self.logger.debug(f"FishingMenuView registered with timeout manager")
+            
             # Verify user data
             if not self.user_data:
                 self.logger.error(f"User data is empty for {self.ctx.author.name}")
