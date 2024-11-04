@@ -245,9 +245,11 @@ class ConfigManager:
             # Get current data
             current_result = await self.get_user_data(user_id)
             if not current_result.success:
+                self.logger.error(f"Failed to get current data: {current_result.error}")
                 return ConfigResult(False, error="Failed to get current data", error_code="GET_ERROR")
                 
             current_data = current_result.data
+            self.logger.debug(f"Current data: {current_data}")
             
             # Create working copy
             update_data = current_data.copy()
@@ -259,7 +261,15 @@ class ConfigManager:
                     if field not in updates:
                         continue
                         
-                    if field == "bait":
+                    if field == "experience":
+                        # Special handling for experience to ensure it's numeric
+                        try:
+                            update_data["experience"] = int(updates["experience"])
+                            self.logger.debug(f"Updated experience to: {update_data['experience']}")
+                        except (ValueError, TypeError) as e:
+                            self.logger.error(f"Invalid experience value: {updates['experience']}: {e}")
+                            return ConfigResult(False, error="Invalid experience value", error_code="VALIDATION_ERROR")
+                    elif field == "bait":
                         # Special handling for bait dictionary
                         current_bait = update_data.get("bait", {})
                         new_bait = updates["bait"]
@@ -296,6 +306,7 @@ class ConfigManager:
                         
             # Validate updated data
             validated_data = await self._validate_user_data(update_data)
+            self.logger.debug(f"Validated data: {validated_data}")
             
             # Save to config
             group = self.config.user_from_id(user_id)
@@ -303,6 +314,7 @@ class ConfigManager:
                 if key in updates or not fields:
                     try:
                         await group.set_raw(key, value=value)
+                        self.logger.debug(f"Saved {key}: {value}")
                     except Exception as e:
                         self.logger.error(f"Error saving {key}: {e}")
                         return ConfigResult(False, error=f"Failed to save {key}", error_code="SAVE_ERROR")
@@ -313,12 +325,14 @@ class ConfigManager:
             # Verify update
             verify_result = await self.get_user_data(user_id)
             if not verify_result.success:
+                self.logger.error("Failed to verify update")
                 return ConfigResult(False, error="Failed to verify update", error_code="VERIFY_ERROR")
                 
+            self.logger.debug(f"Successfully updated user data: {verify_result.data}")
             return ConfigResult(True, True)
             
         except Exception as e:
-            self.logger.error(f"Error in update_user_data: {e}")
+            self.logger.error(f"Error in update_user_data: {e}", exc_info=True)
             return ConfigResult(False, error=str(e), error_code="GENERAL_ERROR")
 
     async def get_global_setting(self, key: str) -> ConfigResult[Any]:
