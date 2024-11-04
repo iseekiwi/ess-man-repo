@@ -37,7 +37,7 @@ class TimeoutManager:
         if not self._running:
             self._running = True
             self._task = asyncio.create_task(self._check_timeouts())
-            self.logger.debug("TimeoutManager started")
+            self.logger.debug("TimeoutManager started with check task")
     
     async def stop(self):
         """Stop the timeout manager"""
@@ -84,107 +84,83 @@ class TimeoutManager:
         """Reset timeout for a view and all related views"""
         try:
             view_id = self.generate_view_id(view)
-            if view_id in self._timeouts:
-                duration = self._timeouts[view_id]['duration']
-                current_time = time.time()
-                new_expiry = current_time + duration
+            self.logger.debug(f"Attempting to reset timeout for view {view_id}")
+            
+            if view_id not in self._timeouts:
+                self.logger.warning(f"View {view_id} not found in timeout manager")
+                return
                 
-                # Update the current view
-                self._timeouts[view_id].update({
-                    'expiry': new_expiry,
-                    'last_interaction': current_time
-                })
-                
-                # Update any parent view
-                parent_id = self._timeouts[view_id].get('parent_id')
-                if parent_id and parent_id in self._timeouts:
-                    self._timeouts[parent_id].update({
-                        'expiry': new_expiry,
-                        'last_interaction': current_time
-                    })
-                
-                # Update any child views
-                child_views = [
-                    tid for tid, data in self._timeouts.items()
-                    if data.get('parent_id') == view_id
-                ]
-                for child_id in child_views:
-                    self._timeouts[child_id].update({
-                        'expiry': new_expiry,
-                        'last_interaction': current_time
-                    })
-                
-                self.logger.debug(
-                    f"Reset timeout cascade - Primary: {view_id}, "
-                    f"Parent: {parent_id}, Children: {len(child_views)}"
-                )
-                
+            current_time = time.time()
+            duration = self._timeouts[view_id]['duration']
+            new_expiry = current_time + duration
+            
+            # Update the view's timeout
+            self._timeouts[view_id].update({
+                'expiry': new_expiry,
+                'last_interaction': current_time
+            })
+            
+            self.logger.debug(
+                f"Reset timeout for {view_id}:\n"
+                f"  New expiry: +{duration}s\n"
+                f"  Previous interactions: {len(self._timeouts[view_id].get('interactions', []))}"
+            )
+            
         except Exception as e:
-            self.logger.error(f"Error in reset_timeout: {e}")
+            self.logger.error(f"Error resetting timeout: {e}")
     
     async def _check_timeouts(self):
         """Background task to check for expired timeouts"""
         self.logger.debug("Starting timeout check loop")
+        last_check = time.time()
+        
         while self._running:
             try:
                 now = time.time()
-                expired_views = []
+                elapsed = now - last_check
+                self.logger.debug(f"Checking timeouts after {elapsed:.1f}s")
+                last_check = now
                 
-                # Check for expired timeouts
-                for view_id, data in list(self._timeouts.items()):
-                    if data.get('paused', False):
-                        continue
-                        
+                # Log current state
+                self.logger.debug(f"Active timeouts: {len(self._timeouts)}")
+                for view_id, data in self._timeouts.items():
                     time_left = data['expiry'] - now
                     last_interaction = data.get('last_interaction', 0)
                     interaction_age = now - last_interaction
                     
                     self.logger.debug(
-                        f"View {view_id} status: "
-                        f"Time left: {time_left:.1f}s, "
-                        f"Last interaction: {interaction_age:.1f}s ago, "
-                        f"Parent: {data.get('parent_id', 'None')}"
+                        f"View {view_id} status:\n"
+                        f"  Time left: {time_left:.1f}s\n"
+                        f"  Last interaction: {interaction_age:.1f}s ago\n"
+                        f"  Duration: {data['duration']}s\n"
+                        f"  Paused: {data.get('paused', False)}"
                     )
-                    
+    
+                # Check for expired timeouts
+                expired_views = []
+                for view_id, data in list(self._timeouts.items()):
+                    if data.get('paused', False):
+                        continue
+                        
+                    time_left = data['expiry'] - now
                     if time_left <= 0:
                         if view := self._views.get(view_id):
                             expired_views.append((view_id, view))
                             self.logger.debug(f"Marking view {view_id} for expiration")
-                    elif time_left < 5:
-                        await asyncio.sleep(0.1)  # More frequent checks near expiration
-                        continue
     
                 # Handle expired views
                 for view_id, view in expired_views:
                     try:
-                        self.logger.info(f"View {view_id} timeout triggered")
-                        
-                        # If this is a parent view, expire children too
-                        child_views = [
-                            (tid, self._views[tid])
-                            for tid, data in self._timeouts.items()
-                            if data.get('parent_id') == view_id
-                            and tid in self._views
-                        ]
-                        
-                        # Expire children first
-                        for child_id, child_view in child_views:
-                            self.logger.debug(f"Expiring child view {child_id}")
-                            self._timeouts.pop(child_id, None)
-                            self._views.pop(child_id, None)
-                            await child_view.on_timeout()
-                        
-                        # Then expire the parent
-                        self._timeouts.pop(view_id, None)
-                        self._views.pop(view_id, None)
+                        self.logger.info(f"Expiring view {view_id}")
+                        await self.remove_view(view)
                         await view.on_timeout()
-                        
                     except Exception as e:
                         self.logger.error(f"Error handling timeout for view {view_id}: {e}")
     
                 await asyncio.sleep(1)
                 
             except asyncio.CancelledError:
+                self.logger.debug("Timeout check loop cancelled")
                 raise
             except Exception as e:
                 self.logger.error(f"Error in timeout check loop: {e}")
@@ -196,32 +172,37 @@ class TimeoutManager:
             parent_id = self.generate_view_id(parent_view)
             child_id = self.generate_view_id(child_view)
             
-            self.logger.debug(f"Handling view transition from {parent_id} to {child_id}")
+            self.logger.debug(
+                f"Processing view transition:\n"
+                f"  Parent: {parent_id} ({parent_view.__class__.__name__})\n"
+                f"  Child: {child_id} ({child_view.__class__.__name__})"
+            )
             
-            # Store parent view timeout settings
+            # Get parent timeout settings
             if parent_id in self._timeouts:
-                parent_timeout = self._timeouts[parent_id]['duration']
-                parent_expiry = self._timeouts[parent_id]['expiry']
+                parent_data = self._timeouts[parent_id]
                 
-                # Add child view with same timeout duration and expiry
+                # Set up child timeout
                 self._timeouts[child_id] = {
-                    'expiry': parent_expiry,  # Maintain parent's expiry
-                    'duration': parent_timeout,
+                    'expiry': parent_data['expiry'],
+                    'duration': parent_data['duration'],
                     'last_interaction': time.time(),
-                    'parent_id': parent_id
+                    'parent_id': parent_id,
+                    'paused': False
                 }
                 self._views[child_id] = child_view
                 
-                # Pause parent view timeout without removing it
-                self._timeouts[parent_id]['paused'] = True
+                # Pause parent
+                parent_data['paused'] = True
                 
                 self.logger.debug(
-                    f"View transition completed - Parent: {parent_id} (paused), "
-                    f"Child: {child_id} (active until {parent_expiry})"
+                    f"View transition completed:\n"
+                    f"  Parent {parent_id} paused\n"
+                    f"  Child {child_id} active until {parent_data['expiry']}"
                 )
                 
         except Exception as e:
-            self.logger.error(f"Error in handle_view_transition: {e}")
+            self.logger.error(f"Error in view transition: {e}")
             
     async def resume_parent_view(self, child_view):
         """Resume parent view timeout when returning from child view"""
