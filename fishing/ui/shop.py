@@ -45,9 +45,16 @@ class PurchaseConfirmView(BaseView):
     async def cleanup(self):
         """Enhanced cleanup implementation"""
         try:
+            for child in self.children:
+                child.disabled = True
+            if self.message:
+                try:
+                    await self.message.edit(view=self)
+                except discord.NotFound:
+                    pass
             await super().cleanup()
         except Exception as e:
-            self.logger.error(f"Error in shop view cleanup: {e}", exc_info=True)
+            self.logger.error(f"Error in purchase view cleanup: {e}")
     
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id == self.ctx.author.id:
@@ -62,41 +69,19 @@ class PurchaseConfirmView(BaseView):
             return
             
         self.value = True
-        # Disable buttons immediately
         for child in self.children:
             child.disabled = True
         await interaction.response.edit_message(view=self)
         
-        # Delete the confirmation message after a short delay
-        await asyncio.sleep(2)
-        try:
-            if self.message:
-                await self.message.delete()
-        except discord.NotFound:
-            pass
-        except Exception as e:
-            self.logger.error(f"Error deleting confirmation message: {e}")
-
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red) 
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
     async def cancel(self, interaction: discord.Interaction, button: Button):
         if not await self.interaction_check(interaction):
             return
             
         self.value = False
-        # Disable buttons immediately
         for child in self.children:
             child.disabled = True
         await interaction.response.edit_message(view=self)
-        
-        # Delete the cancellation message after a short delay
-        await asyncio.sleep(2)
-        try:
-            if self.message:
-                await self.message.delete()
-        except discord.NotFound:
-            pass
-        except Exception as e:
-            self.logger.error(f"Error deleting cancellation message: {e}")
 
     async def delete_after_delay(self, message):
         """Helper method to delete a message after a delay"""
