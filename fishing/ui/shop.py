@@ -62,23 +62,41 @@ class PurchaseConfirmView(BaseView):
             return
             
         self.value = True
-        await self.cleanup()
-        await interaction.response.send_message(
-            "Purchase confirmed! Processing...",
-            ephemeral=True
-        )
+        # Disable buttons immediately
+        for child in self.children:
+            child.disabled = True
+        await interaction.response.edit_message(view=self)
+        
+        # Delete the confirmation message after a short delay
+        await asyncio.sleep(2)
+        try:
+            if self.message:
+                await self.message.delete()
+        except discord.NotFound:
+            pass
+        except Exception as e:
+            self.logger.error(f"Error deleting confirmation message: {e}")
 
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red) 
     async def cancel(self, interaction: discord.Interaction, button: Button):
         if not await self.interaction_check(interaction):
             return
             
         self.value = False
-        await self.cleanup()
-        await interaction.response.send_message(
-            "Purchase cancelled.",
-            ephemeral=True
-        )
+        # Disable buttons immediately
+        for child in self.children:
+            child.disabled = True
+        await interaction.response.edit_message(view=self)
+        
+        # Delete the cancellation message after a short delay
+        await asyncio.sleep(2)
+        try:
+            if self.message:
+                await self.message.delete()
+        except discord.NotFound:
+            pass
+        except Exception as e:
+            self.logger.error(f"Error deleting cancellation message: {e}")
 
     async def delete_after_delay(self, message):
         """Helper method to delete a message after a delay"""
@@ -91,15 +109,20 @@ class PurchaseConfirmView(BaseView):
             self.logger.error(f"Error in delete_after_delay: {e}")
 
     async def on_timeout(self):
-        """Handle view timeout."""
-        self.logger.info(f"Purchase view timed out for {self.item_name}")
+        """Enhanced timeout handling"""
         try:
             if self.message:
+                for child in self.children:
+                    child.disabled = True
+                await self.message.edit(view=self)
+                await asyncio.sleep(1)
                 await self.message.delete()
         except discord.NotFound:
-            pass  # Message was already deleted
+            pass
         except Exception as e:
-            self.logger.error(f"Error handling timeout cleanup: {e}", exc_info=True)
+            self.logger.error(f"Error in purchase view timeout: {e}")
+        finally:
+            self.stop()
 
 class ShopView(BaseView):
     """View for the fishing shop interface"""
@@ -420,7 +443,7 @@ class ShopView(BaseView):
                 cost = self.cog.data["rods"][item_name]["cost"]
                 quantity = 1
             
-            # Create confirmation view with same timeout as shop
+            # Create confirmation view with 30s timeout
             confirm_view = PurchaseConfirmView(
                 self.cog,
                 self.ctx,
@@ -428,7 +451,6 @@ class ShopView(BaseView):
                 quantity,
                 cost
             )
-            confirm_view.timeout = self.timeout
             
             await interaction.response.send_message(
                 f"Confirm purchase of {quantity}x {item_name} for {cost * quantity} coins?",
@@ -438,8 +460,20 @@ class ShopView(BaseView):
             
             confirm_view.message = await interaction.original_response()
             await confirm_view.start()
-            await confirm_view.wait()
             
+            # Wait for confirmation with timeout
+            try:
+                await asyncio.wait_for(confirm_view.wait(), timeout=30)
+            except asyncio.TimeoutError:
+                self.logger.debug(f"Purchase confirmation timed out for {item_name}")
+                try:
+                    await confirm_view.message.delete()
+                except discord.NotFound:
+                    pass
+                except Exception as e:
+                    self.logger.error(f"Error cleaning up timed out confirmation: {e}")
+                return
+                
             if confirm_view.value:
                 if item_name in self.cog.data["bait"]:
                     success, msg = await self.cog._handle_bait_purchase(
@@ -489,10 +523,28 @@ class ShopView(BaseView):
                             await self.initialize_view()
                             await self.update_view()
                 
-                # Always show the result message
+                # Send the result message and schedule deletion
                 message = await interaction.followup.send(msg, ephemeral=True, wait=True)
                 self.cog.bot.loop.create_task(self.delete_after_delay(message))
-            
+                
+            else:
+                # Purchase was cancelled
+                try:
+                    if confirm_view.message:
+                        await confirm_view.message.delete()
+                except discord.NotFound:
+                    pass
+                except Exception as e:
+                    self.logger.error(f"Error cleaning up cancelled confirmation: {e}")
+                
+                # Send cancellation message
+                message = await interaction.followup.send(
+                    "Purchase cancelled.",
+                    ephemeral=True,
+                    wait=True
+                )
+                self.cog.bot.loop.create_task(self.delete_after_delay(message))
+                
         except Exception as e:
             self.logger.error(f"Error in handle_purchase: {e}", exc_info=True)
             if not interaction.response.is_done():
@@ -509,7 +561,6 @@ class ShopView(BaseView):
                 )
                 self.cog.bot.loop.create_task(self.delete_after_delay(message))
     
-    # Add delete_after_delay method to both classes
     async def delete_after_delay(self, message):
         """Helper method to delete a message after a delay"""
         try:
