@@ -178,8 +178,8 @@ class Fishing(commands.Cog):
         """Calculate catch results with all modifiers."""
         try:
             if not bait_type:
-            self.logger.error("Attempted fishing without bait")
-            return None
+                self.logger.error("Attempted fishing without bait")
+                return None
             
             if bait_type not in self.data["bait"]:
                 self.logger.error(f"Invalid bait type: {bait_type}")
