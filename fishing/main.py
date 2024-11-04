@@ -181,7 +181,7 @@ class Fishing(commands.Cog):
             
             if random.random() >= total_chance:
                 return None
-
+    
             # Calculate fish weights with modifiers
             location_mods = self.data["locations"][location]["fish_modifiers"]
             weather_rare_bonus = (
@@ -189,7 +189,7 @@ class Fishing(commands.Cog):
                 if weather in self.data["weather"]
                 else 0
             )
-
+    
             weighted_fish = []
             weights = []
             
@@ -204,16 +204,14 @@ class Fishing(commands.Cog):
                     weight *= (1 + weather_rare_bonus)
                 weighted_fish.append(fish)
                 weights.append(weight)
-
+    
             if not weighted_fish:
                 self.logger.warning("No valid fish types found!")
                 return None
-
+    
             caught_fish = random.choices(weighted_fish, weights=weights, k=1)[0]
             fish_data = self.data["fish"][caught_fish]
-            self.logger.debug(f"Fish caught: {caught_fish}")
-            return {"name": caught_fish, "value": self.data["fish"][caught_fish]["value"]}
-
+    
             # Calculate XP reward
             location_data = self.data["locations"][location]
             xp_reward = self.level_manager.calculate_xp_reward(
