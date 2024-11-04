@@ -276,7 +276,7 @@ class FishingMenuView(BaseView):
         try:
             custom_id = interaction.data["custom_id"]
             
-            # First do interaction check before any other logic
+            # Do the interaction check after getting custom_id
             if not await self.interaction_check(interaction):
                 return
             
@@ -288,29 +288,32 @@ class FishingMenuView(BaseView):
                         delete_after=2
                     )
                     return
-    
-            # Interaction check
-            if not await self.interaction_check(interaction):
-                return
-                    
-                # Start fishing process immediately with the interaction
-                self.fishing_in_progress = True
-                await interaction.response.defer()  # Defer the response since we'll handle it in do_fishing
-
-                # Ensure we have the current message reference
-                if not self.message:
-                    self.message = interaction.message
-                    
-                await self.initialize_view()
-                await self.do_fishing(interaction)
-                return
                 
-                # Initial response and store the message reference
-                await interaction.response.edit_message(embed=fishing_embed, view=self)
-                self.message = await interaction.original_response()
-                await self.do_fishing(interaction)
-                return
-                
+                # Interaction check
+                if not await self.interaction_check(interaction):
+                    return
+                    
+                try:
+                    # Start fishing process immediately with the interaction
+                    self.fishing_in_progress = True
+                    await interaction.response.defer()  # Defer the response since we'll handle it in do_fishing
+                    
+                    # Ensure we have the current message reference
+                    if not self.message:
+                        self.message = interaction.message
+                        
+                    await self.initialize_view()
+                    await self.do_fishing(interaction)
+                    return
+                    
+                except Exception as e:
+                    self.logger.error(f"Error in handle_button: {e}", exc_info=True)
+                    await interaction.response.send_message(
+                        "An error occurred while processing your request. Please try again.",
+                        ephemeral=True,
+                        delete_after=2
+                    )
+                    
             elif custom_id == "menu":
                 # Instead of importing FishingMenuView, use cog's create_menu method
                 menu_view = await self.cog.create_menu(self.ctx, self.user_data)
