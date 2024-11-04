@@ -12,7 +12,7 @@ from ..utils.timeout_manager import TimeoutManager
 from .components import MessageManager
 
 class BaseView(View):
-    """Enhanced base view class with improved error handling, logging and timeout management"""
+    """Base view class with error handling, logging and timeout management"""
     
     def __init__(self, cog, ctx: commands.Context, timeout: int = 60):
         super().__init__(timeout=timeout)
@@ -23,6 +23,7 @@ class BaseView(View):
         self.logger.debug(f"Initializing BaseView for {ctx.author.name}")
         self._closed = False
         self.timeout_manager = TimeoutManager()
+        self.parent_view = None  # Reference to parent view if this is a sub-menu
 
     async def start(self):
         """Start the view and initialize timeout management"""
@@ -87,9 +88,21 @@ class BaseView(View):
         self._closed = True
         await self.timeout_manager.remove_view(self)
             
+        # Clean up any child views first
+        for attr_name in dir(self):
+            if attr_name.endswith('_view'):
+                child_view = getattr(self, attr_name, None)
+                if isinstance(child_view, BaseView):
+                    try:
+                        await child_view.cleanup()
+                    except Exception as e:
+                        self.logger.error(f"Error cleaning up child view {attr_name}: {e}")
+            
+        # Disable all buttons
         for item in self.children:
             item.disabled = True
             
+        # Update message if it exists
         if self.message:
             try:
                 await self.message.edit(view=self)
@@ -97,12 +110,6 @@ class BaseView(View):
                 self.logger.warning("Message not found during cleanup")
             except Exception as e:
                 self.logger.error(f"Error during cleanup: {e}")
-                
-        # Clean up any child views
-        for attr in dir(self):
-            if attr.endswith('_view') and isinstance(getattr(self, attr), BaseView):
-                child_view = getattr(self, attr)
-                await child_view.cleanup()
                 
     async def on_timeout(self):
         """Enhanced timeout handler"""
