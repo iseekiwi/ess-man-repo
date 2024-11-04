@@ -8,6 +8,7 @@ from typing import Dict, Optional
 from discord.ui import Button, Select
 from redbot.core import bank
 from .base import BaseView
+from .components import MessageManager
 from ..utils.logging_config import get_logger
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
