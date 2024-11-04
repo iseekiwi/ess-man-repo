@@ -86,7 +86,13 @@ class BaseView(View):
             return
             
         self._closed = True
+        
+        # Clean up timeout management
         await self.timeout_manager.remove_view(self)
+        
+        # If this is a child view, resume parent timeout
+        if hasattr(self, 'parent_view') and self.parent_view:
+            await self.timeout_manager.resume_parent_view(self)
             
         # Clean up any child views first
         for attr_name in dir(self):
@@ -97,7 +103,7 @@ class BaseView(View):
                         await child_view.cleanup()
                     except Exception as e:
                         self.logger.error(f"Error cleaning up child view {attr_name}: {e}")
-            
+        
         # Disable all buttons
         for item in self.children:
             item.disabled = True
