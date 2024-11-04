@@ -190,50 +190,59 @@ class TimeoutManager:
             )
             
             # Get parent timeout settings
-            parent_data = self._timeouts.get(parent_id)
-            if parent_data:
+            if parent_id in self._timeouts:
+                parent_data = self._timeouts[parent_id]
+                
                 # Set up child timeout
-                current_time = time.time()
                 self._timeouts[child_id] = {
-                    'expiry': current_time + parent_data['duration'],
+                    'expiry': parent_data['expiry'],  # Use parent's expiry
                     'duration': parent_data['duration'],
-                    'last_interaction': current_time,
+                    'last_interaction': time.time(),
                     'parent_id': parent_id,
                     'paused': False
                 }
                 self._views[child_id] = child_view
                 
-                # Pause parent
+                # Pause parent without removing it
                 parent_data['paused'] = True
                 
                 self.logger.debug(
                     f"View transition completed:\n"
                     f"  Parent {parent_id} paused\n"
-                    f"  Child {child_id} active for {parent_data['duration']}s"
+                    f"  Child {child_id} inheriting parent expiry"
                 )
             else:
-                # If parent isn't registered, register child as new view
-                self.logger.debug(f"Parent view not found, registering child as new view")
-                await self.add_view(child_view, child_view.timeout)
+                # If parent not found, register it first
+                await self.add_view(parent_view, parent_view.timeout)
+                # Then retry transition
+                await self.handle_view_transition(parent_view, child_view)
                 
         except Exception as e:
-            self.logger.error(f"Error in view transition: {e}")
+            self.logger.error(f"Error in view transition: {e}", exc_info=True)
             
     async def resume_parent_view(self, child_view):
         """Resume parent view timeout when returning from child view"""
         try:
             child_id = self.generate_view_id(child_view)
+            
             if child_id in self._timeouts:
                 parent_id = self._timeouts[child_id].get('parent_id')
                 if parent_id and parent_id in self._timeouts:
-                    # Unpause parent view
-                    self._timeouts[parent_id]['paused'] = False
+                    # Transfer remaining time to parent
+                    remaining_time = self._timeouts[child_id]['expiry'] - time.time()
+                    if remaining_time > 0:
+                        self._timeouts[parent_id].update({
+                            'expiry': time.time() + remaining_time,
+                            'paused': False
+                        })
+                        self.logger.debug(
+                            f"Resumed parent view {parent_id} with {remaining_time:.1f}s remaining"
+                        )
                     
-                    # Reset parent view timeout
-                    if parent_view := self._views.get(parent_id):
-                        self._timeouts[parent_id]['expiry'] = time.time() + self._timeouts[parent_id]['duration']
-                        self.logger.debug(f"Reset timeout for parent view {parent_id}")
-                        
+                    # Clean up child view
+                    self._timeouts.pop(child_id, None)
+                    self._views.pop(child_id, None)
+                    
         except Exception as e:
             self.logger.error(f"Error in resume_parent_view: {e}")
     
