@@ -38,11 +38,10 @@ class BaseView(View):
             self.message = await self.ctx.send(embed=embed, view=self)
             
             # Register with timeout manager after message is sent
-            await self.timeout_manager.add_view(self, self.timeout)
-            self.logger.debug(
-                f"View registered with timeout manager: "
-                f"{self.__class__.__name__}"
-            )
+            if not any(vid for vid, v in self.timeout_manager._views.items() 
+                      if isinstance(v, self.__class__) and v.ctx.author.id == self.ctx.author.id):
+                await self.timeout_manager.add_view(self, self.timeout)
+                self.logger.debug(f"View registered with timeout manager: {self.__class__.__name__}")
             
             return self
         except Exception as e:
