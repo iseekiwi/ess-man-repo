@@ -10,6 +10,7 @@ from discord.ui import Button, View
 from collections import Counter
 from .base import BaseView, ConfirmView
 from ..utils.logging_config import get_logger
+from ..utils.timeout_manager import TimeoutManager
 
 
 logger = get_logger('inventory')
