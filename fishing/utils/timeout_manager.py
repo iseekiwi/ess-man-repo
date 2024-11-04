@@ -62,22 +62,26 @@ class TimeoutManager:
             view_id = self.generate_view_id(view)
             current_time = time.time()
             
-            self._timeouts[view_id] = {
-                'expiry': current_time + duration,
-                'duration': duration,
-                'last_interaction': current_time,
-                'paused': False
-            }
-            self._views[view_id] = view
-            
-            self.logger.debug(
-                f"Added view to timeout manager:\n"
-                f"  ID: {view_id}\n"
-                f"  Type: {view.__class__.__name__}\n"
-                f"  Duration: {duration}s\n"
-                f"  Expiry: +{duration}s"
-            )
-            
+            if view_id not in self._timeouts:
+                self._timeouts[view_id] = {
+                    'expiry': current_time + duration,
+                    'duration': duration,
+                    'last_interaction': current_time,
+                    'paused': False
+                }
+                self._views[view_id] = view
+                
+                self.logger.debug(
+                    f"Added view to timeout manager:\n"
+                    f"  ID: {view_id}\n"
+                    f"  Type: {view.__class__.__name__}\n"
+                    f"  Duration: {duration}s\n"
+                    f"  Expiry: +{duration}s"
+                )
+            else:
+                self.logger.debug(f"View {view_id} already registered, resetting timeout")
+                await self.reset_timeout(view)
+                
             if not self._task or self._task.done():
                 await self.start()
                 
@@ -97,26 +101,48 @@ class TimeoutManager:
             view_id = self.generate_view_id(view)
             self.logger.debug(f"Attempting to reset timeout for view {view_id}")
             
-            if view_id not in self._timeouts:
-                self.logger.warning(f"View {view_id} not found in timeout manager")
-                return
+            if view_id in self._timeouts:
+                # Reset this view's timeout
+                current_time = time.time()
+                duration = self._timeouts[view_id]['duration']
+                new_expiry = current_time + duration
                 
-            current_time = time.time()
-            duration = self._timeouts[view_id]['duration']
-            new_expiry = current_time + duration
-            
-            # Update the view's timeout
-            self._timeouts[view_id].update({
-                'expiry': new_expiry,
-                'last_interaction': current_time
-            })
-            
-            self.logger.debug(
-                f"Reset timeout for {view_id}:\n"
-                f"  New expiry: +{duration}s\n"
-                f"  Previous interactions: {len(self._timeouts[view_id].get('interactions', []))}"
-            )
-            
+                self._timeouts[view_id].update({
+                    'expiry': new_expiry,
+                    'last_interaction': current_time
+                })
+                
+                # Reset parent view if it exists
+                parent_id = self._timeouts[view_id].get('parent_id')
+                if parent_id and parent_id in self._timeouts:
+                    self._timeouts[parent_id].update({
+                        'expiry': new_expiry,
+                        'last_interaction': current_time
+                    })
+                    self.logger.debug(f"Reset parent view {parent_id}")
+                
+                # Reset child views
+                for tid, data in self._timeouts.items():
+                    if data.get('parent_id') == view_id:
+                        data.update({
+                            'expiry': new_expiry,
+                            'last_interaction': current_time
+                        })
+                        self.logger.debug(f"Reset child view {tid}")
+                        
+                self.logger.debug(
+                    f"Reset timeout cascade:\n"
+                    f"  View: {view_id}\n"
+                    f"  Parent: {parent_id if parent_id else 'None'}\n"
+                    f"  New expiry: {new_expiry}"
+                )
+            else:
+                self.logger.warning(
+                    f"View {view_id} not found in timeout manager, "
+                    f"attempting to register"
+                )
+                await self.add_view(view, view.timeout)
+                
         except Exception as e:
             self.logger.error(f"Error resetting timeout: {e}")
     
@@ -192,33 +218,40 @@ class TimeoutManager:
             # Get parent timeout settings
             if parent_id in self._timeouts:
                 parent_data = self._timeouts[parent_id]
+                current_time = time.time()
                 
-                # Set up child timeout
+                # Calculate remaining time from parent
+                remaining_time = parent_data['expiry'] - current_time
+                if remaining_time <= 0:
+                    remaining_time = parent_data['duration']
+                    
+                # Add child with parent's remaining time
                 self._timeouts[child_id] = {
-                    'expiry': parent_data['expiry'],  # Use parent's expiry
+                    'expiry': current_time + remaining_time,
                     'duration': parent_data['duration'],
-                    'last_interaction': time.time(),
+                    'last_interaction': current_time,
                     'parent_id': parent_id,
                     'paused': False
                 }
                 self._views[child_id] = child_view
                 
-                # Pause parent without removing it
+                # Pause parent but preserve its timeout
                 parent_data['paused'] = True
+                parent_data['last_interaction'] = current_time
                 
                 self.logger.debug(
                     f"View transition completed:\n"
-                    f"  Parent {parent_id} paused\n"
-                    f"  Child {child_id} inheriting parent expiry"
+                    f"  Parent {parent_id} paused with {remaining_time:.1f}s remaining\n"
+                    f"  Child {child_id} inheriting timeout"
                 )
             else:
-                # If parent not found, register it first
+                # If parent isn't found, log warning and register both
+                self.logger.warning(f"Parent view {parent_id} not found, registering both views")
                 await self.add_view(parent_view, parent_view.timeout)
-                # Then retry transition
-                await self.handle_view_transition(parent_view, child_view)
+                await self.add_view(child_view, child_view.timeout)
                 
         except Exception as e:
-            self.logger.error(f"Error in view transition: {e}", exc_info=True)
+            self.logger.error(f"Error in view transition: {e}")
             
     async def resume_parent_view(self, child_view):
         """Resume parent view timeout when returning from child view"""
