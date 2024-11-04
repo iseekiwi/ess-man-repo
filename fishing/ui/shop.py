@@ -441,7 +441,7 @@ class ShopView(BaseView):
                 f"Confirm purchase of {quantity}x {item_name} for {cost * quantity} coins?",
                 view=confirm_view,
                 ephemeral=True,
-                wait=True
+                delete_after=2
             )
             
             confirm_view.message = await interaction.original_response()
