@@ -131,7 +131,7 @@ BAIT_TYPES: Dict[str, BaitData] = {
         "catch_bonus": 0.1,
         "cost": 1,
         "description": "Basic bait that attracts common fish.",
-        "daily_stock": 10,
+        "daily_stock": 1000,
         "preferred_by": ["Common Fish"],
         "effectiveness": {
             "Pond": 1.2,
@@ -143,7 +143,7 @@ BAIT_TYPES: Dict[str, BaitData] = {
         "catch_bonus": 0.2,
         "cost": 3,
         "description": "Medium-grade bait, good for various fish types.",
-        "daily_stock": 10,
+        "daily_stock": 500,
         "preferred_by": ["Uncommon Fish"],
         "effectiveness": {
             "Pond": 0.8,
@@ -155,8 +155,20 @@ BAIT_TYPES: Dict[str, BaitData] = {
         "catch_bonus": 0.3,
         "cost": 5,
         "description": "Premium bait with high catch bonus.",
-        "daily_stock": 10,
+        "daily_stock": 250,
         "preferred_by": ["Rare Fish"],
+        "effectiveness": {
+            "Pond": 1.5,
+            "Ocean": 0.7
+        }
+    },
+    "Nightcrawler": {
+        "value": 4,
+        "catch_bonus": 0.4,
+        "cost": 8,
+        "description": "A fat worm even Legendary fish can't resist.",
+        "daily_stock": 100,
+        "preferred_by": ["Legendary Fish"],
         "effectiveness": {
             "Pond": 1.5,
             "Ocean": 0.7
