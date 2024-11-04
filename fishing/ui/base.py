@@ -21,18 +21,21 @@ class BaseView(View):
         self.logger.debug(f"Initializing BaseView for {ctx.author.name}")
         self._timeout_task: Optional[asyncio.Task] = None
         self._timeout_expiry: Optional[float] = None
+        self._closed = False
         
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        """Enhanced interaction check with logging and timeout management"""
+        """Enhanced interaction check with improved timeout management"""
         try:
+            if self._closed:
+                return False
+                
             is_author = interaction.user.id == self.ctx.author.id
             if not is_author:
                 self.logger.warning(
                     f"Unauthorized interaction attempt by {interaction.user.id} "
                     f"on view owned by {self.ctx.author.id}"
                 )
-                await MessageManager.send_temp_message(
-                    interaction,
+                await interaction.response.send_message(
                     "This menu is not for you!",
                     ephemeral=True
                 )
@@ -41,9 +44,9 @@ class BaseView(View):
             # Reset timeout on valid interaction
             if self.timeout is not None:
                 # Cancel existing timeout task if it exists
-                if hasattr(self, '_timeout_task') and self._timeout_task:
+                if self._timeout_task and not self._timeout_task.done():
+                    self._timeout_task.cancel()
                     try:
-                        self._timeout_task.cancel()
                         await self._timeout_task
                     except asyncio.CancelledError:
                         pass
@@ -52,8 +55,9 @@ class BaseView(View):
                 
                 # Create new timeout task
                 self._timeout_task = asyncio.create_task(self._handle_timeout())
+                self._timeout_expiry = time.time() + self.timeout
                 self.logger.debug(f"Reset timeout for view owned by {self.ctx.author.id}")
-                
+            
             return True
             
         except Exception as e:
@@ -65,29 +69,49 @@ class BaseView(View):
         try:
             if self.timeout is not None:
                 await asyncio.sleep(self.timeout)
-                await self.on_timeout()
+                if not self._closed:
+                    await self.on_timeout()
         except asyncio.CancelledError:
             # Task was cancelled due to new interaction
             pass
         except Exception as e:
             self.logger.error(f"Error in timeout handler: {e}")
-        
-    async def on_timeout(self):
-        """Enhanced timeout handler with logging"""
-        self.logger.info(f"View timed out for user {self.ctx.author.id}")
-        await self.cleanup()
-
+            
     async def cleanup(self):
-        """Clean up view resources"""
+        """Enhanced cleanup with proper task management"""
+        if self._closed:
+            return
+            
+        self._closed = True
+        if self._timeout_task and not self._timeout_task.done():
+            self._timeout_task.cancel()
+            try:
+                await self._timeout_task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                self.logger.error(f"Error cleaning up timeout task: {e}")
+                
         for item in self.children:
             item.disabled = True
+            
         if self.message:
             try:
                 await self.message.edit(view=self)
             except discord.NotFound:
-                self.logger.warning("Message not found when handling cleanup")
+                self.logger.warning("Message not found during cleanup")
             except Exception as e:
-                self.logger.error(f"Error handling cleanup: {e}")
+                self.logger.error(f"Error during cleanup: {e}")
+                
+    async def on_timeout(self):
+        """Enhanced timeout handler"""
+        self.logger.info(f"View timed out for user {self.ctx.author.id}")
+        await self.cleanup()
+        
+    def stop(self):
+        """Override stop to ensure proper cleanup"""
+        asyncio.create_task(self.cleanup())
+        super().stop()
 
     async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item):
         """Global error handler for view interactions"""
