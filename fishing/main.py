@@ -177,6 +177,13 @@ class Fishing(commands.Cog):
     ) -> dict:
         """Calculate catch results with all modifiers."""
         try:
+            if not bait_type:
+            self.logger.error("Attempted fishing without bait")
+            return None
+            
+            if bait_type not in self.data["bait"]:
+                self.logger.error(f"Invalid bait type: {bait_type}")
+                return None
             # Calculate catch chance
             base_chance = self.data["rods"][user_data["rod"]]["chance"]
             bait_bonus = self.data["bait"][bait_type]["catch_bonus"]
