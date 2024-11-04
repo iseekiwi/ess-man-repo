@@ -521,21 +521,36 @@ class ShopView(BaseView):
                             await self.initialize_view()
                             await self.update_view()
                 
-                # Use MessageManager for consistent temporary message handling
-                await MessageManager.send_temp_message(
-                    interaction,
-                    msg,
-                    ephemeral=True,
-                    duration=2
-                )
+                # Send feedback using followup since we can't reuse the original interaction
+                if interaction.response.is_done():
+                    feedback_msg = await interaction.followup.send(
+                        msg,
+                        ephemeral=True,
+                        wait=True
+                    )
+                    # Schedule deletion after 2 seconds
+                    self.cog.bot.loop.create_task(self.delete_after_delay(feedback_msg))
+                else:
+                    await interaction.response.send_message(
+                        msg,
+                        ephemeral=True,
+                        delete_after=2
+                    )
                 
             else:  # User cancelled
-                await MessageManager.send_temp_message(
-                    interaction,
-                    "Purchase cancelled.",
-                    ephemeral=True,
-                    duration=2
-                )
+                if interaction.response.is_done():
+                    cancel_msg = await interaction.followup.send(
+                        "Purchase cancelled.",
+                        ephemeral=True,
+                        wait=True
+                    )
+                    self.cog.bot.loop.create_task(self.delete_after_delay(cancel_msg))
+                else:
+                    await interaction.response.send_message(
+                        "Purchase cancelled.",
+                        ephemeral=True,
+                        delete_after=2
+                    )
             
             # Cleanup the confirmation view
             await confirm_view.cleanup()
