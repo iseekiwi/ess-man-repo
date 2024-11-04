@@ -226,13 +226,20 @@ class InventoryView(BaseView):
 
     async def handle_button(self, interaction: discord.Interaction):
         """Handle button interactions"""
+        if not await self.interaction_check(interaction):
+            return
+        
         try:
             custom_id = interaction.data["custom_id"]
             
             if custom_id == "menu":
                 menu_view = await self.cog.create_menu(self.ctx, self.user_data)
+                if self.timeout is not None:
+                    menu_view.timeout = self.timeout  # Preserve timeout duration
                 embed = await menu_view.generate_embed()
                 await interaction.response.edit_message(embed=embed, view=menu_view)
+                menu_view.message = await interaction.original_response()
+                await self.cleanup()  # Clean up current view
                 return
                 
             if custom_id == "back":
@@ -285,7 +292,7 @@ class InventoryView(BaseView):
                 await self.update_view()
                 
         except Exception as e:
-            self.logger.error(f"Error in handle_button: {e}", exc_info=True)
+            self.logger.error(f"Error in handle_button: {e}")
             if not interaction.response.is_done():
                 await interaction.response.send_message(
                     "An error occurred. Please try again.",
