@@ -342,20 +342,21 @@ class ShopView(BaseView):
             raise
 
     async def handle_button(self, interaction: discord.Interaction):
-        """Handle button interactions"""
         try:
             custom_id = interaction.data["custom_id"]
             
             if not await self.interaction_check(interaction):
                 return
             
-            if custom_id == "menu":
-                # Remove this view from timeout management
-                await self.cleanup()
-                
-                # Create new menu view with same timeout
-                menu_view = await self.cog.create_menu(self.ctx, self.user_data)
-                menu_view.timeout = self.timeout
+            if custom_id == "menu" or custom_id == "back" and self.current_page == "main":
+                # Return to parent menu if it exists
+                if hasattr(self, 'parent_view') and self.parent_view:
+                    await self.cleanup()  # Clean up this view
+                    self.parent_view.current_page = "main"
+                    await self.parent_view.initialize_view()
+                    embed = await self.parent_view.generate_embed()
+                    await interaction.response.edit_message(embed=embed, view=self.parent_view)
+                    return
                 
                 # Initialize and start the new view
                 await menu_view.setup()
@@ -375,14 +376,6 @@ class ShopView(BaseView):
                 
             elif custom_id == "rods":
                 self.current_page = "rods"
-                await self.initialize_view()
-                embed = await self.generate_embed()
-                await interaction.response.edit_message(embed=embed, view=self)
-                self.message = await interaction.original_response()
-                
-            elif custom_id == "back":
-                self.current_page = "main"
-                self.selected_quantity = 1
                 await self.initialize_view()
                 embed = await self.generate_embed()
                 await interaction.response.edit_message(embed=embed, view=self)
