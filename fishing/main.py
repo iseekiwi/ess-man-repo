@@ -238,34 +238,50 @@ class Fishing(commands.Cog):
     async def _update_total_value(self, user, value: int) -> bool:
         """Update total value and check for level up."""
         try:
+            self.logger.debug(f"Starting total value update for user {user.id} with value {value}")
+            
             user_data_result = await self.config_manager.get_user_data(user.id)
             if not user_data_result.success:
+                self.logger.error(f"Failed to get user data in _update_total_value: {user_data_result.error}")
                 return False
                 
             user_data = user_data_result.data
+            self.logger.debug(f"Current user data: {user_data}")
             old_level = user_data["level"]
             
             # Calculate new level
             fish_caught = user_data["fish_caught"] + 1  # Increment fish count
             new_level = max(1, fish_caught // 50)
             
-            # Prepare updates
+            # Prepare updates with XP field included
             updates = {
                 "total_value": user_data["total_value"] + value,
                 "fish_caught": fish_caught,
-                "level": new_level
+                "level": new_level,
+                "experience": user_data.get("experience", 0)  # Ensure experience field exists
             }
+            
+            self.logger.debug(f"Preparing updates: {updates}")
             
             # Update user data
             update_result = await self.config_manager.update_user_data(
                 user.id,
                 updates,
-                fields=["total_value", "fish_caught", "level"]
+                fields=["total_value", "fish_caught", "level", "experience"]
             )
             
             if not update_result.success:
+                self.logger.error(f"Failed to update user data in _update_total_value: {update_result.error}")
                 return False
                 
+            # Verify the update
+            verify_result = await self.config_manager.get_user_data(user.id)
+            if not verify_result.success:
+                self.logger.error(f"Failed to verify data update: {verify_result.error}")
+                return False
+                
+            self.logger.debug(f"Updated user data: {verify_result.data}")
+            
             if new_level > old_level:
                 self.logger.info(f"User {user.name} leveled up from {old_level} to {new_level}")
                 
