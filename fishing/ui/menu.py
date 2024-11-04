@@ -12,6 +12,8 @@ from .base import BaseView
 from ..utils.logging_config import get_logger
 from .shop import ShopView
 
+logger = get_logger('menu')
+
 class FishingMenuView(BaseView):
     """Main menu interface for the fishing cog"""
     
