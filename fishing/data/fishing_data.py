@@ -90,7 +90,7 @@ FISH_TYPES: Dict[str, FishData] = {
             "Rainbow Trout",
             "Ancient Sturgeon"
         ]
-    }
+    },
 }
 
 # Rod types with expanded details
@@ -173,6 +173,15 @@ BAIT_TYPES: Dict[str, BaitData] = {
             "Pond": 1.5,
             "Ocean": 0.7
         }
+    },
+        "Dev Bait": {
+        "value": 5,
+        "catch_bonus": 1,
+        "cost": 999999,
+        "description": "A bait guaranteed to catch fish, designed by the Ancient Immortal",
+        "daily_stock": 0,
+        "preferred_by": ["Legendary Fish"],
+        "effectiveness": {}
     }
 }
 
