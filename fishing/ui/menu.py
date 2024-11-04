@@ -386,30 +386,11 @@ class FishingMenuView(BaseView):
                 return
                 
             # Get fresh user data to ensure accurate equipment check
-            user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+            user_data_result = await self.config_manager.get_user_data(self.ctx.author.id)
             if user_data_result.success:
                 self.user_data = user_data_result.data
-
-            # Check for equipped bait before starting fishing process
-            if not self.user_data.get("equipped_bait"):
-                self.fishing_in_progress = False
-                await self.initialize_view()
-                message = await interaction.followup.send(
-                    "🚫 You need to equip bait first! Use the Inventory menu to equip some bait.",
-                    ephemeral=True,
-                    wait=True
-                )
-                self.cog.bot.loop.create_task(self.delete_after_delay(message))
-                main_embed = await self.generate_embed()
-                if self.message:
-                    await self.message.edit(embed=main_embed, view=self)
-                return
-            
-            # Use existing message reference
-            if not self.message:
-                self.message = interaction.message
-                    
-                if not self.user_data["equipped_bait"]:
+                
+                if not self.user_data.get("equipped_bait"):
                     self.fishing_in_progress = False
                     await self.initialize_view()
                     message = await interaction.followup.send(
@@ -422,7 +403,11 @@ class FishingMenuView(BaseView):
                     if self.message:
                         await self.message.edit(embed=main_embed, view=self)
                     return
-            
+                
+                # Use existing message reference
+                if not self.message:
+                    self.message = interaction.message
+                    
                 # Clear UI of menu buttons during fishing
                 self.stored_buttons = self.children.copy()
                 self.clear_items()
@@ -477,7 +462,7 @@ class FishingMenuView(BaseView):
                 # Only handle timeout if no catch attempt was made and buttons aren't disabled
                 if not self.catch_attempted and not self.children[0].disabled:
                     # Time ran out - handle bait consumption for failed attempt
-                    user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+                    user_data_result = await self.config_manager.get_user_data(self.ctx.author.id)
                     if user_data_result.success:
                         update_data = {"bait": user_data_result.data.get("bait", {})}
                         equipped_bait = user_data_result.data.get("equipped_bait")
@@ -495,10 +480,10 @@ class FishingMenuView(BaseView):
                     )
                     await self.message.edit(embed=fishing_embed)
                     await asyncio.sleep(2)
-            
+                    
                     # Reset fishing state and get fresh user data
                     self.fishing_in_progress = False
-                    user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+                    user_data_result = await self.config_manager.get_user_data(self.ctx.author.id)
                     if user_data_result.success:
                         self.user_data = user_data_result.data
                         self.current_page = "main"  # Reset to main page
@@ -529,7 +514,7 @@ class FishingMenuView(BaseView):
             )
             self.cog.bot.loop.create_task(self.delete_after_delay(message))
             main_embed = await self.generate_embed()
-            if self.message:  # Add null check here too
+            if self.message:
                 await self.message.edit(embed=main_embed, view=self)
 
     async def handle_catch_attempt(self, interaction: discord.Interaction):
