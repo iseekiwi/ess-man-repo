@@ -365,7 +365,6 @@ class ShopView(BaseView):
             raise
 
     async def handle_button(self, interaction: discord.Interaction):
-        """Handle button interactions"""
         try:
             custom_id = interaction.data["custom_id"]
             
@@ -382,7 +381,7 @@ class ShopView(BaseView):
                     await interaction.response.edit_message(embed=embed, view=self.parent_view)
                     self.parent_view.message = await interaction.original_response()
                     return
-                
+                    
             if custom_id == "bait":
                 self.current_page = "bait"
                 await self.initialize_view()
