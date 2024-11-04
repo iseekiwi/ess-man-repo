@@ -445,7 +445,7 @@ class ShopView(BaseView):
             )
             
             confirm_view.message = await interaction.original_response()
-            await confirm_view.start()
+            await confirm_view.wait()
     
             # Use an event to handle immediate confirmation
             confirmation_event = asyncio.Event()
