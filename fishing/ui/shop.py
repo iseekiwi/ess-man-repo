@@ -520,17 +520,21 @@ class ShopView(BaseView):
                             await self.initialize_view()
                             await self.update_view()
                 
-                # Send result message with short deletion delay
-                message = await interaction.followup.send(msg, ephemeral=True, wait=True)
-                self.cog.bot.loop.create_task(self.delete_after_delay(message))
+                # Use MessageManager for consistent temporary message handling
+                await MessageManager.send_temp_message(
+                    interaction,
+                    msg,
+                    ephemeral=True,
+                    duration=2
+                )
                 
             else:  # User cancelled
-                message = await interaction.followup.send(
+                await MessageManager.send_temp_message(
+                    interaction,
                     "Purchase cancelled.",
                     ephemeral=True,
-                    wait=True
+                    duration=2
                 )
-                self.cog.bot.loop.create_task(self.delete_after_delay(message))
             
             # Cleanup the confirmation view
             await confirm_view.cleanup()
