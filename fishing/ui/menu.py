@@ -506,10 +506,12 @@ class FishingMenuView(BaseView):
         try:
             # Set catch_attempted flag
             self.catch_attempted = True
+            self.logger.debug(f"Starting catch attempt for user {interaction.user.id}")
             
             # Get the button that was pressed
             button_id = interaction.data["custom_id"]
             action = button_id.replace("catch_", "")
+            self.logger.debug(f"Catch action attempted: {action}")
             
             # Disable all buttons immediately
             for child in self.children:
@@ -518,6 +520,8 @@ class FishingMenuView(BaseView):
             
             # Check if correct button was pressed
             if action == self.correct_action:
+                self.logger.debug("Correct action selected, processing catch")
+                
                 # Get weather first
                 weather_result = await self.cog.config_manager.get_global_setting("current_weather")
                 current_weather = weather_result.data if weather_result.success else "Sunny"
@@ -542,12 +546,16 @@ class FishingMenuView(BaseView):
                             del update_data["bait"][equipped_bait]
                             update_data["equipped_bait"] = None
                     await self.cog.config_manager.update_user_data(interaction.user.id, update_data)
+                    self.logger.debug("Bait inventory updated")
                 
                 if catch:
                     fish_name = catch["name"]
                     fish_value = catch["value"]
                     xp_gained = catch.get("xp_gained", 0)
                     variant = random.choice(self.cog.data["fish"][fish_name]["variants"])
+                    
+                    self.logger.debug(f"Processing catch with XP gain: {xp_gained}")
+                    self.logger.debug(f"Current user data before XP award: {self.user_data}")
                     
                     # Update user data
                     await self.cog._add_to_inventory(interaction.user, fish_name)
@@ -559,13 +567,22 @@ class FishingMenuView(BaseView):
                         xp_gained
                     )
                     
+                    self.logger.debug(
+                        f"XP award result - Success: {xp_success}, "
+                        f"Old Level: {old_level}, New Level: {new_level}"
+                    )
+                    
                     # Force refresh the cache to get updated XP data
                     await self.cog.config_manager.refresh_cache(interaction.user.id)
+                    self.logger.debug("Cache refreshed after XP award")
                     
                     # Get fresh user data after XP update
                     fresh_data_result = await self.cog.config_manager.get_user_data(interaction.user.id)
                     if fresh_data_result.success:
                         self.user_data = fresh_data_result.data
+                        self.logger.debug(f"Fresh user data after XP: {fresh_data_result.data}")
+                    else:
+                        self.logger.error("Failed to get fresh data after XP award")
                     
                     if xp_success and old_level and new_level:
                         catch["level_up"] = {
@@ -575,6 +592,7 @@ class FishingMenuView(BaseView):
                     
                     # Get level progress with fresh data
                     progress = await self.cog.level_manager.get_level_progress(interaction.user.id)
+                    self.logger.debug(f"Level progress after catch: {progress}")
                     
                     description = [
                         f"You caught a {variant} ({fish_name}) worth {fish_value} coins!",
@@ -631,10 +649,14 @@ class FishingMenuView(BaseView):
             user_data_result = await self.cog.config_manager.get_user_data(interaction.user.id)
             if user_data_result.success:
                 self.user_data = user_data_result.data
+                self.logger.debug(f"Final user data update: {self.user_data}")
                 self.current_page = "main"  # Reset to main page
                 await self.initialize_view()  # Reinitialize the view with updated data
                 main_embed = await self.generate_embed()  # Generate new embed
                 await self.message.edit(embed=main_embed, view=self)  # Update the message
+                self.logger.debug("Menu view updated with final data")
+            else:
+                self.logger.error("Failed to get final user data update")
                 
         except Exception as e:
             self.logger.error(f"Error in catch attempt: {e}", exc_info=True)
