@@ -13,7 +13,6 @@ from .utils.task_manager import TaskManager
 from .utils.logging_config import get_logger
 from .utils.config_manager import ConfigManager, ConfigResult
 from .utils.level_manager import LevelManager
-from .utils.timeout_manager import TimeoutManager
 from redbot.core import commands, Config, bank
 from redbot.core.bot import Red
 from collections import Counter
@@ -34,9 +33,6 @@ class Fishing(commands.Cog):
         # Set up logging first
         self.logger = get_logger('main')
         self.logger.info("Initializing Fishing cog")
-
-        # Initialize timeout manager
-        self.timeout_manager = TimeoutManager()
         
         # Initialize config manager
         self.config_manager = ConfigManager(bot, identifier=123456789)
@@ -86,8 +82,6 @@ class Fishing(commands.Cog):
     async def cog_load(self):
         """Run setup after cog is loaded."""
         try:
-            # Start timeout manager
-            await self.timeout_manager.start()
             # Verify and initialize stock if needed
             stock_result = await self.config_manager.get_global_setting("bait_stock")
             self.logger.debug(f"Current bait stock on load: {stock_result.data if stock_result.success else 'None'}")
@@ -113,7 +107,6 @@ class Fishing(commands.Cog):
     
     def cog_unload(self):
         """Clean up when cog is unloaded."""
-        asyncio.create_task(self.timeout_manager.cleanup())
         asyncio.create_task(self.bg_task_manager.stop())
         self.logger.info("Cog unloaded, background tasks cancelled")
 
@@ -177,13 +170,6 @@ class Fishing(commands.Cog):
     ) -> dict:
         """Calculate catch results with all modifiers."""
         try:
-            if not bait_type:
-                self.logger.error("Attempted fishing without bait")
-                return None
-            
-            if bait_type not in self.data["bait"]:
-                self.logger.error(f"Invalid bait type: {bait_type}")
-                return None
             # Calculate catch chance
             base_chance = self.data["rods"][user_data["rod"]]["chance"]
             bait_bonus = self.data["bait"][bait_type]["catch_bonus"]
