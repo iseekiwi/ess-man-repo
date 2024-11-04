@@ -107,8 +107,17 @@ class Fishing(commands.Cog):
     
     def cog_unload(self):
         """Clean up when cog is unloaded."""
-        asyncio.create_task(self.bg_task_manager.stop())
-        self.logger.info("Cog unloaded, background tasks cancelled")
+        try:
+            # Stop background tasks
+            asyncio.create_task(self.bg_task_manager.stop())
+            
+            # Clean up timeout manager
+            timeout_manager = TimeoutManager()
+            asyncio.create_task(timeout_manager.cleanup())
+            
+            self.logger.info("Cog unloaded, background tasks cancelled")
+        except Exception as e:
+            self.logger.error(f"Error in cog_unload: {e}")
 
     async def check_requirements(self, user_data: dict, requirements: dict) -> tuple[bool, str]:
         """Check if user meets requirements."""
