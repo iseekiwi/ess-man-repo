@@ -80,7 +80,7 @@ class BaseView(View):
             self.logger.error(f"Error in timeout handler: {e}")
             
     async def cleanup(self):
-        """Enhanced cleanup with timeout management"""
+        """Enhanced cleanup with improved timeout management"""
         if self._closed:
             return
             
@@ -97,6 +97,12 @@ class BaseView(View):
                 self.logger.warning("Message not found during cleanup")
             except Exception as e:
                 self.logger.error(f"Error during cleanup: {e}")
+                
+        # Clean up any child views
+        for attr in dir(self):
+            if attr.endswith('_view') and isinstance(getattr(self, attr), BaseView):
+                child_view = getattr(self, attr)
+                await child_view.cleanup()
                 
     async def on_timeout(self):
         """Enhanced timeout handler"""
