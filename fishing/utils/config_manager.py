@@ -140,9 +140,14 @@ class ConfigManager:
             validated["purchased_rods"]["Basic Rod"] = True
             
             # Validate numeric fields
-            for field in ["total_value", "fish_caught", "level"]:
+            for field in ["total_value", "fish_caught", "level", "experience"]:  # Added experience
                 try:
-                    validated[field] = max(0, int(data.get(field, 0)))
+                    if field == "experience":
+                        # Ensure experience is initialized to 0 if not present
+                        validated[field] = max(0, int(data.get(field, 0)))
+                        self.logger.debug(f"Validated experience value: {validated[field]}")
+                    else:
+                        validated[field] = max(0, int(data.get(field, 0)))
                 except (ValueError, TypeError):
                     self.logger.warning(f"Invalid {field} value, resetting to 0")
                     validated[field] = 0
@@ -173,6 +178,9 @@ class ConfigManager:
             if validated["rod"] not in validated["purchased_rods"]:
                 self.logger.warning("Invalid rod equipped, resetting to Basic Rod")
                 validated["rod"] = "Basic Rod"
+                
+            # Log the final validated experience value
+            self.logger.debug(f"Final validated experience value: {validated.get('experience', 0)}")
                 
             return validated
             
