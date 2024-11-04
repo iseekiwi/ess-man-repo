@@ -559,13 +559,21 @@ class FishingMenuView(BaseView):
                         xp_gained
                     )
                     
+                    # Force refresh the cache to get updated XP data
+                    await self.cog.config_manager.refresh_cache(interaction.user.id)
+                    
+                    # Get fresh user data after XP update
+                    fresh_data_result = await self.cog.config_manager.get_user_data(interaction.user.id)
+                    if fresh_data_result.success:
+                        self.user_data = fresh_data_result.data
+                    
                     if xp_success and old_level and new_level:
                         catch["level_up"] = {
                             "old_level": old_level,
                             "new_level": new_level
                         }
                     
-                    # Get level progress
+                    # Get level progress with fresh data
                     progress = await self.cog.level_manager.get_level_progress(interaction.user.id)
                     
                     description = [
