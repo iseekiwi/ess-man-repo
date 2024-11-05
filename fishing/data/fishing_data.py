@@ -47,105 +47,57 @@ class TimeData(TypedDict):
     rare_bonus: float
 
 # Fish types
-FISH_TYPES: Dict[str, FishData] = {
+FISH_TYPES = {
     "Common Fish": {
         "rarity": "common",
-        "value": 3,
-        "chance": 0.6,
-        "variants": [
-            "Bluegill",
-            "Bass",
-            "Perch",
-            "Carp",
-            "Catfish"
-        ]
+        "value": 5,        # Was 3
+        "chance": 0.65,    # Slight increase
+        "variants": ["Bluegill", "Bass", "Perch", "Carp", "Catfish"]
     },
     "Uncommon Fish": {
         "rarity": "uncommon",
-        "value": 7,
-        "chance": 0.25,
-        "variants": [
-            "Salmon",
-            "Trout",
-            "Pike",
-            "Walleye",
-            "Tuna"
-        ]
+        "value": 12,       # Was 7
+        "chance": 0.22,    # Slight decrease
+        "variants": ["Salmon", "Trout", "Pike", "Walleye", "Tuna"]
     },
     "Rare Fish": {
         "rarity": "rare",
-        "value": 12,
-        "chance": 0.13,
-        "variants": [
-            "Swordfish",
-            "Marlin",
-            "Sturgeon",
-            "Mahi-mahi",
-            "Barracuda"
-        ]
+        "value": 45,       # Was 12
+        "chance": 0.11,    # Slight decrease
+        "variants": ["Swordfish", "Marlin", "Sturgeon", "Mahi-mahi", "Barracuda"]
     },
     "Legendary Fish": {
         "rarity": "legendary",
-        "value": 50,
-        "chance": 0.02,
-        "variants": [
-            "Golden Koi",
-            "Giant Tuna",
-            "Megalodon",
-            "Rainbow Trout",
-            "Ancient Sturgeon"
-        ]
-    },
+        "value": 150,      # Was 50
+        "chance": 0.02,    # Unchanged
+        "variants": ["Golden Koi", "Giant Tuna", "Megalodon", "Rainbow Trout", "Ancient Sturgeon"]
+    }
 }
 
-JUNK_TYPES: Dict[str, FishData] = {
+JUNK_TYPES = {
     "Common Junk": {
         "rarity": "common",
-        "value": 1,
-        "chance": 0.7,
-        "variants": [
-            "Old Boot",
-            "Tin Can",
-            "Seaweed",
-            "Broken Bottle",
-            "Plastic Bag"
-        ]
+        "value": 2,        # Was 1
+        "chance": 0.7,     # Unchanged
+        "variants": ["Old Boot", "Tin Can", "Seaweed", "Broken Bottle", "Plastic Bag"]
     },
     "Uncommon Junk": {
         "rarity": "uncommon",
-        "value": 2,
-        "chance": 0.15,
-        "variants": [
-            "Rusty Chain",
-            "Waterlogged Book",
-            "Old Fishing Line",
-            "Broken Fishing Rod",
-            "Tattered Net"
-        ]
+        "value": 4,        # Was 2
+        "chance": 0.15,    # Unchanged
+        "variants": ["Rusty Chain", "Waterlogged Book", "Old Fishing Line", "Broken Fishing Rod", "Tattered Net"]
     },
     "Rare Junk": {
         "rarity": "rare",
-        "value": 5,
-        "chance": 0.1,
-        "variants": [
-            "Ancient Pottery",
-            "Ship's Compass",
-            "Lost Jewelry",
-            "Antique Bottle",
-            "Weather-Worn Map"
-        ]
+        "value": 10,       # Was 5
+        "chance": 0.1,     # Unchanged
+        "variants": ["Ancient Pottery", "Ship's Compass", "Lost Jewelry", "Antique Bottle", "Weather-Worn Map"]
     },
     "Legendary Junk": {
         "rarity": "legendary",
-        "value": 15,
-        "chance": 0.05,
-        "variants": [
-            "Sunken Treasure",
-            "Ancient Artifact",
-            "Lost Technology",
-            "Time Capsule",
-            "Mysterious Device"
-        ]
+        "value": 30,       # Was 15
+        "chance": 0.05,    # Unchanged
+        "variants": ["Sunken Treasure", "Ancient Artifact", "Lost Technology", "Time Capsule", "Mysterious Device"]
     }
 }
 
