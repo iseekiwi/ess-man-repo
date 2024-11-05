@@ -550,6 +550,7 @@ class FishingMenuView(BaseView):
                 
                 # Process catch
                 catch = await self.cog._catch_fish(
+                    interaction.user,
                     self.user_data,
                     self.user_data["equipped_bait"],
                     self.user_data["current_location"],
