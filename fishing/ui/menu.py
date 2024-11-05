@@ -571,10 +571,16 @@ class FishingMenuView(BaseView):
                     self.logger.debug("Bait inventory updated")
                 
                 if catch:
-                    fish_name = catch["name"]
-                    fish_value = catch["value"]
+                    item_type = catch.get("type", "fish")  # Get item type
+                    item_name = catch["name"]
+                    item_value = catch["value"]
                     xp_gained = catch.get("xp_gained", 0)
-                    variant = random.choice(self.cog.data["fish"][fish_name]["variants"])
+
+                    # Get appropriate variant based on type
+                    if item_type == "fish":
+                        variant = random.choice(self.cog.data["fish"][item_name]["variants"])
+                    else:  # junk
+                        variant = random.choice(self.cog.data["junk"][item_name]["variants"])
                     
                     self.logger.debug(f"Processing catch with XP gain: {xp_gained}")
                     self.logger.debug(f"Current user data before XP award: {self.user_data}")
