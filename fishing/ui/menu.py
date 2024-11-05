@@ -189,6 +189,65 @@ class FishingMenuView(BaseView):
                     ),
                     inline=False
                 )
+
+                # Calculate rarity chances
+                location_mods = self.cog.data["locations"][location]["fish_modifiers"]
+                weather_data = self.cog.data["weather"][current_weather]
+                weather_rare_bonus = weather_data.get("rare_bonus", 0)
+                time_rare_bonus = self.cog.data["time"][self.get_time_of_day()].get("rare_bonus", 0)
+                
+                # Calculate final chances for each rarity
+                rarity_chances = {}
+                for fish_type, data in self.cog.data["fish"].items():
+                    base_chance = data["chance"]
+                    location_mod = location_mods[fish_type]
+                    
+                    # Apply weather rare bonus to rare/legendary fish
+                    rare_multiplier = 1.0
+                    if data["rarity"] in ["rare", "legendary"]:
+                        rare_multiplier += weather_rare_bonus
+                        rare_multiplier += time_rare_bonus
+                    
+                    # Apply specific rarity bonus if it exists in weather
+                    specific_bonus = weather_data.get("specific_rarity_bonus", {}).get(data["rarity"], 0)
+                    if specific_bonus:
+                        rare_multiplier += specific_bonus
+                    
+                    final_chance = base_chance * location_mod * rare_multiplier * 100
+                    rarity_chances[fish_type] = final_chance
+    
+                # Add rarity chance breakdown
+                rarity_text = [f"📊 Chances by Type:"]
+                for fish_type, chance in rarity_chances.items():
+                    location_effect = location_mods[fish_type]
+                    base_text = f"└─ {fish_type}: `{chance:.1f}%`"
+                    
+                    # Add modifiers if they exist
+                    mods = []
+                    if location_effect != 1.0:
+                        mods.append(f"Location: {location_effect:+.1f}x")
+                    
+                    fish_data = self.cog.data["fish"][fish_type]
+                    if fish_data["rarity"] in ["rare", "legendary"]:
+                        if weather_rare_bonus:
+                            mods.append(f"Weather: {weather_rare_bonus:+.1f}x")
+                        if time_rare_bonus:
+                            mods.append(f"Time: {time_rare_bonus:+.1f}x")
+                    
+                    specific_bonus = weather_data.get("specific_rarity_bonus", {}).get(fish_data["rarity"], 0)
+                    if specific_bonus:
+                        mods.append(f"Special: {specific_bonus:+.1f}x")
+                    
+                    if mods:
+                        base_text += f" ({', '.join(mods)})"
+                    
+                    rarity_text.append(base_text)
+                
+                embed.add_field(
+                    name="Rarity Chances",
+                    value="\n".join(rarity_text),
+                    inline=False
+                )
                 
                 # Get level progress
                 progress = await self.cog.level_manager.get_level_progress(self.ctx.author.id)
