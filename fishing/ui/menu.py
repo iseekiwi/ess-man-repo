@@ -592,6 +592,8 @@ class FishingMenuView(BaseView):
                     current_weather,
                     self.get_time_of_day()
                 )
+
+                self.logger.debug(f"Received catch data: {catch}")
                 
                 if catch:
                     item_type = catch.get("type", "fish")
