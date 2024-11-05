@@ -230,8 +230,8 @@ class Fishing(commands.Cog):
                 )
     
                 self.logger.debug(f"Fish caught: {caught_fish}, XP reward: {xp_reward}")
-                # Add to inventory and update stats using passed user
-                await self._add_to_inventory(user, caught_fish)
+                success = await self._add_to_inventory(user, caught_fish)
+                self.logger.debug(f"Added {caught_fish} to inventory: {success}")
                 
                 return {
                     "name": caught_fish,
@@ -267,8 +267,8 @@ class Fishing(commands.Cog):
                     )
     
                     self.logger.debug(f"Junk caught: {caught_junk}, XP reward: {xp_reward}")
-                    # Add junk to inventory using passed user
-                    await self._add_to_inventory(user, caught_junk)
+                    success = await self._add_to_inventory(user, caught_junk)
+                    self.logger.debug(f"Added {caught_junk} to inventory: {success}")
                     
                     return {
                         "name": caught_junk,
@@ -283,12 +283,13 @@ class Fishing(commands.Cog):
             self.logger.error(f"Error in _catch_fish: {e}", exc_info=True)
             return None
 
-    async def _add_to_inventory(self, user, item_name: str) -> bool:
+    async def _add_to_inventory(self, user: discord.Member, item_name: str) -> bool:
         """Add fish or junk to user's inventory."""
         if item_name in self.data["fish"] or item_name in self.data["junk"]:
             success, _ = await self.inventory.add_item(user.id, "inventory", item_name)
             self.logger.debug(f"Added {item_name} to inventory: {success}")
             return success
+        self.logger.warning(f"Invalid item attempted to add to inventory: {item_name}")
         return False
 
     async def _update_total_value(self, user, value: int) -> bool:
