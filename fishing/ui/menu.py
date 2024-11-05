@@ -608,8 +608,20 @@ class FishingMenuView(BaseView):
                     self.logger.debug(f"Processing {item_type} catch with XP gain: {xp_gained}")
                     self.logger.debug(f"Current user data before XP award: {self.user_data}")
                     
-                    # Update user data
+                    # Update user data with correct item type
                     await self.cog._update_total_value(interaction.user, item_value, item_type=item_type)
+                    
+                    # Only update fish count for fish
+                    if item_type == "fish":
+                        # Update fish count directly in ConfigManager since _update_total_value handles it
+                        pass
+                    else:  # junk
+                        # Update junk count
+                        await self.cog.config_manager.update_user_data(
+                            interaction.user.id,
+                            {"junk_caught": self.user_data.get("junk_caught", 0) + 1},
+                            fields=["junk_caught"]
+                        )
                     
                     # Award XP and check for level up
                     xp_success, old_level, new_level = await self.cog.level_manager.award_xp(
