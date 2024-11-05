@@ -93,6 +93,57 @@ FISH_TYPES: Dict[str, FishData] = {
     },
 }
 
+JUNK_TYPES: Dict[str, FishData] = {
+    "Common Junk": {
+        "rarity": "common",
+        "value": 1,
+        "chance": 0.6,
+        "variants": [
+            "Old Boot",
+            "Tin Can",
+            "Seaweed",
+            "Broken Bottle",
+            "Plastic Bag"
+        ]
+    },
+    "Uncommon Junk": {
+        "rarity": "uncommon",
+        "value": 2,
+        "chance": 0.25,
+        "variants": [
+            "Rusty Chain",
+            "Waterlogged Book",
+            "Old Fishing Line",
+            "Broken Fishing Rod",
+            "Tattered Net"
+        ]
+    },
+    "Rare Junk": {
+        "rarity": "rare",
+        "value": 5,
+        "chance": 0.1,
+        "variants": [
+            "Ancient Pottery",
+            "Ship's Compass",
+            "Lost Jewelry",
+            "Antique Bottle",
+            "Weather-Worn Map"
+        ]
+    },
+    "Legendary Junk": {
+        "rarity": "legendary",
+        "value": 15,
+        "chance": 0.05,
+        "variants": [
+            "Sunken Treasure",
+            "Ancient Artifact",
+            "Lost Technology",
+            "Time Capsule",
+            "Mysterious Device"
+        ]
+    }
+}
+
 # Rod types with expanded details
 ROD_TYPES: Dict[str, RodData] = {
     "Basic Rod": {
