@@ -70,7 +70,7 @@ FISH_TYPES: Dict[str, FishData] = {
     "Rare Fish": {
         "rarity": "rare",
         "value": 12,
-        "chance": 0.1,
+        "chance": 0.13,
         "variants": [
             "Swordfish",
             "Marlin",
@@ -82,7 +82,7 @@ FISH_TYPES: Dict[str, FishData] = {
     "Legendary Fish": {
         "rarity": "legendary",
         "value": 50,
-        "chance": 0.05,
+        "chance": 0.02,
         "variants": [
             "Golden Koi",
             "Giant Tuna",
