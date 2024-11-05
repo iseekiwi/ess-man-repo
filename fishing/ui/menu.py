@@ -276,94 +276,150 @@ class FishingMenuView(BaseView):
                 
                 return embed
                 
-            elif self.current_page == "location":
-                embed = discord.Embed(
-                    title="🗺️ Select Location",
-                    description="Choose a fishing location:",
-                    color=discord.Color.blue()
-                )
+        elif self.current_page == "location":
+            embed = discord.Embed(
+                title="🗺️ Select Location",
+                description="Choose a fishing location:",
+                color=discord.Color.blue()
+            )
+            
+            for loc_name, loc_data in self.cog.data["locations"].items():
+                # Check if location is locked
+                requirements = loc_data.get("requirements", {})
+                is_locked = False
+                if requirements:
+                    if (self.user_data["level"] < requirements.get("level", 0) or
+                        self.user_data["fish_caught"] < requirements.get("fish_caught", 0)):
+                        is_locked = True
                 
-                for loc_name, loc_data in self.cog.data["locations"].items():
-                    # Check if location is locked
-                    requirements = loc_data.get("requirements", {})
-                    is_locked = False
-                    if requirements:
-                        if (self.user_data["level"] < requirements.get("level", 0) or
-                            self.user_data["fish_caught"] < requirements.get("fish_caught", 0)):
-                            is_locked = True
-                    
-                    status = "🔒 Locked" if is_locked else "📍 Current" if loc_name == self.user_data["current_location"] else "✅ Available"
-                    
-                    # Format requirements if they exist
-                    req_text = ""
-                    if requirements:
-                        req_text = f"\nRequires: Level {requirements['level']}, {requirements['fish_caught']} fish caught"
-                    
-                    embed.add_field(
-                        name=f"{loc_name} ({status})",
-                        value=f"{loc_data['description']}{req_text}",
-                        inline=False
-                    )
-                    
-            elif self.current_page == "weather":
-                weather_result = await self.cog.config_manager.get_global_setting("current_weather")
-                current_weather = weather_result.data if weather_result.success else "Sunny"
-
-                # Get weather data from cog's data dictionary
-                weather_data = self.cog.data["weather"][current_weather]
-
-                # Calculate time until next weather change
-                now = datetime.datetime.now()
-                last_change = self.cog.bg_task_manager.last_weather_change
-                if last_change is None:
-                    time_remaining = "Unknown"
-                else:
-                    next_change = last_change + datetime.timedelta(hours=1)
-                    remaining = next_change - now
-                    if remaining.total_seconds() <= 0:
-                        time_remaining = "Soon"
-                    else:
-                        minutes = int(remaining.total_seconds() // 60)
-                        seconds = int(remaining.total_seconds() % 60)
-                        time_remaining = f"{minutes}m {seconds}s"
+                status = "🔒 Locked" if is_locked else "📍 Current" if loc_name == self.user_data["current_location"] else "✅ Available"
                 
-                embed = discord.Embed(
-                    title="🌤️ Current Weather",
-                    description=(
-                        f"**{current_weather}**\n"
-                        f"{weather_data['description']}\n\n"
-                        f"⏳ Next change in: {time_remaining}"
+                # Format modifiers
+                modifier_text = []
+                for fish_type, modifier in loc_data["fish_modifiers"].items():
+                    if modifier != 1.0:  # Only show non-neutral modifiers
+                        modifier_text.append(f"• {fish_type}: {modifier:+.1f}x")
+                
+                # Format requirements if they exist
+                req_text = ""
+                if requirements:
+                    req_text = f"\n**Requirements**\n• Level {requirements['level']}\n• {requirements['fish_caught']} fish caught"
+                
+                # Create location entry
+                embed.add_field(
+                    name=f"{loc_name} ({status})",
+                    value=(
+                        f"{loc_data['description']}\n\n"
+                        f"**Location Effects**\n{chr(10).join(modifier_text)}"
+                        f"{req_text}"
                     ),
-                    color=discord.Color.blue()
+                    inline=False
                 )
                 
-                # Add effects
-                effects = []
-                if "catch_bonus" in weather_data:
-                    effects.append(f"Catch rate: `{weather_data['catch_bonus']*100:+.0f}%`")
-                if "rare_bonus" in weather_data:
-                    effects.append(f"Rare fish bonus: `{weather_data['rare_bonus']*100:+.0f}%`")
-                
-                if effects:
-                    embed.add_field(
-                        name="Current Effects",
-                        value="\n".join(effects),
-                        inline=False
-                    )
-                    
-                # Add affected locations
-                if weather_data.get("affects_locations"):
-                    embed.add_field(
-                        name="Affects Locations",
-                        value="\n".join(f"• {loc}" for loc in weather_data["affects_locations"]),
-                        inline=False
-                    )
+        elif self.current_page == "weather":
+            weather_result = await self.cog.config_manager.get_global_setting("current_weather")
+            current_weather = weather_result.data if weather_result.success else "Sunny"
+            weather_data = self.cog.data["weather"][current_weather]
+
+            # Calculate time until next weather change
+            now = datetime.datetime.now()
+            last_change = self.cog.bg_task_manager.last_weather_change
+            if last_change is None:
+                time_remaining = "Unknown"
+            else:
+                next_change = last_change + datetime.timedelta(hours=1)
+                remaining = next_change - now
+                if remaining.total_seconds() <= 0:
+                    time_remaining = "Soon"
+                else:
+                    minutes = int(remaining.total_seconds() // 60)
+                    seconds = int(remaining.total_seconds() % 60)
+                    time_remaining = f"{minutes}m {seconds}s"
             
-            return embed
+            embed = discord.Embed(
+                title="🌤️ Current Weather",
+                description=(
+                    f"**{current_weather}**\n"
+                    f"{weather_data['description']}\n\n"
+                    f"⏳ Next change in: {time_remaining}"
+                ),
+                color=discord.Color.blue()
+            )
             
-        except Exception as e:
-            self.logger.error(f"Error generating embed: {str(e)}", exc_info=True)
-            raise
+            # Add base effects
+            base_effects = []
+            if "catch_bonus" in weather_data:
+                base_effects.append(f"• Catch rate: `{weather_data['catch_bonus']*100:+.0f}%`")
+            if "rare_bonus" in weather_data:
+                base_effects.append(f"• Rare fish bonus: `{weather_data['rare_bonus']*100:+.0f}%`")
+            
+            if base_effects:
+                embed.add_field(
+                    name="Base Effects",
+                    value="\n".join(base_effects),
+                    inline=False
+                )
+            
+            # Add location-specific bonuses
+            location_effects = []
+            if "location_bonus" in weather_data:
+                for location, bonus in weather_data["location_bonus"].items():
+                    location_effects.append(f"• {location}: `{bonus*100:+.0f}%`")
+            
+            if location_effects:
+                embed.add_field(
+                    name="Location Bonuses",
+                    value="\n".join(location_effects),
+                    inline=False
+                )
+            
+            # Add time-based effects
+            time_effects = []
+            if "time_multiplier" in weather_data:
+                for time, multiplier in weather_data["time_multiplier"].items():
+                    time_effects.append(f"• {time}: `{multiplier*100:+.0f}%`")
+            
+            if time_effects:
+                embed.add_field(
+                    name="Time Bonuses",
+                    value="\n".join(time_effects),
+                    inline=False
+                )
+            
+            # Add rarity-specific bonuses
+            rarity_effects = []
+            if "specific_rarity_bonus" in weather_data:
+                for rarity, bonus in weather_data["specific_rarity_bonus"].items():
+                    rarity_effects.append(f"• {rarity}: `{bonus*100:+.0f}%`")
+            
+            if rarity_effects:
+                embed.add_field(
+                    name="Rarity Bonuses",
+                    value="\n".join(rarity_effects),
+                    inline=False
+                )
+            
+            # Add extra catch chance if present
+            if "catch_quantity" in weather_data:
+                embed.add_field(
+                    name="Extra Catch Chance",
+                    value=f"`{weather_data['catch_quantity']*100:.0f}%` chance for bonus catch",
+                    inline=False
+                )
+            
+            # Add affected locations
+            if weather_data.get("affects_locations"):
+                embed.add_field(
+                    name="Affects Locations",
+                    value="\n".join(f"• {loc}" for loc in weather_data["affects_locations"]),
+                    inline=False
+                )
+        
+        return embed
+        
+    except Exception as e:
+        self.logger.error(f"Error generating embed: {str(e)}", exc_info=True)
+        raise
 
     async def handle_button(self, interaction: discord.Interaction):
         """Handle button interactions"""
