@@ -665,12 +665,44 @@ class Fishing(commands.Cog):
     async def reset_user(self, ctx, member: discord.Member):
         """Reset a user's fishing data."""
         try:
+            # Get current data for comparison
+            before_result = await self.config_manager.get_user_data(member.id)
+            if before_result.success:
+                before_data = before_result.data
+            
+            # Perform reset
             result = await self.config_manager.reset_user_data(member.id)
             if result.success:
-                await ctx.send(f"✅ Reset fishing data for {member.name}")
-                self.logger.warning(f"Admin {ctx.author.name} reset fishing data for {member.name}")
+                # Get new data for verification
+                after_result = await self.config_manager.get_user_data(member.id)
+                if after_result.success:
+                    after_data = after_result.data
+                    
+                    # Verify key stats were reset
+                    verification = [
+                        f"Fish Caught: {before_data.get('fish_caught', '?')} → {after_data.get('fish_caught', 0)}",
+                        f"Level: {before_data.get('level', '?')} → {after_data.get('level', 1)}",
+                        f"Experience: {before_data.get('experience', '?')} → {after_data.get('experience', 0)}",
+                        f"Total Value: {before_data.get('total_value', '?')} → {after_data.get('total_value', 0)}"
+                    ]
+                    
+                    embed = discord.Embed(
+                        title="✅ Reset Complete",
+                        description=f"Reset fishing data for {member.name}",
+                        color=discord.Color.green()
+                    )
+                    embed.add_field(
+                        name="Verification",
+                        value="\n".join(verification),
+                        inline=False
+                    )
+                    
+                    await ctx.send(embed=embed)
+                    self.logger.warning(f"Admin {ctx.author.name} reset fishing data for {member.name}")
+                else:
+                    await ctx.send("✅ Reset completed but verification failed. Please check the data manually.")
             else:
-                await ctx.send("❌ Error resetting user data.")
+                await ctx.send(f"❌ Error resetting user data: {result.error}")
         except Exception as e:
             self.logger.error(f"Error resetting user data: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while resetting user data. Please try again.")
