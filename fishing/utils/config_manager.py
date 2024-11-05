@@ -391,23 +391,42 @@ class ConfigManager:
             return ConfigResult(False, error=str(e), error_code="GENERAL_ERROR")
 
     async def reset_user_data(self, user_id: int) -> ConfigResult[bool]:
-        """Reset user data to defaults"""
+        """Reset user data to defaults with validation"""
         try:
+            self.logger.debug(f"Resetting user data for {user_id}")
+            
+            # Clear existing data first
             await self.config.user_from_id(user_id).clear()
-            await self.config.user_from_id(user_id).set(DEFAULT_USER_DATA)
+            
+            # Create fresh default data and validate it
+            default_data = DEFAULT_USER_DATA.copy()
+            validated_data = await self._validate_user_data(default_data)
+            
+            # Set the validated data
+            group = self.config.user_from_id(user_id)
+            for key, value in validated_data.items():
+                try:
+                    await group.set_raw(key, value=value)
+                    self.logger.debug(f"Reset {key} to default: {value}")
+                except Exception as e:
+                    self.logger.error(f"Error resetting {key}: {e}")
+                    return ConfigResult(False, error=f"Failed to reset {key}", error_code="RESET_ERROR")
+            
+            # Invalidate cache
             await self.invalidate_cache(f"user_{user_id}")
+            
+            # Verify reset
+            verify_result = await self.get_user_data(user_id)
+            if not verify_result.success:
+                self.logger.error("Failed to verify reset")
+                return ConfigResult(False, error="Failed to verify reset", error_code="VERIFY_ERROR")
+                
+            self.logger.debug(f"Successfully reset user data: {verify_result.data}")
             return ConfigResult(True, True)
             
         except Exception as e:
-            self.logger.error(f"Error in reset_user_data: {e}")
+            self.logger.error(f"Error in reset_user_data: {e}", exc_info=True)
             return ConfigResult(False, error=str(e), error_code="GENERAL_ERROR")
-
-    async def invalidate_cache(self, key: Optional[str] = None):
-        """Invalidate specific cache key or entire cache"""
-        if key:
-            self._cache.pop(key, None)
-        else:
-            self._cache.clear()
 
     async def refresh_cache(self, user_id: int) -> ConfigResult[bool]:
         """Force refresh of user data cache"""
