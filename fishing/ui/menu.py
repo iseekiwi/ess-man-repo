@@ -526,7 +526,7 @@ class FishingMenuView(BaseView):
             for child in self.children:
                 child.disabled = True
             await interaction.response.edit_message(view=self)
-
+    
             # Always consume bait on attempt
             user_data_result = await self.cog.config_manager.get_user_data(interaction.user.id)
             if user_data_result.success:
@@ -557,37 +557,26 @@ class FishingMenuView(BaseView):
                     self.get_time_of_day()
                 )
                 
-                # Update bait inventory
-                user_data_result = await self.cog.config_manager.get_user_data(interaction.user.id)
-                if user_data_result.success:
-                    update_data = {"bait": user_data_result.data.get("bait", {})}
-                    equipped_bait = user_data_result.data.get("equipped_bait")
-                    if equipped_bait:
-                        update_data["bait"][equipped_bait] = update_data["bait"].get(equipped_bait, 0) - 1
-                        if update_data["bait"][equipped_bait] <= 0:
-                            del update_data["bait"][equipped_bait]
-                            update_data["equipped_bait"] = None
-                    await self.cog.config_manager.update_user_data(interaction.user.id, update_data)
-                    self.logger.debug("Bait inventory updated")
-                
                 if catch:
-                    item_type = catch.get("type", "fish")  # Get item type
+                    item_type = catch.get("type", "fish")
                     item_name = catch["name"]
                     item_value = catch["value"]
                     xp_gained = catch.get("xp_gained", 0)
-
+                    
                     # Get appropriate variant based on type
                     if item_type == "fish":
                         variant = random.choice(self.cog.data["fish"][item_name]["variants"])
+                        catch_emoji = "🐟"
                     else:  # junk
                         variant = random.choice(self.cog.data["junk"][item_name]["variants"])
+                        catch_emoji = "📦"
                     
-                    self.logger.debug(f"Processing catch with XP gain: {xp_gained}")
+                    self.logger.debug(f"Processing {item_type} catch with XP gain: {xp_gained}")
                     self.logger.debug(f"Current user data before XP award: {self.user_data}")
                     
                     # Update user data
-                    await self.cog._add_to_inventory(interaction.user, fish_name)
-                    await self.cog._update_total_value(interaction.user, fish_value)
+                    await self.cog._add_to_inventory(interaction.user, item_name)
+                    await self.cog._update_total_value(interaction.user, item_value)
                     
                     # Award XP and check for level up
                     xp_success, old_level, new_level = await self.cog.level_manager.award_xp(
@@ -622,8 +611,15 @@ class FishingMenuView(BaseView):
                     progress = await self.cog.level_manager.get_level_progress(interaction.user.id)
                     self.logger.debug(f"Level progress after catch: {progress}")
                     
+                    # Create dynamic catch message based on item type
+                    catch_msg = (
+                        f"You caught a {variant} ({item_name}) worth {item_value} coins!"
+                        if item_type == "fish" else
+                        f"You found a {variant} ({item_name}) worth {item_value} coins!"
+                    )
+                    
                     description = [
-                        f"You caught a {variant} ({fish_name}) worth {fish_value} coins!",
+                        catch_msg,
                         f"Gained {xp_gained} XP!",
                         f"\nLocation: {self.user_data['current_location']}",
                         f"Weather: {current_weather}"
@@ -642,7 +638,7 @@ class FishingMenuView(BaseView):
                         )
                     
                     fishing_embed = discord.Embed(
-                        title="🎣 Successful Catch!",
+                        title=f"{catch_emoji} Successful Catch!",
                         description="\n".join(description),
                         color=discord.Color.green()
                     )
@@ -657,15 +653,15 @@ class FishingMenuView(BaseView):
                         self.logger.error("Failed to update fish_caught count")
                 else:
                     fishing_embed = discord.Embed(
-                        title="🎣 Almost Had It!",
-                        description="The fish got away!\n\nReturning to menu...",
+                        title="🎣 Nothing!",
+                        description="You didn't catch anything this time!\n\nReturning to menu...",
                         color=discord.Color.red()
                     )
             else:
                 # Wrong button pressed
                 fishing_embed = discord.Embed(
                     title="🎣 Wrong Move!",
-                    description="The fish got away!\n\nReturning to menu...",
+                    description="Whatever was on the line got away!\n\nReturning to menu...",
                     color=discord.Color.red()
                 )
             
