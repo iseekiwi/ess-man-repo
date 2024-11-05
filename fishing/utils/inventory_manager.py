@@ -239,17 +239,26 @@ class InventoryManager:
             if not user_data:
                 return None
                     
-            fish_count = len(user_data.get("inventory", []))
+            inventory = user_data.get("inventory", [])
+            fish_count = sum(1 for item in inventory if item in self.data["fish"])
+            junk_count = sum(1 for item in inventory if item in self.data["junk"])
+            total_items = fish_count + junk_count
             bait_count = sum(user_data.get("bait", {}).values())
             rod_count = len(user_data.get("purchased_rods", {}))
                 
+            # Calculate total value from both fish and junk items
             total_value = sum(
-                self.data["fish"][fish]["value"]
-                for fish in user_data.get("inventory", [])
+                self.data["fish"][item]["value"]
+                for item in inventory
+                if item in self.data["fish"]
+            ) + sum(
+                self.data["junk"][item]["value"]
+                for item in inventory
+                if item in self.data["junk"]
             )
                 
             return {
-                "fish_count": fish_count,
+                "fish_count": total_items,  # Total of both fish and junk for overall count
                 "bait_count": bait_count,
                 "rod_count": rod_count,
                 "total_value": total_value,
