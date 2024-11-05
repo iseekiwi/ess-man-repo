@@ -69,8 +69,8 @@ class InventoryView(BaseView):
                     value=(
                         f"🎣 Rods Owned: {summary['rod_count']}\n"
                         f"🪱 Bait Available: {summary['bait_count']}\n"
-                        f"🐟 Fish Caught: {summary['fish_count']}\n"
-                        f"💰 Total Fish Value: {summary['total_value']} {currency_name}\n"
+                        f"🐟 Fish & Items: {summary['fish_count']}\n"
+                        f"💰 Total Value: {summary['total_value']} {currency_name}\n"
                         f"💰 Current Balance: {balance} {currency_name}"
                     ),
                     inline=False
@@ -117,44 +117,58 @@ class InventoryView(BaseView):
                 
             elif self.current_page == "fish":
                 embed = discord.Embed(
-                    title="🐟 Your Caught Fish",
+                    title="🐟 Your Caught Items",
                     color=discord.Color.blue()
                 )
                 
                 if not self.user_data.get("inventory"):
                     embed.description = "No items caught yet!"
                 else:
-                    fish_counts = Counter(self.user_data["inventory"])
+                    item_counts = Counter(self.user_data["inventory"])
                     fish_text = []
                     junk_text = []
-                    total_value = 0
+                    fish_total = 0
+                    junk_total = 0
                     
-                    for item, count in fish_counts.most_common():
+                    for item, count in item_counts.most_common():
                         if item in self.cog.data["fish"]:
                             value = self.cog.data["fish"][item]["value"] * count
-                            total_value += value
+                            fish_total += value
                             fish_text.append(f"{item}: x{count} (Worth: {value} {currency_name})")
                         elif item in self.cog.data["junk"]:
                             value = self.cog.data["junk"][item]["value"] * count
-                            total_value += value
+                            junk_total += value
                             junk_text.append(f"{item}: x{count} (Worth: {value} {currency_name})")
                     
                     if fish_text:
-                        embed.add_field(name="🐟 Fish", value="\n".join(fish_text), inline=False)
+                        embed.add_field(
+                            name="🐟 Fish", 
+                            value="\n".join(fish_text), 
+                            inline=False
+                        )
                     if junk_text:
-                        embed.add_field(name="📦 Junk", value="\n".join(junk_text), inline=False)
+                        embed.add_field(
+                            name="📦 Junk Items", 
+                            value="\n".join(junk_text), 
+                            inline=False
+                        )
                     
-                    embed.set_footer(text=f"Total Value: {total_value} {currency_name} | Balance: {balance} {currency_name}")
+                    total_value = fish_total + junk_total
+                    embed.set_footer(
+                        text=f"Total Value: {total_value} {currency_name} "
+                        f"(Fish: {fish_total}, Junk: {junk_total}) | "
+                        f"Balance: {balance} {currency_name}"
+                    )
             
             return embed
             
         except Exception as e:
             self.logger.error(f"Error generating embed: {e}", exc_info=True)
             return discord.Embed(
-            title="Error",
-            description="An error occurred while loading the inventory. Please try again.",
-            color=discord.Color.red()
-        )
+                title="Error",
+                description="An error occurred while loading the inventory. Please try again.",
+                color=discord.Color.red()
+            )
     
     async def start(self):
         """Start the inventory view"""
