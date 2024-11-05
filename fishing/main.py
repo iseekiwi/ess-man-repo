@@ -898,6 +898,9 @@ class Fishing(commands.Cog):
             user_data = user_data_result.data
             location = location or user_data["current_location"]
             time_of_day = self.get_time_of_day()
+
+            # Use "Worm" as default bait for simulations if none is equipped
+            default_bait = user_data.get("equipped_bait", "Worm")
             
             # Initialize counters
             catches = {
@@ -924,7 +927,7 @@ class Fishing(commands.Cog):
                 result = await self._catch_fish(
                     ctx.author,
                     user_data,
-                    user_data.get("equipped_bait", "Worm"),
+                    default_bait,
                     location,
                     weather,
                     time_of_day
