@@ -20,25 +20,35 @@ class LevelManager:
         self.logger = get_logger('level_manager')
         
         # Define XP thresholds for each level
-        self.xp_thresholds = {
+        xp_thresholds = {
             1: 0,
-            2: 100,
-            3: 250,
-            4: 500,
-            5: 1000,
-            6: 2000,
+            2: 150,
+            3: 400,
+            4: 800,
+            5: 1500,
+            6: 2500,
             7: 4000,
-            8: 8000,
-            9: 16000,
-            10: 32000
+            8: 6000,
+            9: 8500,
+            10: 11500,
+            11: 15000,
+            12: 19000,
+            13: 23500,
+            14: 28500,
+            15: 34000,
+            16: 40000,
+            17: 46500,
+            18: 53500,
+            19: 61000,
+            20: 69000
         }
         
         # Define base XP rewards for each rarity
-        self.rarity_xp = {
-            "common": 10,
-            "uncommon": 25,
-            "rare": 75,
-            "legendary": 200
+        rarity_xp = {
+            "common": 20,
+            "uncommon": 50,
+            "rare": 200,
+            "legendary": 500
         }
         
     async def initialize_user_xp(self, user_id: int) -> None:
