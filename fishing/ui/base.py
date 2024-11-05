@@ -13,7 +13,7 @@ from .components import MessageManager
 class BaseView(View):
     """Enhanced base view class with improved error handling, logging and timeout management"""
     
-    def __init__(self, cog, ctx: commands.Context, timeout: int = 300):
+    def __init__(self, cog, ctx: commands.Context, timeout: int = 600):
         super().__init__(timeout=timeout)
         self.cog = cog
         self.ctx = ctx
