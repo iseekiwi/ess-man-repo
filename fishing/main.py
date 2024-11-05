@@ -927,7 +927,7 @@ class Fishing(commands.Cog):
                 result = await self._catch_fish(
                     ctx.author,
                     user_data,
-                    default_bait,
+                    user_data.get("equipped_bait", "Worm"),
                     location,
                     weather,
                     time_of_day
