@@ -433,7 +433,7 @@ class FishingMenuView(BaseView):
                 self.fishing_in_progress = False
                 await self.initialize_view()
                 message = await interaction.followup.send(
-                    "🚫 You need to equip bait first! Use the Inventory menu to equip some bait.",
+                    "🚫 You need to equip bait first! Use the `Inventory` menu to equip some bait.",
                     ephemeral=True,
                     wait=True
                 )
@@ -477,7 +477,7 @@ class FishingMenuView(BaseView):
                 
             fishing_embed = discord.Embed(
                 title="🎣 Fishing in Progress",
-                description=f"Quick! Click **{self.correct_action}** to catch the fish!",
+                description=f"Quick! Click `**{self.correct_action}**` to catch the fish!",
                 color=discord.Color.blue()
             )
             await self.message.edit(embed=fishing_embed, view=self)
@@ -692,14 +692,6 @@ class FishingMenuView(BaseView):
                         color=discord.Color.green()
                     )
                     
-                    # Update fish count
-#                    update_result = await self.cog.config_manager.update_user_data(
-#                        interaction.user.id,
-#                        {"fish_caught": self.user_data["fish_caught"] + 1},
-#                        fields=["fish_caught"]
-#                    )
-#                    if not update_result.success:
-#                        self.logger.error("Failed to update fish_caught count")
                 else:
                     fishing_embed = discord.Embed(
                         title="🎣 Nothing!",
