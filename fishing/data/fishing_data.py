@@ -347,6 +347,7 @@ DEFAULT_USER_DATA = {
     "current_location": "Pond",
     "fish_caught": 0,
     "level": 1,
+    "experience": 0,
     "settings": {
         "notifications": True,
         "auto_sell": False
