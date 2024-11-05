@@ -152,10 +152,10 @@ class FishingMenuView(BaseView):
                 embed.add_field(
                     name="Current Status",
                     value=(
-                        f"🎣 Rod: {self.user_data['rod']}\n"
-                        f"🪱 Bait: {self.user_data.get('equipped_bait', 'None')}\n"
-                        f"📍 Location: {self.user_data['current_location']}\n"
-                        f"💰 Balance: {balance:,} {currency_name}"
+                        f"🎣 Rod: `{self.user_data['rod']}`\n"
+                        f"🪱 Bait: `{self.user_data.get('equipped_bait', 'None')}`\n"
+                        f"📍 Location: `{self.user_data['current_location']}`\n"
+                        f"💰 Balance: `{balance:,}` {currency_name}"
                     ),
                     inline=False
                 )
@@ -181,11 +181,11 @@ class FishingMenuView(BaseView):
                 embed.add_field(
                     name="Catch Chances",
                     value=(
-                        f"📊 Total Chance: {total_chance:.1f}%\n"
-                        f"└─ Rod Bonus: {base_chance*100:+.1f}%\n"
-                        f"└─ Bait Bonus: {bait_bonus*100:+.1f}%\n"
-                        f"└─ Weather Bonus: {weather_bonus*100:+.1f}%\n"
-                        f"└─ Time Bonus: {time_bonus*100:+.1f}%"
+                        f"📊 Total Chance: `{total_chance:.1f}%`\n"
+                        f"└─ Rod Bonus: `{base_chance*100:+.1f}%`\n"
+                        f"└─ Bait Bonus: `{bait_bonus*100:+.1f}%`\n"
+                        f"└─ Weather Bonus: `{weather_bonus*100:+.1f}%`\n"
+                        f"└─ Time Bonus: `{time_bonus*100:+.1f}%`"
                     ),
                     inline=False
                 )
@@ -194,13 +194,13 @@ class FishingMenuView(BaseView):
                 progress = await self.cog.level_manager.get_level_progress(self.ctx.author.id)
                 if progress:
                     xp_info = (
-                        f"📊 Level: {progress['current_level']}\n"
-                        f"🎯 Progress: {progress['progress']:.1f}%"
+                        f"📊 Level: `{progress['current_level']}`\n"
+                        f"🎯 Progress: `{progress['progress']:.1f}%`"
                     )
                     if progress['xp_for_next'] is not None:
-                        xp_info += f"\n⭐ XP until next level: {progress['xp_for_next']:,}"
+                        xp_info += f"\n⭐ XP until next level: `{progress['xp_for_next']:,}`"
                 else:
-                    xp_info = f"📊 Level: {self.user_data['level']}"
+                    xp_info = f"📊 Level: `{self.user_data['level']}`"
 
                 self.logger.debug(f"Displaying stats - Fish: {self.user_data['fish_caught']}, Junk: {self.user_data.get('junk_caught', 0)}")
                 
@@ -208,8 +208,8 @@ class FishingMenuView(BaseView):
                 embed.add_field(
                     name="Statistics",
                     value=(
-                        f"🐟 Fish Caught: {self.user_data['fish_caught']}\n"
-                        f"📦 Junk Found: {self.user_data.get('junk_caught', 0)}\n"
+                        f"🐟 Fish Caught: `{self.user_data['fish_caught']}`\n"
+                        f"📦 Junk Found: `{self.user_data.get('junk_caught', 0)}`\n"
                         f"{xp_info}"
                     ),
                     inline=False
@@ -281,9 +281,9 @@ class FishingMenuView(BaseView):
                 # Add effects
                 effects = []
                 if "catch_bonus" in weather_data:
-                    effects.append(f"Catch rate: {weather_data['catch_bonus']*100:+.0f}%")
+                    effects.append(f"Catch rate: `{weather_data['catch_bonus']*100:+.0f}%`")
                 if "rare_bonus" in weather_data:
-                    effects.append(f"Rare fish bonus: {weather_data['rare_bonus']*100:+.0f}%")
+                    effects.append(f"Rare fish bonus: `{weather_data['rare_bonus']*100:+.0f}%`")
                 
                 if effects:
                     embed.add_field(
