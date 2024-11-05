@@ -326,31 +326,23 @@ class Fishing(commands.Cog):
             self.logger.debug(f"Current user data: {user_data}")
             old_level = user_data["level"]
             
-            # Calculate new level based on fish caught (not including junk)
+            # Calculate new level based on current fish count - don't increment here
             fish_caught = user_data["fish_caught"]
-            
-            # Only update specific counter based on item type
-            if item_type == "fish":
-                fish_caught += 1
-            
             new_level = max(1, fish_caught // 50)
             
-            # Prepare updates with XP field included
+            # Prepare base updates
             updates = {
                 "total_value": user_data["total_value"] + value,
                 "level": new_level,
-                "experience": user_data.get("experience", 0)  # Ensure experience field exists
+                "experience": user_data.get("experience", 0)
             }
             
-            # Only include fish_caught in updates if a fish was caught
-            if item_type == "fish":
-                updates["fish_caught"] = fish_caught
-            
-            self.logger.debug(f"Preparing updates: {updates}")
-            
-            # Update user data
+            # Set base fields
             fields = ["total_value", "level", "experience"]
+            
+            # Only update fish_caught if this is actually a fish
             if item_type == "fish":
+                updates["fish_caught"] = fish_caught + 1
                 fields.append("fish_caught")
                 
             update_result = await self.config_manager.update_user_data(
