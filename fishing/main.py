@@ -241,6 +241,7 @@ class Fishing(commands.Cog):
             else:
                 # If fish catch fails, roll for junk (75% chance to find junk on failed fish catch)
                 if random.random() < 0.75:
+                    self.logger.debug(f"Rolling for junk - Current junk count: {user_data.get('junk_caught', 0)}")
                     weighted_junk = []
                     weights = []
                     
@@ -267,13 +268,25 @@ class Fishing(commands.Cog):
     
                     self.logger.debug(f"Junk caught: {caught_junk}, XP reward: {xp_reward}")
                     success = await self._add_to_inventory(user, caught_junk)
-
+    
                     # Update junk count
-                    await self.config_manager.update_user_data(
+                    current_junk = user_data.get("junk_caught", 0)
+                    self.logger.debug(f"Updating junk count from {current_junk} to {current_junk + 1}")
+                    
+                    update_result = await self.config_manager.update_user_data(
                         user.id,
-                        {"junk_caught": user_data.get("junk_caught", 0) + 1},
+                        {"junk_caught": current_junk + 1},
                         fields=["junk_caught"]
                     )
+                    
+                    if update_result.success:
+                        self.logger.debug("Junk count update successful")
+                        # Verify the update
+                        verify_result = await self.config_manager.get_user_data(user.id)
+                        if verify_result.success:
+                            self.logger.debug(f"Verified junk count after update: {verify_result.data.get('junk_caught', 0)}")
+                    else:
+                        self.logger.error("Failed to update junk count")
                     
                     return {
                         "name": caught_junk,
