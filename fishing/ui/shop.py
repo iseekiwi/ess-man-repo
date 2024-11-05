@@ -14,17 +14,111 @@ if TYPE_CHECKING:
 
 logger = get_logger('shop')
 
-class QuantitySelect(discord.ui.Select):
-    def __init__(self):
-        options = [
-            discord.SelectOption(label=str(i), value=str(i))
-            for i in [1, 5, 10, 25, 50, 100]
-        ]
-        super().__init__(
-            placeholder="Select quantity...",
-            options=options,
-            custom_id="quantity"
+class BaitQuantityModal(discord.ui.Modal):
+    def __init__(self, shop_view, bait_name: str):
+        super().__init__(title=f"Purchase {bait_name}")
+        self.shop_view = shop_view
+        self.bait_name = bait_name
+        
+        self.quantity_input = discord.ui.TextInput(
+            label="How many would you like to purchase?",
+            placeholder="Enter a number...",
+            min_length=1,
+            max_length=4,
+            required=True
         )
+        self.add_item(self.quantity_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            # Validate input is a number
+            try:
+                quantity = int(self.quantity_input.value)
+                if quantity <= 0:
+                    raise ValueError("Quantity must be positive")
+            except ValueError:
+                await interaction.response.send_message(
+                    "Please enter a valid positive number!",
+                    ephemeral=True,
+                    delete_after=2
+                )
+                return
+
+            # Get cost information
+            cost = self.shop_view.cog.data["bait"][self.bait_name]["cost"]
+            total_cost = cost * quantity
+
+            # Check if user can afford
+            if not await self.shop_view.cog._can_afford(interaction.user, total_cost):
+                await interaction.response.send_message(
+                    f"❌ You don't have enough coins! This purchase costs {total_cost} coins.",
+                    ephemeral=True,
+                    delete_after=2
+                )
+                return
+
+            # Create confirmation view
+            confirm_view = PurchaseConfirmView(
+                self.shop_view.cog,
+                self.shop_view.ctx,
+                self.bait_name,
+                quantity,
+                cost
+            )
+
+            await interaction.response.send_message(
+                f"Confirm purchase of {quantity}x {self.bait_name} for {total_cost} coins?",
+                view=confirm_view,
+                ephemeral=True
+            )
+            
+            confirm_view.message = await interaction.original_response()
+            await confirm_view.wait()
+
+            if confirm_view.value:
+                success, msg = await self.shop_view.cog._handle_bait_purchase(
+                    interaction.user,
+                    self.bait_name,
+                    quantity,
+                    self.shop_view.user_data
+                )
+
+                if success:
+                    # Refresh user data
+                    user_data_result = await self.shop_view.cog.config_manager.get_user_data(interaction.user.id)
+                    if user_data_result.success:
+                        self.shop_view.user_data = user_data_result.data
+                        await self.shop_view.cog.config_manager.refresh_cache(interaction.user.id)
+                        
+                        fresh_data = await self.shop_view.cog.config_manager.get_user_data(interaction.user.id)
+                        if fresh_data.success:
+                            self.shop_view.user_data = fresh_data.data
+                            
+                            # Update parent menu view if it exists
+                            if hasattr(self.shop_view, 'parent_menu_view'):
+                                self.shop_view.parent_menu_view.user_data = fresh_data.data
+                                await self.shop_view.parent_menu_view.initialize_view()
+                                menu_embed = await self.shop_view.parent_menu_view.generate_embed()
+                                await self.shop_view.parent_menu_view.message.edit(
+                                    embed=menu_embed,
+                                    view=self.shop_view.parent_menu_view
+                                )
+                                await self.shop_view.parent_menu_view.setup()
+
+                            await self.shop_view.initialize_view()
+                            await self.shop_view.update_view()
+
+                # Show result message
+                result_msg = await interaction.followup.send(msg, ephemeral=True, wait=True)
+                self.shop_view.cog.bot.loop.create_task(self.shop_view.delete_after_delay(result_msg))
+
+        except Exception as e:
+            self.shop_view.logger.error(f"Error in quantity modal: {e}", exc_info=True)
+            await interaction.response.send_message(
+                "An error occurred while processing your purchase. Please try again.",
+                ephemeral=True,
+                delete_after=2
+            )
 
 class PurchaseConfirmView(BaseView):
     def __init__(self, cog, ctx, item_name: str, quantity: int, cost_per_item: int):
@@ -157,7 +251,6 @@ class ShopView(BaseView):
         super().__init__(cog, ctx)
         self.user_data = user_data
         self.current_page = "main"
-        self.selected_quantity = 1
         self.current_balance = 0
         self.logger = get_logger('shop.view')
         self.logger.debug(f"Initializing ShopView for user {ctx.author.name}")
@@ -237,10 +330,6 @@ class ShopView(BaseView):
                         bait_stock = {}
                     else:
                         bait_stock = stock_result.data
-                    
-                    quantity_select = QuantitySelect()
-                    quantity_select.callback = self.handle_select
-                    self.add_item(quantity_select)
     
                     user_level = self.user_data.get("level", 1)
                     for bait_name, bait_data in self.cog.data["bait"].items():
@@ -379,10 +468,7 @@ class ShopView(BaseView):
                 embed.description = "\n".join(rod_list) if rod_list else "No rods available!"
 
             # Add footer with balance
-            if self.current_page == "bait" and self.selected_quantity > 1:
-                embed.set_footer(text=f"Your balance: {self.current_balance} {currency_name} | Quantity: {self.selected_quantity}")
-            else:
-                embed.set_footer(text=f"Your balance: {self.current_balance} {currency_name}")
+            embed.set_footer(text=f"Your balance: {self.current_balance} {currency_name}")
             
             self.logger.debug("Embed generated successfully")
             return embed
@@ -458,95 +544,79 @@ class ShopView(BaseView):
             custom_id = interaction.data["custom_id"]
             item_name = custom_id.replace("buy_", "")
             
-            # Determine item type and cost
-            if item_name in self.cog.data["bait"]:
-                cost = self.cog.data["bait"][item_name]["cost"]
-                quantity = self.selected_quantity
-            else:
+            # Handle rod purchases
+            if item_name in self.cog.data["rods"]:
                 cost = self.cog.data["rods"][item_name]["cost"]
-                quantity = 1
-            
-            total_cost = cost * quantity
-
-            # Add balance check here
-            if not await self.cog._can_afford(self.ctx.author, total_cost):
-                await interaction.response.send_message(
-                    f"❌ You don't have enough coins! This purchase costs {total_cost} coins.",
-                    ephemeral=True,
-                    delete_after=2
-                )
-                return
-            
-            confirm_view = PurchaseConfirmView(
-                self.cog,
-                self.ctx,
-                item_name,
-                quantity,
-                cost
-            )
     
-            await interaction.response.send_message(
-                f"Confirm purchase of {quantity}x {item_name} for {total_cost} coins?",
-                view=confirm_view,
-                ephemeral=True
-            )
-            
-            confirm_view.message = await interaction.original_response()
-            await confirm_view.wait()
-            
-            if confirm_view.value:
-                if item_name in self.cog.data["bait"]:
-                    success, msg = await self.cog._handle_bait_purchase(
-                        self.ctx.author,
-                        item_name,
-                        quantity,
-                        self.user_data
+                # Add balance check here
+                if not await self.cog._can_afford(self.ctx.author, cost):
+                    await interaction.response.send_message(
+                        f"❌ You don't have enough coins! This purchase costs {cost} coins.",
+                        ephemeral=True,
+                        delete_after=2
                     )
-                else:
+                    return
+                
+                confirm_view = PurchaseConfirmView(
+                    self.cog,
+                    self.ctx,
+                    item_name,
+                    1,  # Quantity is always 1 for rods
+                    cost
+                )
+        
+                await interaction.response.send_message(
+                    f"Confirm purchase of {item_name} for {cost} coins?",
+                    view=confirm_view,
+                    ephemeral=True
+                )
+                
+                confirm_view.message = await interaction.original_response()
+                await confirm_view.wait()
+                
+                if confirm_view.value:
                     success, msg = await self.cog._handle_rod_purchase(
                         self.ctx.author,
                         item_name,
                         self.user_data
                     )
-    
-                if success:
-                    # Refresh user data from config
-                    user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
-                    if user_data_result.success:
-                        # Update the view's user data
-                        self.user_data = user_data_result.data
-                        
-                        # Force refresh the cache
-                        await self.cog.config_manager.refresh_cache(self.ctx.author.id)
-                        
-                        # Get fresh data after cache refresh
-                        fresh_data = await self.cog.config_manager.get_user_data(self.ctx.author.id)
-                        if fresh_data.success:
-                            self.user_data = fresh_data.data
+        
+                    if success:
+                        # Refresh user data from config
+                        user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+                        if user_data_result.success:
+                            # Update the view's user data
+                            self.user_data = user_data_result.data
                             
-                            # Update parent menu view if it exists
-                            if hasattr(self, 'parent_menu_view'):
-                                # Import here to avoid circular import
-                                from .menu import FishingMenuView
-                                if isinstance(self.parent_menu_view, FishingMenuView):
+                            # Force refresh the cache
+                            await self.cog.config_manager.refresh_cache(self.ctx.author.id)
+                            
+                            # Get fresh data after cache refresh
+                            fresh_data = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+                            if fresh_data.success:
+                                self.user_data = fresh_data.data
+                                
+                                # Update parent menu view if it exists
+                                if hasattr(self, 'parent_menu_view'):
                                     self.parent_menu_view.user_data = fresh_data.data
                                     await self.parent_menu_view.initialize_view()
                                     menu_embed = await self.parent_menu_view.generate_embed()
                                     await self.parent_menu_view.message.edit(embed=menu_embed, view=self.parent_menu_view)
-                                    
-                                    # Force refresh the menu view's buttons
                                     await self.parent_menu_view.setup()
-                                    if hasattr(self.parent_menu_view, 'fishing_in_progress'):
-                                        self.parent_menu_view.fishing_in_progress = False
-                            
-                            # Reinitialize the view with new data
-                            await self.initialize_view()
-                            await self.update_view()
+                                
+                                # Reinitialize the view with new data
+                                await self.initialize_view()
+                                await self.update_view()
+                    
+                    # Always show the result message
+                    message = await interaction.followup.send(msg, ephemeral=True, wait=True)
+                    self.cog.bot.loop.create_task(self.delete_after_delay(message))
+                    
+            # Handle bait purchases with modal
+            else:
+                modal = BaitQuantityModal(self, item_name)
+                await interaction.response.send_modal(modal)
                 
-                # Always show the result message
-                message = await interaction.followup.send(msg, ephemeral=True, wait=True)
-                self.cog.bot.loop.create_task(self.delete_after_delay(message))
-            
         except Exception as e:
             self.logger.error(f"Error in handle_purchase: {e}", exc_info=True)
             if not interaction.response.is_done():
