@@ -657,71 +657,6 @@ class Fishing(commands.Cog):
         except Exception as e:
                 self.logger.error(f"Error processing sale: {e}")
                 raise
-            
-    @commands.command(name="fisherboard")
-    async def fisherboard(self, ctx):
-        """Display detailed fishing leaderboard in an embed."""
-        try:
-            all_users_result = await self.config_manager.get_all_global_settings()
-            if not all_users_result.success:
-                await ctx.send("❌ Error accessing leaderboard data. Please try again.")
-                return
-                
-            all_users = all_users_result.data.get("users", {})
-            
-            # Filter and sort users
-            fisher_stats = [
-                (user_id, data["total_value"], data["fish_caught"])
-                for user_id, data in all_users.items()
-                if data["total_value"] > 0 or data["fish_caught"] > 0
-            ]
-            
-            if not fisher_stats:
-                await ctx.send("🏆 The fisherboard is empty!")
-                return
-    
-            # Sort by total value (career earnings)
-            fisher_stats.sort(key=lambda x: x[1], reverse=True)
-            
-            embed = discord.Embed(
-                title="🎣 Fishing Leaderboard",
-                description="Top fishers ranked by career earnings",
-                color=discord.Color.blue()
-            )
-    
-            # Process top 10 users
-            for rank, (user_id, value, fish_caught) in enumerate(fisher_stats[:10], 1):
-                try:
-                    user = await self.bot.fetch_user(user_id)
-                    if user:
-                        # Calculate catch rate
-                        total_casts = all_users[user_id].get("total_casts", fish_caught)
-                        catch_rate = (fish_caught / total_casts * 100) if total_casts > 0 else 0
-                        
-                        # Format stats with thousands separators
-                        value_formatted = "{:,}".format(value)
-                        fish_formatted = "{:,}".format(fish_caught)
-                        
-                        embed.add_field(
-                            name=f"#{rank} {user.name}",
-                            value=(
-                                f"💰 **{value_formatted}** coins\n"
-                                f"🐟 {fish_formatted} catches\n"
-                                f"📊 {catch_rate:.1f}% success rate"
-                            ),
-                            inline=False
-                        )
-                except Exception as e:
-                    self.logger.warning(f"Could not fetch user {user_id}: {e}")
-                    continue
-    
-            embed.set_footer(text=f"Total Registered Fishers: {len(fisher_stats)}")
-            await ctx.send(embed=embed)
-            self.logger.debug("Leaderboard displayed successfully")
-    
-        except Exception as e:
-            self.logger.error(f"Error displaying leaderboard: {e}", exc_info=True)
-            await ctx.send("❌ An error occurred while displaying the leaderboard. Please try again.")
 
     # Admin Commands
     @commands.group(name="manage")
@@ -825,6 +760,70 @@ class Fishing(commands.Cog):
             self.logger.error(f"Error resetting shop stock: {e}", exc_info=True)
             await ctx.send("❌ An error occurred while resetting shop stock. Please try again.")
 
+    @manage.command(name="level")
+    @commands.is_owner()
+    async def set_level(self, ctx, member: discord.Member, level: int):
+        """Set a player's fishing level.
+        
+        Args:
+            member: The member to update
+            level: The new level to set
+        """
+        try:
+            # Validate level input
+            if level < 1:
+                await ctx.send("❌ Level must be 1 or higher!")
+                return
+    
+            # Get current user data for verification
+            user_data_result = await self.config_manager.get_user_data(member.id)
+            if not user_data_result.success:
+                await ctx.send("❌ Error accessing user data.")
+                return
+                
+            # Store old level for logging
+            old_level = user_data_result.data.get("level", 1)
+                
+            # Update the level
+            update_result = await self.config_manager.update_user_data(
+                member.id,
+                {"level": level},
+                fields=["level"]
+            )
+            
+            if not update_result.success:
+                await ctx.send("❌ Error updating level.")
+                return
+                
+            # Verify the update
+            verify_result = await self.config_manager.get_user_data(member.id)
+            if verify_result.success and verify_result.data.get("level") == level:
+                # Create embed for response
+                embed = discord.Embed(
+                    title="✅ Level Updated",
+                    description=f"Updated level for {member.display_name}",
+                    color=discord.Color.green()
+                )
+                embed.add_field(
+                    name="Change Details",
+                    value=f"Level {old_level} → {level}",
+                    inline=False
+                )
+                
+                # Log the change
+                self.logger.warning(
+                    f"Admin {ctx.author.name} changed {member.name}'s level "
+                    f"from {old_level} to {level}"
+                )
+                
+                await ctx.send(embed=embed)
+            else:
+                await ctx.send("❌ Error verifying level update.")
+                
+        except Exception as e:
+            self.logger.error(f"Error in set_level command: {e}", exc_info=True)
+            await ctx.send("❌ An error occurred while updating the level.")
+    
     @commands.command(name="stockstatus")
     @commands.is_owner()
     async def stock_status(self, ctx):
