@@ -204,7 +204,7 @@ ROD_TYPES = {
 BAIT_TYPES = {
     "Worm": {
         "value": 1,
-        "catch_bonus": 0.1,
+        "catch_bonus": 1,
         "cost": 1,
         "description": "Basic bait that attracts common fish.",
         "daily_stock": 1000,
