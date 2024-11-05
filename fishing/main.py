@@ -859,115 +859,162 @@ class Fishing(commands.Cog):
             self.logger.error(f"Error in stock_status command: {e}", exc_info=True)
             await ctx.send("Error checking stock status.")
 
-        @commands.group(name="weathertest")
-        @commands.is_owner()
-        async def weather_test(self, ctx):
-            """Weather testing commands."""
-            if ctx.invoked_subcommand is None:
-                await ctx.send("Available commands: simulate, info, set")
-        
-        @weather_test.command(name="simulate")
-        async def simulate_catches(self, ctx, weather: str, location: str = None, trials: int = 100):
-            """Simulate catches with specific weather conditions."""
-            try:
-                if weather not in self.data["weather"]:
-                    await ctx.send(f"Invalid weather type. Available types: {', '.join(self.data['weather'].keys())}")
-                    return
+    @commands.group(name="weathertest")
+    @commands.is_owner()
+    async def weather_test(self, ctx):
+        """Weather testing commands."""
+        if ctx.invoked_subcommand is None:
+            await ctx.send("Available commands: simulate, info, set")
+    
+    @weather_test.command(name="simulate")
+    async def simulate_catches(self, ctx, weather: str, location: str = None, trials: int = 100):
+        """Simulate catches with specific weather conditions."""
+        try:
+            if weather not in self.data["weather"]:
+                await ctx.send(f"Invalid weather type. Available types: {', '.join(self.data['weather'].keys())}")
+                return
+                
+            if location and location not in self.data["locations"]:
+                await ctx.send(f"Invalid location. Available locations: {', '.join(self.data['locations'].keys())}")
+                return
+                
+            user_data_result = await self.config_manager.get_user_data(ctx.author.id)
+            if not user_data_result.success:
+                await ctx.send("Error accessing user data.")
+                return
+                
+            user_data = user_data_result.data
+            location = location or user_data["current_location"]
+            time_of_day = self.get_time_of_day()
+            
+            # Initialize counters
+            catches = {
+                "common": 0,
+                "uncommon": 0,
+                "rare": 0,
+                "legendary": 0,
+                "bonus_catches": 0
+            }
+            
+            # Run simulation
+            embed = discord.Embed(
+                title="🌤️ Weather Test Simulation",
+                description=f"Running {trials} trials with {weather} weather at {location}",
+                color=discord.Color.blue()
+            )
+            progress_msg = await ctx.send(embed=embed)
+            
+            for i in range(trials):
+                if i % 20 == 0:  # Update progress every 20 trials
+                    embed.description = f"Running {trials} trials with {weather} weather at {location}\n\nProgress: {i}/{trials}"
+                    await progress_msg.edit(embed=embed)
                     
-                if location and location not in self.data["locations"]:
-                    await ctx.send(f"Invalid location. Available locations: {', '.join(self.data['locations'].keys())}")
-                    return
-                    
-                user_data_result = await self.config_manager.get_user_data(ctx.author.id)
-                if not user_data_result.success:
-                    await ctx.send("Error accessing user data.")
-                    return
-                    
-                user_data = user_data_result.data
-                location = location or user_data["current_location"]
-                time_of_day = self.get_time_of_day()
-                
-                # Initialize counters
-                catches = {
-                    "common": 0,
-                    "uncommon": 0,
-                    "rare": 0,
-                    "legendary": 0,
-                    "bonus_catches": 0
-                }
-                
-                # Run simulation
-                embed = discord.Embed(
-                    title="🌤️ Weather Test Simulation",
-                    description=f"Running {trials} trials with {weather} weather at {location}",
-                    color=discord.Color.blue()
-                )
-                progress_msg = await ctx.send(embed=embed)
-                
-                for i in range(trials):
-                    if i % 20 == 0:  # Update progress every 20 trials
-                        embed.description = f"Running {trials} trials with {weather} weather at {location}\n\nProgress: {i}/{trials}"
-                        await progress_msg.edit(embed=embed)
-                        
-                    result = await self._catch_fish(
-                        ctx.author,
-                        user_data,
-                        user_data.get("equipped_bait", "Worm"),
-                        location,
-                        weather,
-                        time_of_day
-                    )
-                    
-                    if result and result["type"] == "fish":
-                        fish_data = self.data["fish"][result["name"]]
-                        catches[fish_data["rarity"]] += 1
-                        if "bonus_catch" in result:
-                            catches["bonus_catches"] += 1
-                
-                # Calculate percentages
-                total_catches = sum(catches.values()) - catches["bonus_catches"]
-                percentages = {
-                    rarity: (count / trials * 100) if trials > 0 else 0
-                    for rarity, count in catches.items()
-                }
-                
-                # Create result embed
-                embed = discord.Embed(
-                    title=f"🌤️ Weather Test Results: {weather}",
-                    description=(
-                        f"Location: {location}\n"
-                        f"Time of Day: {time_of_day}\n"
-                        f"Trials: {trials}"
-                    ),
-                    color=discord.Color.blue()
+                result = await self._catch_fish(
+                    ctx.author,
+                    user_data,
+                    user_data.get("equipped_bait", "Worm"),
+                    location,
+                    weather,
+                    time_of_day
                 )
                 
-                # Add catch statistics
-                stats_text = "\n".join([
-                    f"{rarity.title()}: {counts} ({percentages[rarity]:.1f}%)"
-                    for rarity, counts in catches.items()
-                    if rarity != "bonus_catches"
-                ])
+                if result and result["type"] == "fish":
+                    fish_data = self.data["fish"][result["name"]]
+                    catches[fish_data["rarity"]] += 1
+                    if "bonus_catch" in result:
+                        catches["bonus_catches"] += 1
+            
+            # Calculate percentages
+            total_catches = sum(catches.values()) - catches["bonus_catches"]
+            percentages = {
+                rarity: (count / trials * 100) if trials > 0 else 0
+                for rarity, count in catches.items()
+            }
+            
+            # Create result embed
+            embed = discord.Embed(
+                title=f"🌤️ Weather Test Results: {weather}",
+                description=(
+                    f"Location: {location}\n"
+                    f"Time of Day: {time_of_day}\n"
+                    f"Trials: {trials}"
+                ),
+                color=discord.Color.blue()
+            )
+            
+            # Add catch statistics
+            stats_text = "\n".join([
+                f"{rarity.title()}: {counts} ({percentages[rarity]:.1f}%)"
+                for rarity, counts in catches.items()
+                if rarity != "bonus_catches"
+            ])
+            embed.add_field(
+                name="Catch Statistics",
+                value=stats_text,
+                inline=False
+            )
+            
+            if catches["bonus_catches"] > 0:
                 embed.add_field(
-                    name="Catch Statistics",
-                    value=stats_text,
+                    name="Bonus Catches",
+                    value=f"{catches['bonus_catches']} ({catches['bonus_catches']/trials*100:.1f}%)",
                     inline=False
                 )
                 
-                if catches["bonus_catches"] > 0:
-                    embed.add_field(
-                        name="Bonus Catches",
-                        value=f"{catches['bonus_catches']} ({catches['bonus_catches']/trials*100:.1f}%)",
-                        inline=False
-                    )
+            # Add weather effect details
+            weather_data = self.data["weather"][weather]
+            effects = [
+                f"Catch Bonus: {weather_data['catch_bonus']:+.0%}",
+                f"Rare Bonus: {weather_data['rare_bonus']:+.0%}"
+            ]
+            
+            if "location_bonus" in weather_data:
+                for loc, bonus in weather_data["location_bonus"].items():
+                    effects.append(f"{loc} Bonus: {bonus:+.0%}")
                     
-                # Add weather effect details
+            if "time_multiplier" in weather_data:
+                for time, bonus in weather_data["time_multiplier"].items():
+                    effects.append(f"{time} Multiplier: {bonus:+.0%}")
+                    
+            if "catch_quantity" in weather_data:
+                effects.append(f"Extra Catch Chance: {weather_data['catch_quantity']:.0%}")
+                
+            embed.add_field(
+                name="Weather Effects",
+                value="\n".join(effects),
+                inline=False
+            )
+            
+            await progress_msg.edit(embed=embed)
+            
+        except Exception as e:
+            self.logger.error(f"Error in weather simulation: {e}", exc_info=True)
+            await ctx.send(f"An error occurred: {str(e)}")
+    
+    @weather_test.command(name="info")
+    async def weather_info(self, ctx, weather: str = None):
+        """Display detailed information about weather effects."""
+        try:
+            if weather and weather not in self.data["weather"]:
+                await ctx.send(f"Invalid weather type. Available types: {', '.join(self.data['weather'].keys())}")
+                return
+                
+            if weather:
+                # Show specific weather info
                 weather_data = self.data["weather"][weather]
+                embed = discord.Embed(
+                    title=f"🌤️ Weather Info: {weather}",
+                    description=weather_data["description"],
+                    color=discord.Color.blue()
+                )
+                
+                # Base effects
                 effects = [
                     f"Catch Bonus: {weather_data['catch_bonus']:+.0%}",
                     f"Rare Bonus: {weather_data['rare_bonus']:+.0%}"
                 ]
                 
+                # Additional effects
                 if "location_bonus" in weather_data:
                     for loc, bonus in weather_data["location_bonus"].items():
                         effects.append(f"{loc} Bonus: {bonus:+.0%}")
@@ -979,155 +1026,108 @@ class Fishing(commands.Cog):
                 if "catch_quantity" in weather_data:
                     effects.append(f"Extra Catch Chance: {weather_data['catch_quantity']:.0%}")
                     
+                if "specific_rarity_bonus" in weather_data:
+                    for rarity, bonus in weather_data["specific_rarity_bonus"].items():
+                        effects.append(f"{rarity} Bonus: {bonus:+.0%}")
+                        
                 embed.add_field(
-                    name="Weather Effects",
+                    name="Effects",
                     value="\n".join(effects),
                     inline=False
                 )
                 
-                await progress_msg.edit(embed=embed)
+                embed.add_field(
+                    name="Affected Locations",
+                    value="\n".join(weather_data["affects_locations"]),
+                    inline=False
+                )
                 
-            except Exception as e:
-                self.logger.error(f"Error in weather simulation: {e}", exc_info=True)
-                await ctx.send(f"An error occurred: {str(e)}")
-
-        @weather_test.command(name="info")
-        async def weather_info(self, ctx, weather: str = None):
-            """Display detailed information about weather effects."""
-            try:
-                if weather and weather not in self.data["weather"]:
-                    await ctx.send(f"Invalid weather type. Available types: {', '.join(self.data['weather'].keys())}")
-                    return
-                    
-                if weather:
-                    # Show specific weather info
-                    weather_data = self.data["weather"][weather]
-                    embed = discord.Embed(
-                        title=f"🌤️ Weather Info: {weather}",
-                        description=weather_data["description"],
-                        color=discord.Color.blue()
+                if "duration_hours" in weather_data:
+                    embed.add_field(
+                        name="Duration",
+                        value=f"{weather_data['duration_hours']} hour(s)",
+                        inline=False
                     )
                     
-                    # Base effects
+            else:
+                # Show overview of all weather types
+                embed = discord.Embed(
+                    title="🌤️ Weather System Overview",
+                    description="Current available weather types and their basic effects",
+                    color=discord.Color.blue()
+                )
+                
+                for weather_name, data in self.data["weather"].items():
                     effects = [
-                        f"Catch Bonus: {weather_data['catch_bonus']:+.0%}",
-                        f"Rare Bonus: {weather_data['rare_bonus']:+.0%}"
+                        f"Catch: {data['catch_bonus']:+.0%}",
+                        f"Rare: {data['rare_bonus']:+.0%}"
                     ]
                     
-                    # Additional effects
-                    if "location_bonus" in weather_data:
-                        for loc, bonus in weather_data["location_bonus"].items():
-                            effects.append(f"{loc} Bonus: {bonus:+.0%}")
-                            
-                    if "time_multiplier" in weather_data:
-                        for time, bonus in weather_data["time_multiplier"].items():
-                            effects.append(f"{time} Multiplier: {bonus:+.0%}")
-                            
-                    if "catch_quantity" in weather_data:
-                        effects.append(f"Extra Catch Chance: {weather_data['catch_quantity']:.0%}")
+                    if "catch_quantity" in data:
+                        effects.append(f"Extra Catch: {data['catch_quantity']:.0%}")
                         
-                    if "specific_rarity_bonus" in weather_data:
-                        for rarity, bonus in weather_data["specific_rarity_bonus"].items():
-                            effects.append(f"{rarity} Bonus: {bonus:+.0%}")
-                            
                     embed.add_field(
-                        name="Effects",
-                        value="\n".join(effects),
+                        name=weather_name,
+                        value=f"{data['description']}\n{' | '.join(effects)}",
                         inline=False
                     )
                     
+            await ctx.send(embed=embed)
+            
+        except Exception as e:
+            self.logger.error(f"Error in weather info: {e}", exc_info=True)
+            await ctx.send(f"An error occurred: {str(e)}")
+    
+    @weather_test.command(name="set")
+    @commands.is_owner()
+    async def set_weather(self, ctx, weather: str):
+        """Manually set the current weather (Owner only)."""
+        try:
+            if weather not in self.data["weather"]:
+                await ctx.send(f"Invalid weather type. Available types: {', '.join(self.data['weather'].keys())}")
+                return
+                
+            result = await self.config_manager.update_global_setting("current_weather", weather)
+            if result.success:
+                self.bg_task_manager.last_weather_change = datetime.datetime.now()
+                
+                embed = discord.Embed(
+                    title="🌤️ Weather Changed",
+                    description=f"Weather set to: {weather}\n{self.data['weather'][weather]['description']}",
+                    color=discord.Color.green()
+                )
+                
+                # Add effects summary
+                weather_data = self.data["weather"][weather]
+                effects = [
+                    f"Catch Bonus: {weather_data['catch_bonus']:+.0%}",
+                    f"Rare Bonus: {weather_data['rare_bonus']:+.0%}"
+                ]
+                
+                if "catch_quantity" in weather_data:
+                    effects.append(f"Extra Catch Chance: {weather_data['catch_quantity']:.0%}")
+                    
+                embed.add_field(
+                    name="Effects",
+                    value="\n".join(effects),
+                    inline=False
+                )
+                
+                # Show duration if custom
+                if "duration_hours" in weather_data:
                     embed.add_field(
-                        name="Affected Locations",
-                        value="\n".join(weather_data["affects_locations"]),
+                        name="Duration",
+                        value=f"{weather_data['duration_hours']} hour(s)",
                         inline=False
                     )
-                    
-                    if "duration_hours" in weather_data:
-                        embed.add_field(
-                            name="Duration",
-                            value=f"{weather_data['duration_hours']} hour(s)",
-                            inline=False
-                        )
-                        
-                else:
-                    # Show overview of all weather types
-                    embed = discord.Embed(
-                        title="🌤️ Weather System Overview",
-                        description="Current available weather types and their basic effects",
-                        color=discord.Color.blue()
-                    )
-                    
-                    for weather_name, data in self.data["weather"].items():
-                        effects = [
-                            f"Catch: {data['catch_bonus']:+.0%}",
-                            f"Rare: {data['rare_bonus']:+.0%}"
-                        ]
-                        
-                        if "catch_quantity" in data:
-                            effects.append(f"Extra Catch: {data['catch_quantity']:.0%}")
-                            
-                        embed.add_field(
-                            name=weather_name,
-                            value=f"{data['description']}\n{' | '.join(effects)}",
-                            inline=False
-                        )
-                        
+                
                 await ctx.send(embed=embed)
+            else:
+                await ctx.send("Failed to update weather.")
                 
-            except Exception as e:
-                self.logger.error(f"Error in weather info: {e}", exc_info=True)
-                await ctx.send(f"An error occurred: {str(e)}")
-        
-        @weather_test.command(name="set")
-        @commands.is_owner()
-        async def set_weather(self, ctx, weather: str):
-            """Manually set the current weather (Owner only)."""
-            try:
-                if weather not in self.data["weather"]:
-                    await ctx.send(f"Invalid weather type. Available types: {', '.join(self.data['weather'].keys())}")
-                    return
-                    
-                result = await self.config_manager.update_global_setting("current_weather", weather)
-                if result.success:
-                    self.bg_task_manager.last_weather_change = datetime.datetime.now()
-                    
-                    embed = discord.Embed(
-                        title="🌤️ Weather Changed",
-                        description=f"Weather set to: {weather}\n{self.data['weather'][weather]['description']}",
-                        color=discord.Color.green()
-                    )
-                    
-                    # Add effects summary
-                    weather_data = self.data["weather"][weather]
-                    effects = [
-                        f"Catch Bonus: {weather_data['catch_bonus']:+.0%}",
-                        f"Rare Bonus: {weather_data['rare_bonus']:+.0%}"
-                    ]
-                    
-                    if "catch_quantity" in weather_data:
-                        effects.append(f"Extra Catch Chance: {weather_data['catch_quantity']:.0%}")
-                        
-                    embed.add_field(
-                        name="Effects",
-                        value="\n".join(effects),
-                        inline=False
-                    )
-                    
-                    # Show duration if custom
-                    if "duration_hours" in weather_data:
-                        embed.add_field(
-                            name="Duration",
-                            value=f"{weather_data['duration_hours']} hour(s)",
-                            inline=False
-                        )
-                    
-                    await ctx.send(embed=embed)
-                else:
-                    await ctx.send("Failed to update weather.")
-                    
-            except Exception as e:
-                self.logger.error(f"Error setting weather: {e}", exc_info=True)
-                await ctx.send(f"An error occurred: {str(e)}")
+        except Exception as e:
+            self.logger.error(f"Error setting weather: {e}", exc_info=True)
+            await ctx.send(f"An error occurred: {str(e)}")
 
 def setup(bot: Red):
     """Add the cog to the bot."""
