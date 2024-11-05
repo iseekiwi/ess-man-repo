@@ -193,7 +193,7 @@ class Fishing(commands.Cog):
             
             # First roll for fish catch
             if random.random() < total_chance:
-                # Fish catch logic (existing code)
+                # Fish catch logic
                 location_mods = self.data["locations"][location]["fish_modifiers"]
                 weather_rare_bonus = (
                     self.data["weather"][weather].get("rare_bonus", 0)
@@ -231,7 +231,7 @@ class Fishing(commands.Cog):
     
                 self.logger.debug(f"Fish caught: {caught_fish}, XP reward: {xp_reward}")
                 success = await self._add_to_inventory(user, caught_fish)
-                self.logger.debug(f"Returning fish catch data: type={catch_type}, name={caught_fish}")
+                self.logger.debug(f"Added {caught_fish} to inventory: {success}")
                 
                 return {
                     "name": caught_fish,
@@ -269,6 +269,7 @@ class Fishing(commands.Cog):
     
                     self.logger.debug(f"Junk caught: {caught_junk}, XP reward: {xp_reward}")
                     success = await self._add_to_inventory(user, caught_junk)
+                    self.logger.debug(f"Added {caught_junk} to inventory: {success}")
     
                     # Update junk count
                     current_junk = user_data.get("junk_caught", 0)
@@ -288,9 +289,7 @@ class Fishing(commands.Cog):
                             self.logger.debug(f"Verified junk count after update: {verify_result.data.get('junk_caught', 0)}")
                     else:
                         self.logger.error("Failed to update junk count")
-
-                    self.logger.debug(f"Returning junk catch data: type={catch_type}, name={caught_junk}")
-                    
+    
                     return {
                         "name": caught_junk,
                         "value": junk_data["value"],
