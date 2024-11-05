@@ -231,7 +231,6 @@ class Fishing(commands.Cog):
     
                 self.logger.debug(f"Fish caught: {caught_fish}, XP reward: {xp_reward}")
                 success = await self._add_to_inventory(user, caught_fish)
-                self.logger.debug(f"Added {caught_fish} to inventory: {success}")
                 
                 return {
                     "name": caught_fish,
@@ -268,7 +267,6 @@ class Fishing(commands.Cog):
     
                     self.logger.debug(f"Junk caught: {caught_junk}, XP reward: {xp_reward}")
                     success = await self._add_to_inventory(user, caught_junk)
-                    self.logger.debug(f"Added {caught_junk} to inventory: {success}")
                     
                     return {
                         "name": caught_junk,
