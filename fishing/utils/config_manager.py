@@ -31,6 +31,53 @@ class ConfigManager:
         self.config.register_global(**DEFAULT_GLOBAL_SETTINGS)
         self.logger.debug("Registered default configurations")
 
+    async def invalidate_cache(self, key: Optional[str] = None):
+        """
+        Invalidate specific cache key or entire cache.
+        
+        Args:
+            key: Optional specific cache key to invalidate. If None, clears entire cache.
+        """
+        try:
+            self.logger.debug(f"Invalidating cache{'key: ' + key if key else ' (all)'}")
+            if key:
+                self._cache.pop(key, None)
+            else:
+                self._cache.clear()
+                
+        except Exception as e:
+            self.logger.error(f"Error in invalidate_cache: {e}")
+    
+    async def refresh_cache(self, user_id: int) -> ConfigResult[bool]:
+        """
+        Force refresh of user data cache.
+        
+        Args:
+            user_id: Discord user ID
+            
+        Returns:
+            ConfigResult[bool]: Success status
+        """
+        try:
+            self.logger.debug(f"Refreshing cache for user {user_id}")
+            cache_key = f"user_{user_id}"
+            
+            # Get fresh data from config
+            data = await self.config.user_from_id(user_id).all()
+            
+            # Validate the data
+            validated_data = await self._validate_user_data(data)
+            
+            # Update cache
+            self._cache[cache_key] = validated_data
+            
+            self.logger.debug(f"Cache refreshed for user {user_id}")
+            return ConfigResult(True, True)
+            
+        except Exception as e:
+            self.logger.error(f"Error in refresh_cache: {e}")
+            return ConfigResult(False, error=str(e), error_code="CACHE_ERROR")
+    
     async def _validate_dictionary_merge(
         self,
         current: Dict[str, Any],
