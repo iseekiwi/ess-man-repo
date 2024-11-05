@@ -97,7 +97,7 @@ JUNK_TYPES: Dict[str, FishData] = {
     "Common Junk": {
         "rarity": "common",
         "value": 1,
-        "chance": 0.6,
+        "chance": 0.7,
         "variants": [
             "Old Boot",
             "Tin Can",
@@ -109,7 +109,7 @@ JUNK_TYPES: Dict[str, FishData] = {
     "Uncommon Junk": {
         "rarity": "uncommon",
         "value": 2,
-        "chance": 0.25,
+        "chance": 0.15,
         "variants": [
             "Rusty Chain",
             "Waterlogged Book",
