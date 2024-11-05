@@ -50,26 +50,26 @@ class TimeData(TypedDict):
 FISH_TYPES = {
     "Common Fish": {
         "rarity": "common",
-        "value": 5,        # Was 3
-        "chance": 0.65,    # Slight increase
+        "value": 5,
+        "chance": 0.65,
         "variants": ["Bluegill", "Bass", "Perch", "Carp", "Catfish"]
     },
     "Uncommon Fish": {
         "rarity": "uncommon",
-        "value": 12,       # Was 7
-        "chance": 0.22,    # Slight decrease
+        "value": 12,
+        "chance": 0.22,
         "variants": ["Salmon", "Trout", "Pike", "Walleye", "Tuna"]
     },
     "Rare Fish": {
         "rarity": "rare",
-        "value": 45,       # Was 12
-        "chance": 0.11,    # Slight decrease
+        "value": 45,
+        "chance": 0.11,
         "variants": ["Swordfish", "Marlin", "Sturgeon", "Mahi-mahi", "Barracuda"]
     },
     "Legendary Fish": {
         "rarity": "legendary",
-        "value": 150,      # Was 50
-        "chance": 0.02,    # Unchanged
+        "value": 150,
+        "chance": 0.02,
         "variants": ["Golden Koi", "Giant Tuna", "Megalodon", "Rainbow Trout", "Ancient Sturgeon"]
     }
 }
@@ -77,26 +77,26 @@ FISH_TYPES = {
 JUNK_TYPES = {
     "Common Junk": {
         "rarity": "common",
-        "value": 2,        # Was 1
-        "chance": 0.7,     # Unchanged
+        "value": 2,
+        "chance": 0.7,
         "variants": ["Old Boot", "Tin Can", "Seaweed", "Broken Bottle", "Plastic Bag"]
     },
     "Uncommon Junk": {
         "rarity": "uncommon",
-        "value": 4,        # Was 2
-        "chance": 0.15,    # Unchanged
+        "value": 4,
+        "chance": 0.15,
         "variants": ["Rusty Chain", "Waterlogged Book", "Old Fishing Line", "Broken Fishing Rod", "Tattered Net"]
     },
     "Rare Junk": {
         "rarity": "rare",
-        "value": 10,       # Was 5
-        "chance": 0.1,     # Unchanged
+        "value": 10,
+        "chance": 0.1,
         "variants": ["Ancient Pottery", "Ship's Compass", "Lost Jewelry", "Antique Bottle", "Weather-Worn Map"]
     },
     "Legendary Junk": {
         "rarity": "legendary",
-        "value": 30,       # Was 15
-        "chance": 0.05,    # Unchanged
+        "value": 30,
+        "chance": 0.05,
         "variants": ["Sunken Treasure", "Ancient Artifact", "Lost Technology", "Time Capsule", "Mysterious Device"]
     }
 }
