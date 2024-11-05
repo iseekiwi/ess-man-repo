@@ -193,7 +193,7 @@ class InventoryView(BaseView):
                 buttons = [
                     ("🎣 View Rods", "rods", discord.ButtonStyle.blurple),
                     ("🪱 View Bait", "bait", discord.ButtonStyle.blurple),
-                    ("🐟 View Fish", "fish", discord.ButtonStyle.blurple),
+                    ("🐟 View Inventory", "fish", discord.ButtonStyle.blurple),
                     ("↩️ Back to Menu", "menu", discord.ButtonStyle.grey)
                 ]
                 
