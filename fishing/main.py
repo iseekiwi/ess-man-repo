@@ -297,7 +297,7 @@ class Fishing(commands.Cog):
         self.logger.warning(f"Invalid item attempted to add to inventory: {item_name}")
         return False
 
-    async def _update_total_value(self, user, value: int) -> bool:
+    async def _update_total_value(self, user, value: int, *, item_type: str = "fish") -> bool:
         """Update total value and check for level up."""
         try:
             self.logger.debug(f"Starting total value update for user {user.id} with value {value}")
