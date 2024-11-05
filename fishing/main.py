@@ -182,38 +182,78 @@ class Fishing(commands.Cog):
     ) -> dict:
         """Calculate catch results with all modifiers."""
         try:
+            # Get weather data
+            weather_data = self.data["weather"][weather]
+            self.logger.debug(
+                f"Starting catch calculation:\n"
+                f"Location: {location}\n"
+                f"Weather: {weather}\n"
+                f"Time: {time_of_day}\n"
+                f"Bait: {bait_type}"
+            )
+            
             # Calculate catch chance
             base_chance = self.data["rods"][user_data["rod"]]["chance"]
             bait_bonus = self.data["bait"][bait_type]["catch_bonus"]
-            weather_bonus = self.data["weather"][weather].get("catch_bonus", 0)
+            weather_bonus = weather_data.get("catch_bonus", 0)
             time_bonus = self.data["time"][time_of_day].get("catch_bonus", 0)
             
-            total_chance = base_chance + bait_bonus + weather_bonus + time_bonus
-            self.logger.debug(f"Catch chances - Base: {base_chance}, Total: {total_chance}")
+            # Apply location-specific weather bonus if exists
+            location_bonus = weather_data.get("location_bonus", {}).get(location, 0)
+            weather_bonus += location_bonus
             
+            # Apply time-based weather multiplier if exists
+            time_multiplier = weather_data.get("time_multiplier", {}).get(time_of_day, 0)
+            weather_bonus += time_multiplier
+            
+            total_chance = base_chance + bait_bonus + weather_bonus + time_bonus
+            
+            self.logger.debug(
+                f"Catch chance breakdown:\n"
+                f"Base (Rod): {base_chance}\n"
+                f"Bait Bonus: {bait_bonus}\n"
+                f"Weather Bonus: {weather_bonus}\n"
+                f"Location Bonus: {location_bonus}\n"
+                f"Time Bonus: {time_bonus}\n"
+                f"Time Multiplier: {time_multiplier}\n"
+                f"Total: {total_chance}"
+            )
+    
             # First roll for fish catch
-            if random.random() < total_chance:
+            catch_roll = random.random()
+            if catch_roll < total_chance:
+                self.logger.debug(f"Catch roll succeeded: {catch_roll} < {total_chance}")
                 # Fish catch logic
                 location_mods = self.data["locations"][location]["fish_modifiers"]
-                weather_rare_bonus = (
-                    self.data["weather"][weather].get("rare_bonus", 0)
-                    if weather in self.data["weather"]
-                    else 0
-                )
+                weather_rare_bonus = weather_data.get("rare_bonus", 0)
     
                 weighted_fish = []
                 weights = []
                 
+                # Calculate weights for each fish type
                 for fish, data in self.data["fish"].items():
                     if "variants" not in data:
                         self.logger.warning(f"Fish type {fish} missing variants!")
                         continue
                         
                     weight = data["chance"] * location_mods[fish]
+                    
+                    # Apply weather rare bonus to rare/legendary fish
                     if weather_rare_bonus and data["rarity"] in ["rare", "legendary"]:
-                        weight *= (1 + weather_rare_bonus)
+                        rare_multiplier = 1 + weather_rare_bonus
+                        weight *= rare_multiplier
+                        self.logger.debug(f"Applied rare bonus to {fish}: {rare_multiplier}x")
+                    
+                    # Apply specific rarity bonus if exists
+                    specific_bonus = weather_data.get("specific_rarity_bonus", {}).get(data["rarity"], 0)
+                    if specific_bonus:
+                        specific_multiplier = 1 + specific_bonus
+                        weight *= specific_multiplier
+                        self.logger.debug(f"Applied specific bonus to {fish}: {specific_multiplier}x")
+                    
                     weighted_fish.append(fish)
                     weights.append(weight)
+                    self.logger.debug(f"Fish weight for {fish}: {weight}")
     
                 if not weighted_fish:
                     self.logger.warning("No valid fish types found!")
@@ -222,7 +262,7 @@ class Fishing(commands.Cog):
                 caught_fish = random.choices(weighted_fish, weights=weights, k=1)[0]
                 fish_data = self.data["fish"][caught_fish]
     
-                # Calculate XP reward
+                # Calculate XP reward with location modifier
                 location_data = self.data["locations"][location]
                 xp_reward = self.level_manager.calculate_xp_reward(
                     fish_data["rarity"],
@@ -233,13 +273,36 @@ class Fishing(commands.Cog):
                 success = await self._add_to_inventory(user, caught_fish)
                 self.logger.debug(f"Added {caught_fish} to inventory: {success}")
                 
-                return {
+                result = {
                     "name": caught_fish,
                     "value": fish_data["value"],
                     "xp_gained": xp_reward,
                     "type": "fish"
                 }
+                
+                # Check for additional catches from weather effect
+                catch_quantity_bonus = weather_data.get("catch_quantity", 0)
+                if catch_quantity_bonus:
+                    bonus_roll = random.random()
+                    self.logger.debug(f"Bonus catch roll: {bonus_roll} vs {catch_quantity_bonus}")
+                    if bonus_roll < catch_quantity_bonus:
+                        # Roll for an additional fish
+                        bonus_catch = random.choices(weighted_fish, weights=weights, k=1)[0]
+                        bonus_fish_data = self.data["fish"][bonus_catch]
+                        # Add bonus fish to inventory
+                        await self._add_to_inventory(user, bonus_catch)
+                        self.logger.debug(f"Bonus fish caught: {bonus_catch}")
+                        
+                        # Add bonus catch info to result
+                        result["bonus_catch"] = {
+                            "name": bonus_catch,
+                            "value": bonus_fish_data["value"]
+                        }
+                
+                return result
+                
             else:
+                self.logger.debug(f"Catch roll failed: {catch_roll} >= {total_chance}")
                 # If fish catch fails, roll for junk (75% chance to find junk on failed fish catch)
                 if random.random() < 0.75:
                     self.logger.debug(f"Rolling for junk - Current junk count: {user_data.get('junk_caught', 0)}")
@@ -795,6 +858,276 @@ class Fishing(commands.Cog):
         except Exception as e:
             self.logger.error(f"Error in stock_status command: {e}", exc_info=True)
             await ctx.send("Error checking stock status.")
+
+        @commands.group(name="weathertest")
+        @commands.is_owner()
+        async def weather_test(self, ctx):
+            """Weather testing commands."""
+            if ctx.invoked_subcommand is None:
+                await ctx.send("Available commands: simulate, info, set")
+        
+        @weather_test.command(name="simulate")
+        async def simulate_catches(self, ctx, weather: str, location: str = None, trials: int = 100):
+            """Simulate catches with specific weather conditions."""
+            try:
+                if weather not in self.data["weather"]:
+                    await ctx.send(f"Invalid weather type. Available types: {', '.join(self.data['weather'].keys())}")
+                    return
+                    
+                if location and location not in self.data["locations"]:
+                    await ctx.send(f"Invalid location. Available locations: {', '.join(self.data['locations'].keys())}")
+                    return
+                    
+                user_data_result = await self.config_manager.get_user_data(ctx.author.id)
+                if not user_data_result.success:
+                    await ctx.send("Error accessing user data.")
+                    return
+                    
+                user_data = user_data_result.data
+                location = location or user_data["current_location"]
+                time_of_day = self.get_time_of_day()
+                
+                # Initialize counters
+                catches = {
+                    "common": 0,
+                    "uncommon": 0,
+                    "rare": 0,
+                    "legendary": 0,
+                    "bonus_catches": 0
+                }
+                
+                # Run simulation
+                embed = discord.Embed(
+                    title="🌤️ Weather Test Simulation",
+                    description=f"Running {trials} trials with {weather} weather at {location}",
+                    color=discord.Color.blue()
+                )
+                progress_msg = await ctx.send(embed=embed)
+                
+                for i in range(trials):
+                    if i % 20 == 0:  # Update progress every 20 trials
+                        embed.description = f"Running {trials} trials with {weather} weather at {location}\n\nProgress: {i}/{trials}"
+                        await progress_msg.edit(embed=embed)
+                        
+                    result = await self._catch_fish(
+                        ctx.author,
+                        user_data,
+                        user_data.get("equipped_bait", "Worm"),
+                        location,
+                        weather,
+                        time_of_day
+                    )
+                    
+                    if result and result["type"] == "fish":
+                        fish_data = self.data["fish"][result["name"]]
+                        catches[fish_data["rarity"]] += 1
+                        if "bonus_catch" in result:
+                            catches["bonus_catches"] += 1
+                
+                # Calculate percentages
+                total_catches = sum(catches.values()) - catches["bonus_catches"]
+                percentages = {
+                    rarity: (count / trials * 100) if trials > 0 else 0
+                    for rarity, count in catches.items()
+                }
+                
+                # Create result embed
+                embed = discord.Embed(
+                    title=f"🌤️ Weather Test Results: {weather}",
+                    description=(
+                        f"Location: {location}\n"
+                        f"Time of Day: {time_of_day}\n"
+                        f"Trials: {trials}"
+                    ),
+                    color=discord.Color.blue()
+                )
+                
+                # Add catch statistics
+                stats_text = "\n".join([
+                    f"{rarity.title()}: {counts} ({percentages[rarity]:.1f}%)"
+                    for rarity, counts in catches.items()
+                    if rarity != "bonus_catches"
+                ])
+                embed.add_field(
+                    name="Catch Statistics",
+                    value=stats_text,
+                    inline=False
+                )
+                
+                if catches["bonus_catches"] > 0:
+                    embed.add_field(
+                        name="Bonus Catches",
+                        value=f"{catches['bonus_catches']} ({catches['bonus_catches']/trials*100:.1f}%)",
+                        inline=False
+                    )
+                    
+                # Add weather effect details
+                weather_data = self.data["weather"][weather]
+                effects = [
+                    f"Catch Bonus: {weather_data['catch_bonus']:+.0%}",
+                    f"Rare Bonus: {weather_data['rare_bonus']:+.0%}"
+                ]
+                
+                if "location_bonus" in weather_data:
+                    for loc, bonus in weather_data["location_bonus"].items():
+                        effects.append(f"{loc} Bonus: {bonus:+.0%}")
+                        
+                if "time_multiplier" in weather_data:
+                    for time, bonus in weather_data["time_multiplier"].items():
+                        effects.append(f"{time} Multiplier: {bonus:+.0%}")
+                        
+                if "catch_quantity" in weather_data:
+                    effects.append(f"Extra Catch Chance: {weather_data['catch_quantity']:.0%}")
+                    
+                embed.add_field(
+                    name="Weather Effects",
+                    value="\n".join(effects),
+                    inline=False
+                )
+                
+                await progress_msg.edit(embed=embed)
+                
+            except Exception as e:
+                self.logger.error(f"Error in weather simulation: {e}", exc_info=True)
+                await ctx.send(f"An error occurred: {str(e)}")
+
+        @weather_test.command(name="info")
+        async def weather_info(self, ctx, weather: str = None):
+            """Display detailed information about weather effects."""
+            try:
+                if weather and weather not in self.data["weather"]:
+                    await ctx.send(f"Invalid weather type. Available types: {', '.join(self.data['weather'].keys())}")
+                    return
+                    
+                if weather:
+                    # Show specific weather info
+                    weather_data = self.data["weather"][weather]
+                    embed = discord.Embed(
+                        title=f"🌤️ Weather Info: {weather}",
+                        description=weather_data["description"],
+                        color=discord.Color.blue()
+                    )
+                    
+                    # Base effects
+                    effects = [
+                        f"Catch Bonus: {weather_data['catch_bonus']:+.0%}",
+                        f"Rare Bonus: {weather_data['rare_bonus']:+.0%}"
+                    ]
+                    
+                    # Additional effects
+                    if "location_bonus" in weather_data:
+                        for loc, bonus in weather_data["location_bonus"].items():
+                            effects.append(f"{loc} Bonus: {bonus:+.0%}")
+                            
+                    if "time_multiplier" in weather_data:
+                        for time, bonus in weather_data["time_multiplier"].items():
+                            effects.append(f"{time} Multiplier: {bonus:+.0%}")
+                            
+                    if "catch_quantity" in weather_data:
+                        effects.append(f"Extra Catch Chance: {weather_data['catch_quantity']:.0%}")
+                        
+                    if "specific_rarity_bonus" in weather_data:
+                        for rarity, bonus in weather_data["specific_rarity_bonus"].items():
+                            effects.append(f"{rarity} Bonus: {bonus:+.0%}")
+                            
+                    embed.add_field(
+                        name="Effects",
+                        value="\n".join(effects),
+                        inline=False
+                    )
+                    
+                    embed.add_field(
+                        name="Affected Locations",
+                        value="\n".join(weather_data["affects_locations"]),
+                        inline=False
+                    )
+                    
+                    if "duration_hours" in weather_data:
+                        embed.add_field(
+                            name="Duration",
+                            value=f"{weather_data['duration_hours']} hour(s)",
+                            inline=False
+                        )
+                        
+                else:
+                    # Show overview of all weather types
+                    embed = discord.Embed(
+                        title="🌤️ Weather System Overview",
+                        description="Current available weather types and their basic effects",
+                        color=discord.Color.blue()
+                    )
+                    
+                    for weather_name, data in self.data["weather"].items():
+                        effects = [
+                            f"Catch: {data['catch_bonus']:+.0%}",
+                            f"Rare: {data['rare_bonus']:+.0%}"
+                        ]
+                        
+                        if "catch_quantity" in data:
+                            effects.append(f"Extra Catch: {data['catch_quantity']:.0%}")
+                            
+                        embed.add_field(
+                            name=weather_name,
+                            value=f"{data['description']}\n{' | '.join(effects)}",
+                            inline=False
+                        )
+                        
+                await ctx.send(embed=embed)
+                
+            except Exception as e:
+                self.logger.error(f"Error in weather info: {e}", exc_info=True)
+                await ctx.send(f"An error occurred: {str(e)}")
+        
+        @weather_test.command(name="set")
+        @commands.is_owner()
+        async def set_weather(self, ctx, weather: str):
+            """Manually set the current weather (Owner only)."""
+            try:
+                if weather not in self.data["weather"]:
+                    await ctx.send(f"Invalid weather type. Available types: {', '.join(self.data['weather'].keys())}")
+                    return
+                    
+                result = await self.config_manager.update_global_setting("current_weather", weather)
+                if result.success:
+                    self.bg_task_manager.last_weather_change = datetime.datetime.now()
+                    
+                    embed = discord.Embed(
+                        title="🌤️ Weather Changed",
+                        description=f"Weather set to: {weather}\n{self.data['weather'][weather]['description']}",
+                        color=discord.Color.green()
+                    )
+                    
+                    # Add effects summary
+                    weather_data = self.data["weather"][weather]
+                    effects = [
+                        f"Catch Bonus: {weather_data['catch_bonus']:+.0%}",
+                        f"Rare Bonus: {weather_data['rare_bonus']:+.0%}"
+                    ]
+                    
+                    if "catch_quantity" in weather_data:
+                        effects.append(f"Extra Catch Chance: {weather_data['catch_quantity']:.0%}")
+                        
+                    embed.add_field(
+                        name="Effects",
+                        value="\n".join(effects),
+                        inline=False
+                    )
+                    
+                    # Show duration if custom
+                    if "duration_hours" in weather_data:
+                        embed.add_field(
+                            name="Duration",
+                            value=f"{weather_data['duration_hours']} hour(s)",
+                            inline=False
+                        )
+                    
+                    await ctx.send(embed=embed)
+                else:
+                    await ctx.send("Failed to update weather.")
+                    
+            except Exception as e:
+                self.logger.error(f"Error setting weather: {e}", exc_info=True)
+                await ctx.send(f"An error occurred: {str(e)}")
 
 def setup(bot: Red):
     """Add the cog to the bot."""
