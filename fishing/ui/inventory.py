@@ -122,18 +122,28 @@ class InventoryView(BaseView):
                 )
                 
                 if not self.user_data.get("inventory"):
-                    embed.description = "No fish caught yet!"
+                    embed.description = "No items caught yet!"
                 else:
                     fish_counts = Counter(self.user_data["inventory"])
                     fish_text = []
+                    junk_text = []
                     total_value = 0
                     
-                    for fish, count in fish_counts.most_common():
-                        value = self.cog.data["fish"][fish]["value"] * count
-                        total_value += value
-                        fish_text.append(f"{fish}: x{count} (Worth: {value} {currency_name})")
+                    for item, count in fish_counts.most_common():
+                        if item in self.cog.data["fish"]:
+                            value = self.cog.data["fish"][item]["value"] * count
+                            total_value += value
+                            fish_text.append(f"{item}: x{count} (Worth: {value} {currency_name})")
+                        elif item in self.cog.data["junk"]:
+                            value = self.cog.data["junk"][item]["value"] * count
+                            total_value += value
+                            junk_text.append(f"{item}: x{count} (Worth: {value} {currency_name})")
                     
-                    embed.description = "\n".join(fish_text)
+                    if fish_text:
+                        embed.add_field(name="🐟 Fish", value="\n".join(fish_text), inline=False)
+                    if junk_text:
+                        embed.add_field(name="📦 Junk", value="\n".join(junk_text), inline=False)
+                    
                     embed.set_footer(text=f"Total Value: {total_value} {currency_name} | Balance: {balance} {currency_name}")
             
             return embed
