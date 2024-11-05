@@ -1,4 +1,4 @@
-from typing import Dict, Any, TypedDict, List, Union, Literal
+from typing import Dict, Any, TypedDict, List, Union, Literal, Optional
 
 class FishData(TypedDict):
     rarity: Literal["common", "uncommon", "rare", "legendary"]
