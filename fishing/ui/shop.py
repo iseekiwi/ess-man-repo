@@ -467,6 +467,15 @@ class ShopView(BaseView):
                 quantity = 1
             
             total_cost = cost * quantity
+
+            # Add balance check here
+            if not await self.cog._can_afford(self.ctx.author, total_cost):
+                await interaction.response.send_message(
+                    f"❌ You don't have enough coins! This purchase costs {total_cost} coins.",
+                    ephemeral=True,
+                    delete_after=2
+                )
+                return
             
             confirm_view = PurchaseConfirmView(
                 self.cog,
