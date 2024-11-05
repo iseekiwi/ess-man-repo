@@ -576,7 +576,6 @@ class FishingMenuView(BaseView):
                     self.logger.debug(f"Current user data before XP award: {self.user_data}")
                     
                     # Update user data
-                    await self.cog._add_to_inventory(interaction.user, item_name)
                     await self.cog._update_total_value(interaction.user, item_value)
                     
                     # Award XP and check for level up
