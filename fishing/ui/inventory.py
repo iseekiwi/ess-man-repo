@@ -57,8 +57,8 @@ class InventoryView(BaseView):
                 embed.add_field(
                     name="Currently Equipped",
                     value=(
-                        f"🎣 Rod: {summary['equipped_rod']}\n"
-                        f"🪱 Bait: {summary['equipped_bait'] or 'None'}"
+                        f"🎣 Rod: `{summary['equipped_rod']}`\n"
+                        f"🪱 Bait: `{summary['equipped_bait'] or 'None'}`"
                     ),
                     inline=False
                 )
@@ -67,11 +67,11 @@ class InventoryView(BaseView):
                 embed.add_field(
                     name="Summary",
                     value=(
-                        f"🎣 Rods Owned: {summary['rod_count']}\n"
-                        f"🪱 Bait Available: {summary['bait_count']}\n"
-                        f"🐟 Fish & Items: {summary['fish_count']}\n"
-                        f"💰 Total Value: {summary['total_value']} {currency_name}\n"
-                        f"💰 Current Balance: {balance} {currency_name}"
+                        f"🎣 Rods Owned: `{summary['rod_count']}`\n"
+                        f"🪱 Bait Available: `{summary['bait_count']}`\n"
+                        f"🐟 Fish & Items: `{summary['fish_count']}`\n"
+                        f"💰 Total Value: `{summary['total_value']}` *{currency_name}*\n"
+                        f"💰 Current Balance: `{balance}` *{currency_name}*"
                     ),
                     inline=False
                 )
@@ -85,7 +85,7 @@ class InventoryView(BaseView):
                 rods_text = []
                 for rod in self.user_data.get("purchased_rods", {}):
                     rod_data = self.cog.data["rods"][rod]
-                    stats = f"Catch Bonus: +{rod_data['chance']*100}%"
+                    stats = f"Catch Bonus: `+{rod_data['chance']*100}%`"
                     
                     if rod == self.user_data['rod']:
                         rods_text.append(f"**{rod}** *(Equipped)*\n{stats}")
@@ -105,7 +105,7 @@ class InventoryView(BaseView):
                 for bait_name, amount in self.user_data.get("bait", {}).items():
                     if amount > 0:
                         bait_data = self.cog.data["bait"][bait_name]
-                        stats = f"Catch Bonus: +{bait_data['catch_bonus']*100}%"
+                        stats = f"Catch Bonus: `+{bait_data['catch_bonus']*100}%`"
                         
                         if bait_name == self.user_data.get('equipped_bait'):
                             bait_text.append(f"**{bait_name}** (x{amount}) *(Equipped)*\n{stats}")
