@@ -173,6 +173,7 @@ class Fishing(commands.Cog):
 
     async def _catch_fish(
         self,
+        user: discord.Member,
         user_data: dict,
         bait_type: str,
         location: str,
@@ -229,8 +230,8 @@ class Fishing(commands.Cog):
                 )
     
                 self.logger.debug(f"Fish caught: {caught_fish}, XP reward: {xp_reward}")
-                # Add to inventory and update stats
-                await self._add_to_inventory(self.ctx.author, caught_fish)
+                # Add to inventory and update stats using passed user
+                await self._add_to_inventory(user, caught_fish)
                 
                 return {
                     "name": caught_fish,
@@ -266,8 +267,8 @@ class Fishing(commands.Cog):
                     )
     
                     self.logger.debug(f"Junk caught: {caught_junk}, XP reward: {xp_reward}")
-                    # Add junk to inventory
-                    await self._add_to_inventory(self.ctx.author, caught_junk)
+                    # Add junk to inventory using passed user
+                    await self._add_to_inventory(user, caught_junk)
                     
                     return {
                         "name": caught_junk,
