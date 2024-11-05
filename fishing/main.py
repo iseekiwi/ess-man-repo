@@ -188,53 +188,88 @@ class Fishing(commands.Cog):
             total_chance = base_chance + bait_bonus + weather_bonus + time_bonus
             self.logger.debug(f"Catch chances - Base: {base_chance}, Total: {total_chance}")
             
-            if random.random() >= total_chance:
-                return None
+            # First roll for fish catch
+            if random.random() < total_chance:
+                # Fish catch logic (existing code)
+                location_mods = self.data["locations"][location]["fish_modifiers"]
+                weather_rare_bonus = (
+                    self.data["weather"][weather].get("rare_bonus", 0)
+                    if weather in self.data["weather"]
+                    else 0
+                )
     
-            # Calculate fish weights with modifiers
-            location_mods = self.data["locations"][location]["fish_modifiers"]
-            weather_rare_bonus = (
-                self.data["weather"][weather].get("rare_bonus", 0)
-                if weather in self.data["weather"]
-                else 0
-            )
+                weighted_fish = []
+                weights = []
+                
+                for fish, data in self.data["fish"].items():
+                    if "variants" not in data:
+                        self.logger.warning(f"Fish type {fish} missing variants!")
+                        continue
+                        
+                    weight = data["chance"] * location_mods[fish]
+                    if weather_rare_bonus and data["rarity"] in ["rare", "legendary"]:
+                        weight *= (1 + weather_rare_bonus)
+                    weighted_fish.append(fish)
+                    weights.append(weight)
     
-            weighted_fish = []
-            weights = []
-            
-            for fish, data in self.data["fish"].items():
-                # Validate fish data
-                if "variants" not in data:
-                    self.logger.warning(f"Fish type {fish} missing variants!")
-                    continue
+                if not weighted_fish:
+                    self.logger.warning("No valid fish types found!")
+                    return None
+    
+                caught_fish = random.choices(weighted_fish, weights=weights, k=1)[0]
+                fish_data = self.data["fish"][caught_fish]
+    
+                # Calculate XP reward
+                location_data = self.data["locations"][location]
+                xp_reward = self.level_manager.calculate_xp_reward(
+                    fish_data["rarity"],
+                    location_mods[caught_fish]
+                )
+    
+                self.logger.debug(f"Fish caught: {caught_fish}, XP reward: {xp_reward}")
+                return {
+                    "name": caught_fish,
+                    "value": fish_data["value"],
+                    "xp_gained": xp_reward,
+                    "type": "fish"
+                }
+            else:
+                # If fish catch fails, roll for junk (75% chance to find junk on failed fish catch)
+                if random.random() < 0.75:
+                    weighted_junk = []
+                    weights = []
                     
-                weight = data["chance"] * location_mods[fish]
-                if weather_rare_bonus and data["rarity"] in ["rare", "legendary"]:
-                    weight *= (1 + weather_rare_bonus)
-                weighted_fish.append(fish)
-                weights.append(weight)
+                    for junk, data in self.data["junk"].items():
+                        if "variants" not in data:
+                            self.logger.warning(f"Junk type {junk} missing variants!")
+                            continue
+                            
+                        weighted_junk.append(junk)
+                        weights.append(data["chance"])
     
-            if not weighted_fish:
-                self.logger.warning("No valid fish types found!")
-                return None
+                    if not weighted_junk:
+                        self.logger.warning("No valid junk types found!")
+                        return None
     
-            caught_fish = random.choices(weighted_fish, weights=weights, k=1)[0]
-            fish_data = self.data["fish"][caught_fish]
+                    caught_junk = random.choices(weighted_junk, weights=weights, k=1)[0]
+                    junk_data = self.data["junk"][caught_junk]
     
-            # Calculate XP reward
-            location_data = self.data["locations"][location]
-            xp_reward = self.level_manager.calculate_xp_reward(
-                fish_data["rarity"],
-                location_mods[caught_fish]  # Use location modifier as XP modifier
-            )
+                    # Calculate reduced XP reward for junk
+                    xp_reward = self.level_manager.calculate_xp_reward(
+                        junk_data["rarity"],
+                        0.5  # 50% XP modifier for junk items
+                    )
     
-            self.logger.debug(f"Fish caught: {caught_fish}, XP reward: {xp_reward}")
-            return {
-                "name": caught_fish,
-                "value": fish_data["value"],
-                "xp_gained": xp_reward
-            }
-        
+                    self.logger.debug(f"Junk caught: {caught_junk}, XP reward: {xp_reward}")
+                    return {
+                        "name": caught_junk,
+                        "value": junk_data["value"],
+                        "xp_gained": xp_reward,
+                        "type": "junk"
+                    }
+                
+            return None
+            
         except Exception as e:
             self.logger.error(f"Error in _catch_fish: {e}", exc_info=True)
             return None
