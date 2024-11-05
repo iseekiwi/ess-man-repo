@@ -23,6 +23,7 @@ from .data.fishing_data import (
     LOCATIONS,
     WEATHER_TYPES,
     TIME_EFFECTS,
+    JUNK_TYPES,
 )
 
 class Fishing(commands.Cog):
@@ -48,6 +49,7 @@ class Fishing(commands.Cog):
             "locations": LOCATIONS,
             "weather": WEATHER_TYPES,
             "time": TIME_EFFECTS,
+            "junk": JUNK_TYPES,
         }
 
         # Initialize inventory manager
