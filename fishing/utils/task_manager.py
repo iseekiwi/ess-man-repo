@@ -53,7 +53,7 @@ class TaskManager:
         """Weather change task with enhanced error handling"""
         while self._running:
             try:
-                await asyncio.sleep(3600)
+                await asyncio.sleep(10)
                 weather = random.choice(list(self.data["weather"].keys()))
                 await self.config.update_global_setting("current_weather", weather)
                 self.last_weather_change = datetime.datetime.now()
