@@ -36,38 +36,6 @@ class NavigationButton(Button):
             style=style,
             **kwargs
         )
-        
-class QuantitySelector(Select):
-    def __init__(
-        self,
-        callback: Callable[[discord.Interaction, int], Any],
-        options: list[int] = None
-    ):
-        if options is None:
-            options = [1, 5, 10, 25, 50, 100]
-            
-        select_options = [
-            discord.SelectOption(label=str(i), value=str(i))
-            for i in options
-        ]
-        
-        super().__init__(
-            placeholder="Select quantity...",
-            options=select_options,
-            custom_id="quantity"
-        )
-        self._callback = callback
-        
-    async def callback(self, interaction: discord.Interaction):
-        try:
-            quantity = int(self.values[0])
-            await self._callback(interaction, quantity)
-        except Exception as e:
-            logger.error(f"Error in quantity selector callback: {e}")
-            await interaction.response.send_message(
-                "Error processing selection.",
-                ephemeral=True
-            )
 
 class MessageManager:
     """Helper class for managing temporary messages"""
