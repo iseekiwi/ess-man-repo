@@ -311,8 +311,11 @@ class Fishing(commands.Cog):
             self.logger.debug(f"Current user data: {user_data}")
             old_level = user_data["level"]
             
-            # Calculate new level
-            fish_caught = user_data["fish_caught"] + 1  # Increment fish count
+            # Calculate new level based on fish caught (not including junk)
+            fish_caught = user_data["fish_caught"]
+            if item_type == "fish":
+                fish_caught += 1  # Only increment if it's actually a fish
+            
             new_level = max(1, fish_caught // 50)
             
             # Prepare updates with XP field included
