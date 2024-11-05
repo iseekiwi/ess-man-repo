@@ -187,10 +187,9 @@ class ConfigManager:
             validated["purchased_rods"]["Basic Rod"] = True
             
             # Validate numeric fields
-            for field in ["total_value", "fish_caught", "level", "experience"]:  # Added experience
+            for field in ["total_value", "fish_caught", "junk_caught", "level", "experience"]:
                 try:
                     if field == "experience":
-                        # Ensure experience is initialized to 0 if not present
                         validated[field] = max(0, int(data.get(field, 0)))
                         self.logger.debug(f"Validated experience value: {validated[field]}")
                     else:
