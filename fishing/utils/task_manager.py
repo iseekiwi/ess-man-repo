@@ -55,7 +55,7 @@ class TaskManager:
             try:
                 await asyncio.sleep(3600)
                 weather = random.choice(list(self.data["weather"].keys()))
-                await self.config.current_weather.set(weather)
+                await self.config.update_global_setting("current_weather", weather)
                 self.last_weather_change = datetime.datetime.now()
                 self.logger.debug(f"Weather changed to {weather}")
                 
