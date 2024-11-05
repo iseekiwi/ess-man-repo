@@ -125,7 +125,7 @@ class FishingMenuView(BaseView):
             
             if self.current_page == "main":
                 embed = discord.Embed(
-                    title="🎣 Fishing Menu",
+                    title=f"🎣 {self.ctx.author.display_name}'s Fishing Menu",
                     description="Welcome to the fishing menu! What would you like to do?",
                     color=discord.Color.blue()
                 )
@@ -159,7 +159,37 @@ class FishingMenuView(BaseView):
                     ),
                     inline=False
                 )
-    
+
+                # Add catch chance calculation
+                current_rod = self.user_data['rod']
+                equipped_bait = self.user_data.get('equipped_bait')
+                location = self.user_data['current_location']
+
+                # Get current weather
+                weather_result = await self.cog.config_manager.get_global_setting("current_weather")
+                current_weather = weather_result.data if weather_result.success else "Sunny"
+                
+                # Calculate base chances
+                base_chance = self.cog.data["rods"][current_rod]["chance"]
+                bait_bonus = self.cog.data["bait"][equipped_bait]["catch_bonus"] if equipped_bait else 0
+                weather_bonus = self.cog.data["weather"][current_weather].get("catch_bonus", 0)
+                time_bonus = self.cog.data["time"][self.get_time_of_day()].get("catch_bonus", 0)
+                
+                total_chance = (base_chance + bait_bonus + weather_bonus + time_bonus) * 100
+                
+                # Add catch chance breakdown
+                embed.add_field(
+                    name="Catch Chances",
+                    value=(
+                        f"📊 Total Chance: {total_chance:.1f}%\n"
+                        f"└─ Rod Bonus: {base_chance*100:+.1f}%\n"
+                        f"└─ Bait Bonus: {bait_bonus*100:+.1f}%\n"
+                        f"└─ Weather Bonus: {weather_bonus*100:+.1f}%\n"
+                        f"└─ Time Bonus: {time_bonus*100:+.1f}%"
+                    ),
+                    inline=False
+                )
+                
                 # Get level progress
                 progress = await self.cog.level_manager.get_level_progress(self.ctx.author.id)
                 if progress:
@@ -172,15 +202,18 @@ class FishingMenuView(BaseView):
                 else:
                     xp_info = f"📊 Level: {self.user_data['level']}"
                 
-                # Add statistics with enhanced XP info
+                # Add statistics with both fish and junk counts
                 embed.add_field(
                     name="Statistics",
                     value=(
                         f"🐟 Fish Caught: {self.user_data['fish_caught']}\n"
+                        f"📦 Junk Found: {self.user_data.get('junk_caught', 0)}\n"
                         f"{xp_info}"
                     ),
                     inline=False
                 )
+                
+                return embed
                 
             elif self.current_page == "location":
                 embed = discord.Embed(
