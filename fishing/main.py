@@ -51,7 +51,7 @@ class Fishing(commands.Cog):
             "time": TIME_EFFECTS,
             "junk": JUNK_TYPES,
         }
-
+        
         # Initialize inventory manager
         self.inventory = InventoryManager(bot, self.config_manager, self.data)
         self.logger.debug("Inventory manager initialized")
@@ -59,6 +59,18 @@ class Fishing(commands.Cog):
         # Initialize background tasks
         self.bg_task_manager = TaskManager(bot, self.config_manager, self.data)
 
+    def get_time_of_day(self) -> str:
+        """Get the current time of day for fishing effects"""
+        hour = datetime.datetime.now().hour
+        if 5 <= hour < 7:
+            return "Dawn"
+        elif 7 <= hour < 17:
+            return "Day"
+        elif 17 <= hour < 19:
+            return "Dusk"
+        else:
+            return "Night"
+    
     async def create_menu(self, ctx, user_data):
         """Create and setup a new menu view"""
         from .ui.menu import FishingMenuView
@@ -1140,3 +1152,4 @@ def setup(bot: Red):
         logger = get_logger('setup')
         logger.error(f"Error loading Fishing cog: {e}", exc_info=True)
         raise
+
