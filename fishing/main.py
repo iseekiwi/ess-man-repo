@@ -267,6 +267,13 @@ class Fishing(commands.Cog):
     
                     self.logger.debug(f"Junk caught: {caught_junk}, XP reward: {xp_reward}")
                     success = await self._add_to_inventory(user, caught_junk)
+
+                    # Update junk count
+                    await self.config_manager.update_user_data(
+                        user.id,
+                        {"junk_caught": user_data.get("junk_caught", 0) + 1},
+                        fields=["junk_caught"]
+                    )
                     
                     return {
                         "name": caught_junk,
