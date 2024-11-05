@@ -1,6 +1,5 @@
 from typing import Dict, Any, TypedDict, List, Union, Literal
 
-# Enhanced type definitions
 class FishData(TypedDict):
     rarity: Literal["common", "uncommon", "rare", "legendary"]
     value: int
@@ -22,6 +21,7 @@ class BaitData(TypedDict):
     daily_stock: int
     preferred_by: List[str]
     effectiveness: Dict[str, float]
+    requirements: Union[None, Dict[str, int]]
 
 class LocationData(TypedDict):
     description: str
@@ -34,6 +34,11 @@ class WeatherData(TypedDict):
     description: str
     affects_locations: List[str]
     rare_bonus: float
+    location_bonus: Optional[Dict[str, float]]
+    time_multiplier: Optional[Dict[str, float]]
+    catch_quantity: Optional[float]
+    specific_rarity_bonus: Optional[Dict[str, float]]
+    duration_hours: Optional[int]
 
 class TimeData(TypedDict):
     catch_bonus: float
@@ -41,7 +46,7 @@ class TimeData(TypedDict):
     duration_hours: int
     rare_bonus: float
 
-# Fish types with expanded details
+# Fish types
 FISH_TYPES: Dict[str, FishData] = {
     "Common Fish": {
         "rarity": "common",
@@ -144,8 +149,8 @@ JUNK_TYPES: Dict[str, FishData] = {
     }
 }
 
-# Rod types with expanded details
-ROD_TYPES: Dict[str, RodData] = {
+# Rod types
+ROD_TYPES = {
     "Basic Rod": {
         "chance": 0.0,
         "cost": 0,
@@ -172,11 +177,31 @@ ROD_TYPES: Dict[str, RodData] = {
             "level": 10,
             "fish_caught": 200
         }
+    },
+    "Expert Rod": {
+        "chance": 0.3,
+        "cost": 250,
+        "durability": 400,
+        "description": "Masterfully crafted rod for serious anglers.",
+        "requirements": {
+            "level": 15,
+            "fish_caught": 500
+        }
+    },
+    "Master Rod": {
+        "chance": 0.4,
+        "cost": 500,
+        "durability": 500,
+        "description": "Legendary rod with exceptional catch rates.",
+        "requirements": {
+            "level": 20,
+            "fish_caught": 1000
+        }
     }
 }
 
-# Bait types with expanded details
-BAIT_TYPES: Dict[str, BaitData] = {
+# Bait types
+BAIT_TYPES = {
     "Worm": {
         "value": 1,
         "catch_bonus": 0.1,
@@ -186,8 +211,10 @@ BAIT_TYPES: Dict[str, BaitData] = {
         "preferred_by": ["Common Fish"],
         "effectiveness": {
             "Pond": 1.2,
-            "Ocean": 0.8
-        }
+            "River": 0.8,
+            "Lake": 1.0
+        },
+        "requirements": None
     },
     "Shrimp": {
         "value": 2,
@@ -198,7 +225,12 @@ BAIT_TYPES: Dict[str, BaitData] = {
         "preferred_by": ["Uncommon Fish"],
         "effectiveness": {
             "Pond": 0.8,
+            "River": 1.2,
+            "Lake": 1.0,
             "Ocean": 1.2
+        },
+        "requirements": {
+            "level": 5
         }
     },
     "Cricket": {
@@ -210,7 +242,12 @@ BAIT_TYPES: Dict[str, BaitData] = {
         "preferred_by": ["Rare Fish"],
         "effectiveness": {
             "Pond": 1.5,
+            "River": 1.2,
+            "Lake": 1.3,
             "Ocean": 0.7
+        },
+        "requirements": {
+            "level": 10
         }
     },
     "Nightcrawler": {
@@ -222,22 +259,53 @@ BAIT_TYPES: Dict[str, BaitData] = {
         "preferred_by": ["Legendary Fish"],
         "effectiveness": {
             "Pond": 1.5,
-            "Ocean": 0.7
+            "River": 1.3,
+            "Lake": 1.4,
+            "Ocean": 0.7,
+            "Deep Sea": 1.0
+        },
+        "requirements": {
+            "level": 15
         }
     },
-        "Dev Bait": {
+    "Firefly": {
         "value": 5,
-        "catch_bonus": 1,
-        "cost": 999999,
-        "description": "A bait guaranteed to catch fish, designed by the Ancient Immortal",
-        "daily_stock": 0,
-        "preferred_by": ["Legendary Fish"],
-        "effectiveness": {}
+        "catch_bonus": 0.35,
+        "cost": 10,
+        "description": "Glowing bait that attracts exotic fish at night.",
+        "daily_stock": 150,
+        "preferred_by": ["Rare Fish", "Legendary Fish"],
+        "effectiveness": {
+            "Pond": 1.8,
+            "River": 1.5,
+            "Lake": 1.6,
+            "Ocean": 0.5
+        },
+        "requirements": {
+            "level": 12
+        }
+    },
+    "Anchovy": {
+        "value": 6,
+        "catch_bonus": 0.45,
+        "cost": 12,
+        "description": "Small fish bait perfect for ocean fishing.",
+        "daily_stock": 80,
+        "preferred_by": ["Rare Fish", "Legendary Fish"],
+        "effectiveness": {
+            "Ocean": 1.8,
+            "Deep Sea": 1.5,
+            "Pond": 0.5,
+            "River": 0.5
+        },
+        "requirements": {
+            "level": 18
+        }
     }
 }
 
 # Fishing locations with specific characteristics
-LOCATIONS: Dict[str, LocationData] = {
+LOCATIONS = {
     "Pond": {
         "description": "A peaceful freshwater pond.",
         "fish_modifiers": {
@@ -249,61 +317,179 @@ LOCATIONS: Dict[str, LocationData] = {
         "weather_effects": True,
         "requirements": None
     },
-    "Ocean": {
-        "description": "Vast open waters with diverse fish.",
+    "River": {
+        "description": "Fast-flowing waters with active fish.",
+        "fish_modifiers": {
+            "Common Fish": 1.0,
+            "Uncommon Fish": 1.2,
+            "Rare Fish": 1.0,
+            "Legendary Fish": 0.8
+        },
+        "weather_effects": True,
+        "requirements": {
+            "level": 3,
+            "fish_caught": 25
+        }
+    },
+    "Lake": {
+        "description": "Deep, calm waters with diverse species.",
         "fish_modifiers": {
             "Common Fish": 0.8,
-            "Uncommon Fish": 1.2,
+            "Uncommon Fish": 1.1,
             "Rare Fish": 1.2,
             "Legendary Fish": 1.0
         },
         "weather_effects": True,
         "requirements": {
-            "level": 5,
-            "fish_caught": 50
+            "level": 8,
+            "fish_caught": 100
+        }
+    },
+    "Ocean": {
+        "description": "Vast open waters with diverse fish.",
+        "fish_modifiers": {
+            "Common Fish": 0.6,
+            "Uncommon Fish": 1.0,
+            "Rare Fish": 1.4,
+            "Legendary Fish": 1.2
+        },
+        "weather_effects": True,
+        "requirements": {
+            "level": 12,
+            "fish_caught": 250
         }
     },
     "Deep Sea": {
         "description": "Mysterious deep waters with rare catches.",
         "fish_modifiers": {
-            "Common Fish": 0.5,
+            "Common Fish": 0.4,
             "Uncommon Fish": 0.8,
-            "Rare Fish": 1.5,
+            "Rare Fish": 1.6,
             "Legendary Fish": 2.0
         },
         "weather_effects": True,
         "requirements": {
-            "level": 10,
-            "fish_caught": 200
+            "level": 18,
+            "fish_caught": 500
         }
     }
 }
 
 # Weather effects on fishing
-WEATHER_TYPES: Dict[str, WeatherData] = {
+WEATHER_TYPES = {
     "Sunny": {
         "catch_bonus": 0.1,
         "description": "Perfect weather for fishing!",
-        "affects_locations": ["Pond", "Ocean"],
+        "affects_locations": ["Pond", "River", "Lake", "Ocean"],
         "rare_bonus": 0.0
     },
     "Rainy": {
         "catch_bonus": 0.2,
         "description": "Fish are more active in the rain.",
-        "affects_locations": ["Pond", "Ocean", "Deep Sea"],
+        "affects_locations": ["Pond", "River", "Lake", "Ocean", "Deep Sea"],
         "rare_bonus": 0.1
     },
     "Stormy": {
-        "catch_bonus": -0.1,
+        "catch_bonus": -0.15,
         "description": "Dangerous conditions, but rare fish are about!",
         "affects_locations": ["Ocean", "Deep Sea"],
-        "rare_bonus": 0.15
+        "rare_bonus": 0.25
     },
     "Foggy": {
         "catch_bonus": 0.05,
         "description": "Mysterious conditions that bring unique opportunities.",
-        "affects_locations": ["Pond", "Deep Sea"],
-        "rare_bonus": 0.05
+        "affects_locations": ["Pond", "Lake", "Deep Sea"],
+        "rare_bonus": 0.15
+    },
+    "Windy": {
+        "catch_bonus": -0.05,
+        "description": "Strong winds make fishing challenging but rewarding.",
+        "affects_locations": ["River", "Ocean", "Deep Sea"],
+        "rare_bonus": 0.2
+    },
+    "Clear": {
+        "catch_bonus": 0.15,
+        "description": "Crystal clear waters improve visibility.",
+        "affects_locations": ["Pond", "River", "Lake"],
+        "rare_bonus": -0.05
+    },
+    "Overcast": {
+        "catch_bonus": 0.1,
+        "description": "Dim conditions make fish less cautious.",
+        "affects_locations": ["Pond", "River", "Lake", "Ocean"],
+        "rare_bonus": 0.1
+    },
+    "Heat Wave": {
+        "catch_bonus": -0.1,
+        "description": "Extreme heat makes fish sluggish but they gather in deeper waters.",
+        "affects_locations": ["Lake", "Deep Sea"],
+        "rare_bonus": 0.2,
+        "location_bonus": {
+            "Deep Sea": 0.3,
+            "Lake": 0.15
+        }
+    },
+    "Full Moon": {
+        "catch_bonus": 0.2,
+        "description": "Moonlight brings out nocturnal species.",
+        "affects_locations": ["Ocean", "Deep Sea", "Lake"],
+        "rare_bonus": 0.15,
+        "time_multiplier": {
+            "Night": 0.3  # Additional bonus at night
+        }
+    },
+    "Migration": {
+        "catch_bonus": 0.25,
+        "description": "Schools of fish are migrating through the area!",
+        "affects_locations": ["River", "Ocean"],
+        "rare_bonus": 0.1,
+        "catch_quantity": 0.2  # 20% chance to catch additional fish
+    },
+    "Drought": {
+        "catch_bonus": -0.2,
+        "description": "Low water levels concentrate fish but make them cautious.",
+        "affects_locations": ["Pond", "River"],
+        "rare_bonus": 0.3,
+        "specific_rarity_bonus": {
+            "Legendary Fish": 0.4  # Extra bonus for legendary fish
+        }
+    },
+    "Red Tide": {
+        "catch_bonus": -0.15,
+        "description": "Algal bloom brings unusual deep-sea creatures to the surface.",
+        "affects_locations": ["Ocean", "Deep Sea"],
+        "rare_bonus": 0.35,
+        "specific_rarity_bonus": {
+            "Rare Fish": 0.2,
+            "Legendary Fish": 0.3
+        }
+    },
+    "Spring Flood": {
+        "catch_bonus": 0.1,
+        "description": "High waters bring fish upstream and increase activity.",
+        "affects_locations": ["River", "Lake"],
+        "rare_bonus": 0.15,
+        "location_bonus": {
+            "River": 0.25
+        }
+    },
+    "Aurora": {
+        "catch_bonus": 0.15,
+        "description": "The mystical lights seem to affect fish behavior.",
+        "affects_locations": ["Lake", "Deep Sea"],
+        "rare_bonus": 0.2,
+        "time_multiplier": {
+            "Night": 0.25,
+            "Dusk": 0.15
+        }
+    },
+    "School": {
+        "catch_bonus": 0.3,
+        "description": "A large school of fish is passing through!",
+        "affects_locations": ["Ocean", "Deep Sea", "River"],
+        "rare_bonus": 0.0,
+        "duration_hours": 1,  # Special short duration weather
+        "catch_quantity": 0.3  # 30% chance to catch additional fish
     }
 }
 
