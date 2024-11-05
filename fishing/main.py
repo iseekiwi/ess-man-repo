@@ -229,6 +229,9 @@ class Fishing(commands.Cog):
                 )
     
                 self.logger.debug(f"Fish caught: {caught_fish}, XP reward: {xp_reward}")
+                # Add to inventory and update stats
+                await self._add_to_inventory(self.ctx.author, caught_fish)
+                
                 return {
                     "name": caught_fish,
                     "value": fish_data["value"],
@@ -263,6 +266,9 @@ class Fishing(commands.Cog):
                     )
     
                     self.logger.debug(f"Junk caught: {caught_junk}, XP reward: {xp_reward}")
+                    # Add junk to inventory
+                    await self._add_to_inventory(self.ctx.author, caught_junk)
+                    
                     return {
                         "name": caught_junk,
                         "value": junk_data["value"],
@@ -276,10 +282,13 @@ class Fishing(commands.Cog):
             self.logger.error(f"Error in _catch_fish: {e}", exc_info=True)
             return None
 
-    async def _add_to_inventory(self, user, fish_name: str) -> bool:
-        """Add fish to user's inventory."""
-        success, _ = await self.inventory.add_item(user.id, "fish", fish_name)
-        return success
+    async def _add_to_inventory(self, user, item_name: str) -> bool:
+        """Add fish or junk to user's inventory."""
+        if item_name in self.data["fish"] or item_name in self.data["junk"]:
+            success, _ = await self.inventory.add_item(user.id, "inventory", item_name)
+            self.logger.debug(f"Added {item_name} to inventory: {success}")
+            return success
+        return False
 
     async def _update_total_value(self, user, value: int) -> bool:
         """Update total value and check for level up."""
