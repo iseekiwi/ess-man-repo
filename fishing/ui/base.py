@@ -23,29 +23,6 @@ class BaseView(View):
         self._timeout_task = None
         self.logger.debug(f"Initializing BaseView for {ctx.author.name} with timeout {timeout}")
 
-    async def start(self):
-        """Start the view and register with timeout manager"""
-        try:
-            self.logger.debug(f"Starting view for {self.ctx.author.name}")
-            
-            # Start timeout manager first
-            await self.timeout_manager.start()
-            
-            # Register this view with timeout manager
-            await self.timeout_manager.add_view(self, self.timeout)
-            self.logger.debug(f"View registered with timeout manager: {self.__class__.__name__}")
-            
-            # Generate embed before sending message
-            embed = await self.generate_embed()
-            
-            # Send message
-            self.message = await self.ctx.send(embed=embed, view=self)
-            
-            return self
-        except Exception as e:
-            self.logger.error(f"Error starting view: {e}")
-            return None
-    
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         """Verify interaction and manage timeouts"""
         try:
