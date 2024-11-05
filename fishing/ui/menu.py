@@ -693,13 +693,13 @@ class FishingMenuView(BaseView):
                     )
                     
                     # Update fish count
-                    update_result = await self.cog.config_manager.update_user_data(
-                        interaction.user.id,
-                        {"fish_caught": self.user_data["fish_caught"] + 1},
-                        fields=["fish_caught"]
-                    )
-                    if not update_result.success:
-                        self.logger.error("Failed to update fish_caught count")
+#                    update_result = await self.cog.config_manager.update_user_data(
+#                        interaction.user.id,
+#                        {"fish_caught": self.user_data["fish_caught"] + 1},
+#                        fields=["fish_caught"]
+#                    )
+#                    if not update_result.success:
+#                        self.logger.error("Failed to update fish_caught count")
                 else:
                     fishing_embed = discord.Embed(
                         title="🎣 Nothing!",
