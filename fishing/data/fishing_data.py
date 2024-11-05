@@ -346,6 +346,7 @@ DEFAULT_USER_DATA = {
     "equipped_bait": None,
     "current_location": "Pond",
     "fish_caught": 0,
+    "junk_caught": 0,  # Add this line
     "level": 1,
     "experience": 0,
     "settings": {
