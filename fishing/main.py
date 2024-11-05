@@ -300,7 +300,7 @@ class Fishing(commands.Cog):
     async def _update_total_value(self, user, value: int, *, item_type: str = "fish") -> bool:
         """Update total value and check for level up."""
         try:
-            self.logger.debug(f"Starting total value update for user {user.id} with value {value}")
+            self.logger.debug(f"Starting total value update for user {user.id} with value {value} and type {item_type}")
             
             user_data_result = await self.config_manager.get_user_data(user.id)
             if not user_data_result.success:
@@ -313,26 +313,35 @@ class Fishing(commands.Cog):
             
             # Calculate new level based on fish caught (not including junk)
             fish_caught = user_data["fish_caught"]
+            
+            # Only update specific counter based on item type
             if item_type == "fish":
-                fish_caught += 1  # Only increment if it's actually a fish
+                fish_caught += 1
             
             new_level = max(1, fish_caught // 50)
             
             # Prepare updates with XP field included
             updates = {
                 "total_value": user_data["total_value"] + value,
-                "fish_caught": fish_caught,
                 "level": new_level,
                 "experience": user_data.get("experience", 0)  # Ensure experience field exists
             }
             
+            # Only include fish_caught in updates if a fish was caught
+            if item_type == "fish":
+                updates["fish_caught"] = fish_caught
+            
             self.logger.debug(f"Preparing updates: {updates}")
             
             # Update user data
+            fields = ["total_value", "level", "experience"]
+            if item_type == "fish":
+                fields.append("fish_caught")
+                
             update_result = await self.config_manager.update_user_data(
                 user.id,
                 updates,
-                fields=["total_value", "fish_caught", "level", "experience"]
+                fields=fields
             )
             
             if not update_result.success:
