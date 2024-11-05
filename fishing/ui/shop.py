@@ -329,7 +329,7 @@ class ShopView(BaseView):
                 
                 for bait_name, bait_data in self.cog.data["bait"].items():
                     stock = current_stock.get(bait_name, 0)
-                    status = "📦 Stock: {}".format(stock) if stock > 0 else "❌ Out of stock!"
+                    status = "📦 Stock: `{}`".format(stock) if stock > 0 else "❌ Out of stock!"
                     
                     bait_entry = (
                         f"**{bait_name}** - {bait_data['cost']} {currency_name}\n"
@@ -350,12 +350,12 @@ class ShopView(BaseView):
                         continue
                     
                     owned = rod_name in self.user_data.get("purchased_rods", {})
-                    status = "✅ Owned" if owned else f"💰 Cost: {rod_data['cost']} {currency_name}"
+                    status = "✅ Owned" if owned else f"💰 *Cost*: {rod_data['cost']} {currency_name}"
                     
                     requirements = rod_data.get("requirements")
                     req_text = ""
                     if requirements:
-                        req_text = f"\nRequires: Level {requirements['level']}, {requirements['fish_caught']} fish caught"
+                        req_text = f"\n*Requires*: Level {requirements['level']}, {requirements['fish_caught']} fish caught"
                     
                     rod_entry = (
                         f"**{rod_name}**\n"
