@@ -609,7 +609,7 @@ class FishingMenuView(BaseView):
                     self.logger.debug(f"Current user data before XP award: {self.user_data}")
                     
                     # Update user data
-                    await self.cog._update_total_value(interaction.user, item_value, item_type)
+                    await self.cog._update_total_value(interaction.user, item_value, item_type=item_type)
                     
                     # Award XP and check for level up
                     xp_success, old_level, new_level = await self.cog.level_manager.award_xp(
