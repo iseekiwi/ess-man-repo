@@ -198,7 +198,7 @@ class ShopView(BaseView):
                     style=discord.ButtonStyle.blurple,
                     custom_id="bait"
                 )
-                bait_button.callback = self.handle_button  # Use the new handler
+                bait_button.callback = self.handle_button
                 self.add_item(bait_button)
     
                 rod_button = Button(
@@ -242,9 +242,14 @@ class ShopView(BaseView):
                     quantity_select.callback = self.handle_select
                     self.add_item(quantity_select)
     
+                    user_level = self.user_data.get("level", 1)
                     for bait_name, bait_data in self.cog.data["bait"].items():
                         stock = bait_stock.get(bait_name, 0)
-                        if stock > 0:
+                        requirements = bait_data.get("requirements", {})
+                        level_req = requirements.get("level", 1) if requirements else 1
+                        
+                        # Check if bait is available and user meets level requirement
+                        if stock > 0 and user_level >= level_req:
                             purchase_button = Button(
                                 label=f"Buy {bait_name}",
                                 style=discord.ButtonStyle.green,
@@ -307,7 +312,7 @@ class ShopView(BaseView):
                 self.logger.error(f"Error getting balance or stock: {e}")
                 self.current_balance = 0
                 currency_name = "coins"
-                bait_stock = {}
+                current_stock = {}
 
             if self.current_page == "main":
                 self.logger.debug("Generating main page embed")
@@ -326,10 +331,17 @@ class ShopView(BaseView):
                 self.logger.debug("Generating bait page embed")
                 embed.title = "🪱 Bait Shop"
                 bait_list = []
+                user_level = self.user_data.get("level", 1)
                 
                 for bait_name, bait_data in self.cog.data["bait"].items():
                     stock = current_stock.get(bait_name, 0)
-                    status = "📦 Stock: `{}`".format(stock) if stock > 0 else "❌ Out of stock!"
+                    requirements = bait_data.get("requirements", {})
+                    level_req = requirements.get("level", 1) if requirements else 1
+                    
+                    if level_req > user_level:
+                        status = f"🔒 Requires Level {level_req}"
+                    else:
+                        status = "📦 Stock: `{}`".format(stock) if stock > 0 else "❌ Out of stock!"
                     
                     bait_entry = (
                         f"**{bait_name}** - {bait_data['cost']} {currency_name}\n"
