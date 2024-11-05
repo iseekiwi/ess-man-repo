@@ -201,6 +201,8 @@ class FishingMenuView(BaseView):
                         xp_info += f"\n⭐ XP until next level: {progress['xp_for_next']:,}"
                 else:
                     xp_info = f"📊 Level: {self.user_data['level']}"
+
+                self.logger.debug(f"Displaying stats - Fish: {self.user_data['fish_caught']}, Junk: {self.user_data.get('junk_caught', 0)}")
                 
                 # Add statistics with both fish and junk counts
                 embed.add_field(
