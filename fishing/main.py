@@ -1213,13 +1213,48 @@ class Fishing(commands.Cog):
                 await ctx.send(f"Invalid location. Available locations: {', '.join(self.data['locations'].keys())}")
                 return
                 
-            # Run simulation
-            simulator = ProfitSimulator(self.data)
-            result = simulator.analyze_custom_setup(rod, bait, location)
+            # Constants
+            ATTEMPTS_PER_HOUR = 360
+            SUCCESS_RATE = 0.80  # 80% of attempts result in catches
+            successful_catches = int(ATTEMPTS_PER_HOUR * SUCCESS_RATE)
                 
-            if not result:
-                await ctx.send("Error running simulation.")
-                return
+            # Get equipment modifiers
+            rod_bonus = self.data["rods"][rod]["chance"]
+            bait_bonus = self.data["bait"][bait]["catch_bonus"]
+            location_mods = self.data["locations"][location]["fish_modifiers"]
+            weather_bonus = 0.05  # Base sunny weather bonus
+                
+            # Calculate catch distribution
+            catch_counts = {"common": 0, "uncommon": 0, "rare": 0, "legendary": 0}
+            total_value = 0
+                
+            for _ in range(successful_catches):
+                # Calculate weighted chances based on location modifiers
+                weights = []
+                fish_types = []
+                    
+                for fish_name, fish_data in self.data["fish"].items():
+                    base_chance = fish_data["chance"]
+                    loc_modifier = location_mods[fish_name]
+                    modified_chance = base_chance * loc_modifier * (1 + rod_bonus + bait_bonus + weather_bonus)
+                        
+                    weights.append(modified_chance)
+                    fish_types.append(fish_name)
+                    
+                # Normalize weights
+                weight_sum = sum(weights)
+                weights = [w/weight_sum for w in weights]
+                    
+                # Determine catch
+                caught_fish = random.choices(fish_types, weights=weights)[0]
+                fish_data = self.data["fish"][caught_fish]
+                    
+                catch_counts[fish_data["rarity"]] += 1
+                total_value += fish_data["value"]
+                
+            # Calculate costs and profits
+            bait_cost = successful_catches * self.data["bait"][bait]["cost"]
+            net_profit = total_value - bait_cost
                 
             # Create embed for results
             embed = discord.Embed(
@@ -1228,18 +1263,19 @@ class Fishing(commands.Cog):
                 color=discord.Color.blue()
             )
                 
-            # Add rarity breakdown
+            # Add catch statistics
             rarity_text = []
-            for rarity, count in result['rarity_breakdown'].items():
-                percentage = (count / result['catches_per_hour']) * 100
+            total_catches = sum(catch_counts.values())
+            for rarity, count in catch_counts.items():
+                percentage = (count / total_catches * 100) if total_catches > 0 else 0
                 rarity_text.append(f"{rarity.title()}: {count} ({percentage:.1f}%)")
                 
             embed.add_field(
                 name="Catch Statistics",
                 value=(
-                    f"**Setup**: {result['rod']} with {result['bait']}\n"
-                    f"**Location**: {result['location']}\n"
-                    f"**Catches**: {result['catches_per_hour']}/hour\n"
+                    f"**Setup**: {rod} with {bait}\n"
+                    f"**Location**: {location}\n"
+                    f"**Catches**: {successful_catches}/hour\n"
                     f"**Rarity Breakdown**:\n" + "\n".join(rarity_text)
                 ),
                 inline=False
@@ -1248,10 +1284,10 @@ class Fishing(commands.Cog):
             embed.add_field(
                 name="Financial Breakdown",
                 value=(
-                    f"• Bait Cost: {result['bait_cost']:,} coins\n"
-                    f"• Gross Profit: {result['gross_profit']:,} coins\n"
-                    f"• Net Profit: {result['net_profit']:,} coins\n"
-                    f"• Per Catch: {result['net_profit']/result['catches_per_hour']:.1f} coins"
+                    f"• Bait Cost: {bait_cost:,} coins\n"
+                    f"• Gross Profit: {total_value:,} coins\n"
+                    f"• Net Profit: {net_profit:,} coins\n"
+                    f"• Per Catch: {net_profit/successful_catches:.1f} coins"
                 ),
                 inline=False
             )
