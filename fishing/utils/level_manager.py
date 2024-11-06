@@ -20,7 +20,7 @@ class LevelManager:
         self.logger = get_logger('level_manager')
         
         # Define XP thresholds for each level
-        xp_thresholds = {
+        self.xp_thresholds = {
             1: 0,
             2: 200,
             3: 500,
@@ -44,7 +44,7 @@ class LevelManager:
         }
         
         # Define base XP rewards for each rarity
-        rarity_xp = {
+        self.rarity_xp = {
             "common": 30,
             "uncommon": 75,
             "rare": 250,
