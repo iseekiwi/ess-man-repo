@@ -1145,11 +1145,11 @@ class Fishing(commands.Cog):
             await ctx.send(f"An error occurred: {str(e)}")
 
     @commands.group(name="simulate")
-        @commands.is_owner()
-        async def simulate(self, ctx):
-            """Simulation commands for fishing analysis."""
-            if ctx.invoked_subcommand is None:
-                await ctx.send("Available commands: profits, setup")
+    @commands.is_owner()
+    async def simulate(self, ctx):
+        """Simulation commands for fishing analysis."""
+        if ctx.invoked_subcommand is None:
+            await ctx.send("Available commands: profits, setup")
         
         @simulate.command(name="profits")
         async def simulate_profits(self, ctx):
