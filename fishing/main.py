@@ -1143,6 +1143,124 @@ class Fishing(commands.Cog):
             self.logger.error(f"Error setting weather: {e}", exc_info=True)
             await ctx.send(f"An error occurred: {str(e)}")
 
+    @commands.group(name="simulate")
+        @commands.is_owner()
+        async def simulate(self, ctx):
+            """Simulation commands for fishing analysis."""
+            if ctx.invoked_subcommand is None:
+                await ctx.send("Available commands: profits, setup")
+        
+        @simulate.command(name="profits")
+        async def simulate_profits(self, ctx):
+            """Simulate fishing profits across all progression tiers."""
+            try:
+                # Create embed for results
+                embed = discord.Embed(
+                    title="🎣 Fishing Profit Analysis",
+                    description="Simulated profits for 1 hour of fishing at each tier",
+                    color=discord.Color.blue()
+                )
+                
+                # Initialize simulator
+                simulator = ProfitSimulator(self.data)
+                results = simulator.analyze_all_tiers()
+                
+                for result in results:
+                    field_name = f"Level {result['level']} - {result['location']}"
+                    rarity_text = []
+                    for rarity, count in result['rarity_breakdown'].items():
+                        percentage = (count / result['catches_per_hour']) * 100
+                        rarity_text.append(f"{rarity.title()}: {count} ({percentage:.1f}%)")
+                    
+                    field_value = (
+                        f"**Setup**: {result['rod']} with {result['bait']}\n"
+                        f"**Catches**: {result['catches_per_hour']}/hour\n"
+                        f"**Rarity Breakdown**:\n" + "\n".join(rarity_text) + "\n"
+                        f"**Financial**:\n"
+                        f"• Bait Cost: {result['bait_cost']:,} coins\n"
+                        f"• Gross Profit: {result['gross_profit']:,} coins\n"
+                        f"• Net Profit: {result['net_profit']:,} coins\n"
+                        f"• Per Catch: {result['net_profit']/result['catches_per_hour']:.1f} coins"
+                    )
+                    
+                    embed.add_field(
+                        name=field_name,
+                        value=field_value,
+                        inline=False
+                    )
+                
+                await ctx.send(embed=embed)
+                
+            except Exception as e:
+                self.logger.error(f"Error in profit simulation: {e}")
+                await ctx.send("An error occurred while running the simulation.")
+        
+        @simulate.command(name="setup")
+        async def simulate_setup(self, ctx, rod: str, bait: str, location: str):
+            """Simulate fishing profits with a specific setup."""
+            try:
+                # Validate inputs
+                if rod not in self.data["rods"]:
+                    await ctx.send(f"Invalid rod. Available rods: {', '.join(self.data['rods'].keys())}")
+                    return
+                    
+                if bait not in self.data["bait"]:
+                    await ctx.send(f"Invalid bait. Available bait: {', '.join(self.data['bait'].keys())}")
+                    return
+                    
+                if location not in self.data["locations"]:
+                    await ctx.send(f"Invalid location. Available locations: {', '.join(self.data['locations'].keys())}")
+                    return
+                
+                # Run simulation
+                simulator = ProfitSimulator(self.data)
+                result = simulator.analyze_custom_setup(rod, bait, location)
+                
+                if not result:
+                    await ctx.send("Error running simulation.")
+                    return
+                
+                # Create embed for results
+                embed = discord.Embed(
+                    title="🎣 Custom Setup Analysis",
+                    description=f"Simulated profits for 1 hour of fishing",
+                    color=discord.Color.blue()
+                )
+                
+                # Add rarity breakdown
+                rarity_text = []
+                for rarity, count in result['rarity_breakdown'].items():
+                    percentage = (count / result['catches_per_hour']) * 100
+                    rarity_text.append(f"{rarity.title()}: {count} ({percentage:.1f}%)")
+                
+                embed.add_field(
+                    name="Catch Statistics",
+                    value=(
+                        f"**Setup**: {result['rod']} with {result['bait']}\n"
+                        f"**Location**: {result['location']}\n"
+                        f"**Catches**: {result['catches_per_hour']}/hour\n"
+                        f"**Rarity Breakdown**:\n" + "\n".join(rarity_text)
+                    ),
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="Financial Breakdown",
+                    value=(
+                        f"• Bait Cost: {result['bait_cost']:,} coins\n"
+                        f"• Gross Profit: {result['gross_profit']:,} coins\n"
+                        f"• Net Profit: {result['net_profit']:,} coins\n"
+                        f"• Per Catch: {result['net_profit']/result['catches_per_hour']:.1f} coins"
+                    ),
+                    inline=False
+                )
+                
+                await ctx.send(embed=embed)
+                
+            except Exception as e:
+                self.logger.error(f"Error in setup simulation: {e}")
+                await ctx.send("An error occurred while running the simulation.")
+
 def setup(bot: Red):
     """Add the cog to the bot."""
     try:
