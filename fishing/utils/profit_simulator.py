@@ -1,4 +1,4 @@
-#ui/profit_simulator.py
+# utils/profit_simulator.py
 
 import random
 import statistics
