@@ -77,12 +77,17 @@ class TaskManager:
                 
                 await asyncio.sleep((midnight - now).total_seconds())
                 
-                async with self.config.bait_stock() as bait_stock:
-                    for bait, data in self.data["bait"].items():
-                        bait_stock[bait] = data["daily_stock"]
+                # Initialize new stock based on daily_stock values from data
+                new_stock = {
+                    bait: data["daily_stock"] 
+                    for bait, data in self.data["bait"].items()
+                }
+                
+                # Update global setting using ConfigManager
+                await self.config.update_global_setting("bait_stock", new_stock)
                         
                 self.last_reset = datetime.datetime.now()
-                self.logger.info("Daily stock reset completed")
+                self.logger.info(f"Daily stock reset completed with values: {new_stock}")
                 
             except asyncio.CancelledError:
                 break
