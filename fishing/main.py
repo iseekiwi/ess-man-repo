@@ -13,6 +13,7 @@ from .utils.task_manager import TaskManager
 from .utils.logging_config import get_logger
 from .utils.config_manager import ConfigManager, ConfigResult
 from .utils.level_manager import LevelManager
+from .utils.profit_simulator import ProfitSimulator
 from redbot.core import commands, Config, bank
 from redbot.core.bot import Red
 from collections import Counter
