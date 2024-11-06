@@ -50,25 +50,25 @@ class TimeData(TypedDict):
 FISH_TYPES = {
     "Common Fish": {
         "rarity": "common",
-        "value": 5,
+        "value": 7,
         "chance": 0.65,
         "variants": ["Bluegill", "Bass", "Perch", "Carp", "Catfish"]
     },
     "Uncommon Fish": {
         "rarity": "uncommon",
-        "value": 12,
+        "value": 18,
         "chance": 0.22,
         "variants": ["Salmon", "Trout", "Pike", "Walleye", "Tuna"]
     },
     "Rare Fish": {
         "rarity": "rare",
-        "value": 45,
+        "value": 50,
         "chance": 0.11,
         "variants": ["Swordfish", "Marlin", "Sturgeon", "Mahi-mahi", "Barracuda"]
     },
     "Legendary Fish": {
         "rarity": "legendary",
-        "value": 150,
+        "value": 160,
         "chance": 0.02,
         "variants": ["Golden Koi", "Giant Tuna", "Megalodon", "Rainbow Trout", "Ancient Sturgeon"]
     }
@@ -77,25 +77,25 @@ FISH_TYPES = {
 JUNK_TYPES = {
     "Common Junk": {
         "rarity": "common",
-        "value": 2,
+        "value": 3,
         "chance": 0.7,
         "variants": ["Old Boot", "Tin Can", "Seaweed", "Broken Bottle", "Plastic Bag"]
     },
     "Uncommon Junk": {
         "rarity": "uncommon",
-        "value": 4,
+        "value": 6,
         "chance": 0.15,
         "variants": ["Rusty Chain", "Waterlogged Book", "Old Fishing Line", "Broken Fishing Rod", "Tattered Net"]
     },
     "Rare Junk": {
         "rarity": "rare",
-        "value": 10,
+        "value": 15,
         "chance": 0.1,
         "variants": ["Ancient Pottery", "Ship's Compass", "Lost Jewelry", "Antique Bottle", "Weather-Worn Map"]
     },
     "Legendary Junk": {
         "rarity": "legendary",
-        "value": 30,
+        "value": 40,
         "chance": 0.05,
         "variants": ["Sunken Treasure", "Ancient Artifact", "Lost Technology", "Time Capsule", "Mysterious Device"]
     }
@@ -155,9 +155,9 @@ ROD_TYPES = {
 # Bait types
 BAIT_TYPES = {
     "Worm": {
-        "value": 1,
-        "catch_bonus": 0.1,
-        "cost": 1,
+        "value": 2,
+        "catch_bonus": 0.15,
+        "cost": 2,
         "description": "Basic bait that attracts common fish.",
         "daily_stock": 1000,
         "preferred_by": ["Common Fish"],
@@ -169,9 +169,9 @@ BAIT_TYPES = {
         "requirements": None
     },
     "Shrimp": {
-        "value": 2,
-        "catch_bonus": 0.2,
-        "cost": 3,
+        "value": 4,
+        "catch_bonus": 0.25,
+        "cost": 4,
         "description": "Medium-grade bait, good for various fish types.",
         "daily_stock": 500,
         "preferred_by": ["Uncommon Fish"],
@@ -186,9 +186,9 @@ BAIT_TYPES = {
         }
     },
     "Cricket": {
-        "value": 3,
-        "catch_bonus": 0.3,
-        "cost": 5,
+        "value": 7,
+        "catch_bonus": 0.35,
+        "cost": 7,
         "description": "Premium bait with high catch bonus.",
         "daily_stock": 250,
         "preferred_by": ["Rare Fish"],
@@ -202,10 +202,27 @@ BAIT_TYPES = {
             "level": 10
         }
     },
+    "Firefly": {
+        "value": 12,
+        "catch_bonus": 0.40,
+        "cost": 12,
+        "description": "Glowing bait that attracts exotic fish at night.",
+        "daily_stock": 150,
+        "preferred_by": ["Rare Fish", "Legendary Fish"],
+        "effectiveness": {
+            "Pond": 1.8,
+            "River": 1.5,
+            "Lake": 1.6,
+            "Ocean": 0.5
+        },
+        "requirements": {
+            "level": 12
+        }
+    },
     "Nightcrawler": {
-        "value": 4,
-        "catch_bonus": 0.4,
-        "cost": 8,
+        "value": 10,
+        "catch_bonus": 0.45,
+        "cost": 10,
         "description": "A fat worm even Legendary fish can't resist.",
         "daily_stock": 100,
         "preferred_by": ["Legendary Fish"],
@@ -220,27 +237,10 @@ BAIT_TYPES = {
             "level": 15
         }
     },
-    "Firefly": {
-        "value": 5,
-        "catch_bonus": 0.35,
-        "cost": 10,
-        "description": "Glowing bait that attracts exotic fish at night.",
-        "daily_stock": 150,
-        "preferred_by": ["Rare Fish", "Legendary Fish"],
-        "effectiveness": {
-            "Pond": 1.8,
-            "River": 1.5,
-            "Lake": 1.6,
-            "Ocean": 0.5
-        },
-        "requirements": {
-            "level": 12
-        }
-    },
     "Anchovy": {
-        "value": 6,
-        "catch_bonus": 0.45,
-        "cost": 12,
+        "value": 15,
+        "catch_bonus": 0.50,
+        "cost": 15,
         "description": "Small fish bait perfect for ocean fishing.",
         "daily_stock": 80,
         "preferred_by": ["Rare Fish", "Legendary Fish"],
