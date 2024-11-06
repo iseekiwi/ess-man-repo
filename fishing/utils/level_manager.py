@@ -21,34 +21,34 @@ class LevelManager:
         
         # Define XP thresholds for each level
         self.xp_thresholds = {
-            1: 0,
-            2: 200,
-            3: 500,
-            4: 1000,
-            5: 1800,
-            6: 3000,
-            7: 4500,
-            8: 6500,
-            9: 9000,
-            10: 12000,
-            11: 15500,
-            12: 19500,
-            13: 24000,
-            14: 29000,
-            15: 34500,
-            16: 40500,
-            17: 47000,
-            18: 54000,
-            19: 61500,
-            20: 70000
+            1: 0,      # Start
+            2: 100,    # ~1 hour
+            3: 250,    # ~2 hours
+            4: 450,    # ~3 hours
+            5: 700,    # ~4 hours
+            6: 1000,   # ~6 hours
+            7: 1350,   # ~8 hours
+            8: 1750,   # ~10 hours
+            9: 2200,   # ~12 hours
+            10: 2700,  # ~15 hours
+            11: 3250,  # ~18 hours
+            12: 3850,  # ~21 hours
+            13: 4500,  # ~24 hours
+            14: 5200,  # ~27 hours
+            15: 5950,  # ~30 hours
+            16: 6750,  # ~33 hours
+            17: 7600,  # ~35 hours
+            18: 8500,  # ~37 hours
+            19: 9450,  # ~39 hours
+            20: 10450  # ~40 hours
         }
         
         # Define base XP rewards for each rarity
         self.rarity_xp = {
-            "common": 30,
-            "uncommon": 75,
-            "rare": 250,
-            "legendary": 600
+            "common": 15,     # 15 XP per common fish
+            "uncommon": 35,   # 35 XP per uncommon fish
+            "rare": 100,      # 100 XP per rare fish
+            "legendary": 250  # 250 XP per legendary fish
         }
         
     async def initialize_user_xp(self, user_id: int) -> None:
