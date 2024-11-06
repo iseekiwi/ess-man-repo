@@ -50,25 +50,25 @@ class TimeData(TypedDict):
 FISH_TYPES = {
     "Common Fish": {
         "rarity": "common",
-        "value": 7,
-        "chance": 0.65,
+        "value": 3,
+        "chance": 0.70,
         "variants": ["Bluegill", "Bass", "Perch", "Carp", "Catfish"]
     },
     "Uncommon Fish": {
         "rarity": "uncommon",
-        "value": 18,
-        "chance": 0.22,
+        "value": 8,
+        "chance": 0.20,
         "variants": ["Salmon", "Trout", "Pike", "Walleye", "Tuna"]
     },
     "Rare Fish": {
         "rarity": "rare",
-        "value": 50,
-        "chance": 0.11,
+        "value": 20,
+        "chance": 0.08,
         "variants": ["Swordfish", "Marlin", "Sturgeon", "Mahi-mahi", "Barracuda"]
     },
     "Legendary Fish": {
         "rarity": "legendary",
-        "value": 160,
+        "value": 60,
         "chance": 0.02,
         "variants": ["Golden Koi", "Giant Tuna", "Megalodon", "Rainbow Trout", "Ancient Sturgeon"]
     }
@@ -77,31 +77,30 @@ FISH_TYPES = {
 JUNK_TYPES = {
     "Common Junk": {
         "rarity": "common",
-        "value": 3,
-        "chance": 0.7,
+        "value": 1,
+        "chance": 0.70,
         "variants": ["Old Boot", "Tin Can", "Seaweed", "Broken Bottle", "Plastic Bag"]
     },
     "Uncommon Junk": {
         "rarity": "uncommon",
-        "value": 6,
+        "value": 2,
         "chance": 0.15,
         "variants": ["Rusty Chain", "Waterlogged Book", "Old Fishing Line", "Broken Fishing Rod", "Tattered Net"]
     },
     "Rare Junk": {
         "rarity": "rare",
-        "value": 15,
-        "chance": 0.1,
+        "value": 5,
+        "chance": 0.10,
         "variants": ["Ancient Pottery", "Ship's Compass", "Lost Jewelry", "Antique Bottle", "Weather-Worn Map"]
     },
     "Legendary Junk": {
         "rarity": "legendary",
-        "value": 40,
+        "value": 15,
         "chance": 0.05,
         "variants": ["Sunken Treasure", "Ancient Artifact", "Lost Technology", "Time Capsule", "Mysterious Device"]
     }
 }
 
-# Rod types
 ROD_TYPES = {
     "Basic Rod": {
         "chance": 0.0,
@@ -111,53 +110,52 @@ ROD_TYPES = {
         "requirements": None
     },
     "Intermediate Rod": {
-        "chance": 0.1,
+        "chance": 0.08,
         "cost": 50,
         "durability": 200,
         "description": "Better quality rod with improved catch rates.",
         "requirements": {
             "level": 5,
-            "fish_caught": 50
+            "fish_caught": 1800
         }
     },
     "Advanced Rod": {
-        "chance": 0.2,
+        "chance": 0.16,
         "cost": 100,
         "durability": 300,
         "description": "Professional grade rod with excellent catch rates.",
         "requirements": {
             "level": 10,
-            "fish_caught": 200
+            "fish_caught": 3600
         }
     },
     "Expert Rod": {
-        "chance": 0.3,
+        "chance": 0.24,
         "cost": 250,
         "durability": 400,
         "description": "Masterfully crafted rod for serious anglers.",
         "requirements": {
             "level": 15,
-            "fish_caught": 500
+            "fish_caught": 5400
         }
     },
     "Master Rod": {
-        "chance": 0.4,
+        "chance": 0.32,
         "cost": 500,
         "durability": 500,
         "description": "Legendary rod with exceptional catch rates.",
         "requirements": {
             "level": 20,
-            "fish_caught": 1000
+            "fish_caught": 7200
         }
     }
 }
 
-# Bait types
 BAIT_TYPES = {
     "Worm": {
-        "value": 2,
-        "catch_bonus": 0.15,
-        "cost": 2,
+        "value": 1,
+        "catch_bonus": 0.12,
+        "cost": 1,
         "description": "Basic bait that attracts common fish.",
         "daily_stock": 1000,
         "preferred_by": ["Common Fish"],
@@ -169,9 +167,9 @@ BAIT_TYPES = {
         "requirements": None
     },
     "Shrimp": {
-        "value": 4,
-        "catch_bonus": 0.25,
-        "cost": 4,
+        "value": 2,
+        "catch_bonus": 0.20,
+        "cost": 2,
         "description": "Medium-grade bait, good for various fish types.",
         "daily_stock": 500,
         "preferred_by": ["Uncommon Fish"],
@@ -186,9 +184,9 @@ BAIT_TYPES = {
         }
     },
     "Cricket": {
-        "value": 7,
-        "catch_bonus": 0.35,
-        "cost": 7,
+        "value": 4,
+        "catch_bonus": 0.28,
+        "cost": 4,
         "description": "Premium bait with high catch bonus.",
         "daily_stock": 250,
         "preferred_by": ["Rare Fish"],
@@ -203,9 +201,9 @@ BAIT_TYPES = {
         }
     },
     "Firefly": {
-        "value": 12,
-        "catch_bonus": 0.40,
-        "cost": 12,
+        "value": 6,
+        "catch_bonus": 0.32,
+        "cost": 6,
         "description": "Glowing bait that attracts exotic fish at night.",
         "daily_stock": 150,
         "preferred_by": ["Rare Fish", "Legendary Fish"],
@@ -220,9 +218,9 @@ BAIT_TYPES = {
         }
     },
     "Nightcrawler": {
-        "value": 10,
-        "catch_bonus": 0.45,
-        "cost": 10,
+        "value": 8,
+        "catch_bonus": 0.35,
+        "cost": 8,
         "description": "A fat worm even Legendary fish can't resist.",
         "daily_stock": 100,
         "preferred_by": ["Legendary Fish"],
@@ -238,9 +236,9 @@ BAIT_TYPES = {
         }
     },
     "Anchovy": {
-        "value": 15,
-        "catch_bonus": 0.50,
-        "cost": 15,
+        "value": 10,
+        "catch_bonus": 0.42,
+        "cost": 10,
         "description": "Small fish bait perfect for ocean fishing.",
         "daily_stock": 80,
         "preferred_by": ["Rare Fish", "Legendary Fish"],
@@ -256,15 +254,14 @@ BAIT_TYPES = {
     }
 }
 
-# Fishing locations with specific characteristics
 LOCATIONS = {
     "Pond": {
         "description": "A peaceful freshwater pond.",
         "fish_modifiers": {
             "Common Fish": 1.2,
-            "Uncommon Fish": 1.0,
-            "Rare Fish": 0.8,
-            "Legendary Fish": 0.5
+            "Uncommon Fish": 0.9,
+            "Rare Fish": 0.7,
+            "Legendary Fish": 0.4
         },
         "weather_effects": True,
         "requirements": None
@@ -274,13 +271,13 @@ LOCATIONS = {
         "fish_modifiers": {
             "Common Fish": 1.0,
             "Uncommon Fish": 1.2,
-            "Rare Fish": 1.0,
-            "Legendary Fish": 0.8
+            "Rare Fish": 0.9,
+            "Legendary Fish": 0.6
         },
         "weather_effects": True,
         "requirements": {
-            "level": 3,
-            "fish_caught": 25
+            "level": 5,
+            "fish_caught": 1800
         }
     },
     "Lake": {
@@ -289,12 +286,12 @@ LOCATIONS = {
             "Common Fish": 0.8,
             "Uncommon Fish": 1.1,
             "Rare Fish": 1.2,
-            "Legendary Fish": 1.0
+            "Legendary Fish": 0.8
         },
         "weather_effects": True,
         "requirements": {
             "level": 8,
-            "fish_caught": 100
+            "fish_caught": 2880
         }
     },
     "Ocean": {
@@ -308,7 +305,7 @@ LOCATIONS = {
         "weather_effects": True,
         "requirements": {
             "level": 12,
-            "fish_caught": 250
+            "fish_caught": 4320
         }
     },
     "Deep Sea": {
@@ -322,7 +319,7 @@ LOCATIONS = {
         "weather_effects": True,
         "requirements": {
             "level": 18,
-            "fish_caught": 500
+            "fish_caught": 6480
         }
     }
 }
