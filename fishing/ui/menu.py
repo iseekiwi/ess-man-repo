@@ -303,7 +303,7 @@ class FishingMenuView(BaseView):
                     # Format requirements if they exist
                     req_text = ""
                     if requirements:
-                        req_text = f"\n**Requirements**\n• Level {requirements['level']}\n• {requirements['fish_caught']} fish caught"
+                        req_text = f"\n**Requirements**\n• Level {requirements['level']}"
                     
                     # Create location entry
                     embed.add_field(
