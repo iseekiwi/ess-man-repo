@@ -139,18 +139,15 @@ class Fishing(commands.Cog):
         try:
             if not requirements:
                 return True, ""
-                
-            # Ensure user_data has required fields
+                    
+            # Only check level requirement now
             level = user_data.get("level", 1)
-            fish_caught = user_data.get("fish_caught", 0)
-                
+                    
             if level < requirements["level"]:
                 return False, f"🚫 You need to be level {requirements['level']}!"
-            if fish_caught < requirements["fish_caught"]:
-                return False, f"🚫 You need to catch {requirements['fish_caught']} fish first!"
-                
+                    
             return True, ""
-            
+                
         except Exception as e:
             self.logger.error(f"Error checking requirements: {e}", exc_info=True)
             return False, "❌ An error occurred while checking requirements."
