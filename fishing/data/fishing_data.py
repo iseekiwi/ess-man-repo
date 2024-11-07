@@ -111,42 +111,38 @@ ROD_TYPES = {
     },
     "Intermediate Rod": {
         "chance": 0.08,
-        "cost": 50,
+        "cost": 250,
         "durability": 200,
         "description": "Better quality rod with improved catch rates.",
         "requirements": {
-            "level": 5,
-            "fish_caught": 1800
+            "level": 5
         }
     },
     "Advanced Rod": {
         "chance": 0.16,
-        "cost": 100,
+        "cost": 500,
         "durability": 300,
         "description": "Professional grade rod with excellent catch rates.",
         "requirements": {
-            "level": 10,
-            "fish_caught": 3600
+            "level": 10
         }
     },
     "Expert Rod": {
         "chance": 0.24,
-        "cost": 250,
+        "cost": 750,
         "durability": 400,
         "description": "Masterfully crafted rod for serious anglers.",
         "requirements": {
-            "level": 15,
-            "fish_caught": 5400
+            "level": 15
         }
     },
     "Master Rod": {
         "chance": 0.32,
-        "cost": 500,
+        "cost": 1000,
         "durability": 500,
         "description": "Legendary rod with exceptional catch rates.",
         "requirements": {
-            "level": 20,
-            "fish_caught": 7200
+            "level": 20
         }
     }
 }
@@ -276,8 +272,7 @@ LOCATIONS = {
         },
         "weather_effects": True,
         "requirements": {
-            "level": 5,
-            "fish_caught": 1800
+            "level": 5
         }
     },
     "Lake": {
@@ -290,8 +285,7 @@ LOCATIONS = {
         },
         "weather_effects": True,
         "requirements": {
-            "level": 8,
-            "fish_caught": 2880
+            "level": 8
         }
     },
     "Ocean": {
@@ -304,8 +298,7 @@ LOCATIONS = {
         },
         "weather_effects": True,
         "requirements": {
-            "level": 12,
-            "fish_caught": 4320
+            "level": 12
         }
     },
     "Deep Sea": {
@@ -318,8 +311,7 @@ LOCATIONS = {
         },
         "weather_effects": True,
         "requirements": {
-            "level": 18,
-            "fish_caught": 6480
+            "level": 18
         }
     }
 }
