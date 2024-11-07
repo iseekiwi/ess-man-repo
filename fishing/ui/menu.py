@@ -159,41 +159,60 @@ class FishingMenuView(BaseView):
                     ),
                     inline=False
                 )
-
+    
                 # Add catch chance calculation
                 current_rod = self.user_data['rod']
                 equipped_bait = self.user_data.get('equipped_bait')
                 location = self.user_data['current_location']
-
+    
                 # Get current weather
                 weather_result = await self.cog.config_manager.get_global_setting("current_weather")
                 current_weather = weather_result.data if weather_result.success else "Sunny"
+                weather_data = self.cog.data["weather"][current_weather]
                 
                 # Calculate base chances
                 base_chance = self.cog.data["rods"][current_rod]["chance"]
                 bait_bonus = self.cog.data["bait"][equipped_bait]["catch_bonus"] if equipped_bait else 0
-                weather_bonus = self.cog.data["weather"][current_weather].get("catch_bonus", 0)
+                
+                # Only apply weather bonuses if location is affected
+                weather_bonus = 0
+                if location in weather_data.get("affects_locations", []):
+                    weather_bonus = weather_data.get("catch_bonus", 0)
+                    location_bonus = weather_data.get("location_bonus", {}).get(location, 0)
+                    weather_bonus += location_bonus
+                    time_multiplier = weather_data.get("time_multiplier", {}).get(self.get_time_of_day(), 0)
+                    weather_bonus += time_multiplier
+                    
                 time_bonus = self.cog.data["time"][self.get_time_of_day()].get("catch_bonus", 0)
                 
                 total_chance = (base_chance + bait_bonus + weather_bonus + time_bonus) * 100
                 
                 # Add catch chance breakdown
+                chance_breakdown = [
+                    f"📊 Total Chance: `{total_chance:.1f}%`\n",
+                    f"└─ Rod Bonus: `{base_chance*100:+.1f}%`\n",
+                    f"└─ Bait Bonus: `{bait_bonus*100:+.1f}%`\n"
+                ]
+                
+                # Only show weather bonus if location is affected
+                if location in weather_data.get("affects_locations", []):
+                    chance_breakdown.append(f"└─ Weather Bonus: `{weather_bonus*100:+.1f}%`\n")
+                else:
+                    chance_breakdown.append("└─ Weather Bonus: `+0.0%` (Location not affected)\n")
+                    
+                chance_breakdown.append(f"└─ Time Bonus: `{time_bonus*100:+.1f}%`")
+                
                 embed.add_field(
                     name="Catch Chances",
-                    value=(
-                        f"📊 Total Chance: `{total_chance:.1f}%`\n"
-                        f"└─ Rod Bonus: `{base_chance*100:+.1f}%`\n"
-                        f"└─ Bait Bonus: `{bait_bonus*100:+.1f}%`\n"
-                        f"└─ Weather Bonus: `{weather_bonus*100:+.1f}%`\n"
-                        f"└─ Time Bonus: `{time_bonus*100:+.1f}%`"
-                    ),
+                    value="".join(chance_breakdown),
                     inline=False
                 )
-
+    
                 # Calculate rarity chances
                 location_mods = self.cog.data["locations"][location]["fish_modifiers"]
-                weather_data = self.cog.data["weather"][current_weather]
-                weather_rare_bonus = weather_data.get("rare_bonus", 0)
+                weather_rare_bonus = 0
+                if location in weather_data.get("affects_locations", []):
+                    weather_rare_bonus = weather_data.get("rare_bonus", 0)
                 time_rare_bonus = self.cog.data["time"][self.get_time_of_day()].get("rare_bonus", 0)
                 
                 # Calculate final chances for each rarity
@@ -202,22 +221,22 @@ class FishingMenuView(BaseView):
                     base_chance = data["chance"]
                     location_mod = location_mods[fish_type]
                     
-                    # Apply weather rare bonus to rare/legendary fish
+                    # Apply weather rare bonus to rare/legendary fish only if location is affected
                     rare_multiplier = 1.0
-                    if data["rarity"] in ["rare", "legendary"]:
-                        rare_multiplier += weather_rare_bonus
-                        rare_multiplier += time_rare_bonus
-                    
-                    # Apply specific rarity bonus if it exists in weather
-                    specific_bonus = weather_data.get("specific_rarity_bonus", {}).get(data["rarity"], 0)
-                    if specific_bonus:
-                        rare_multiplier += specific_bonus
+                    if location in weather_data.get("affects_locations", []):
+                        if data["rarity"] in ["rare", "legendary"]:
+                            rare_multiplier += weather_rare_bonus + time_rare_bonus
+                        
+                        # Apply specific rarity bonus if it exists in weather
+                        specific_bonus = weather_data.get("specific_rarity_bonus", {}).get(data["rarity"], 0)
+                        if specific_bonus:
+                            rare_multiplier += specific_bonus
                     
                     final_chance = base_chance * location_mod * rare_multiplier * 100
                     rarity_chances[fish_type] = final_chance
     
                 # Add rarity chance breakdown
-                rarity_text = [f"📊 Chances by Type:"]
+                rarity_text = ["📊 Chances by Type:"]
                 for fish_type, chance in rarity_chances.items():
                     location_effect = location_mods[fish_type]
                     base_text = f"└─ {fish_type}: `{chance:.1f}%`"
@@ -227,16 +246,17 @@ class FishingMenuView(BaseView):
                     if location_effect != 1.0:
                         mods.append(f"Location: {location_effect:+.1f}x")
                     
-                    fish_data = self.cog.data["fish"][fish_type]
-                    if fish_data["rarity"] in ["rare", "legendary"]:
-                        if weather_rare_bonus:
+                    # Only show weather effects if location is affected
+                    if location in weather_data.get("affects_locations", []):
+                        fish_data = self.cog.data["fish"][fish_type]
+                        if fish_data["rarity"] in ["rare", "legendary"] and weather_rare_bonus:
                             mods.append(f"Weather: {weather_rare_bonus:+.1f}x")
-                        if time_rare_bonus:
-                            mods.append(f"Time: {time_rare_bonus:+.1f}x")
-                    
-                    specific_bonus = weather_data.get("specific_rarity_bonus", {}).get(fish_data["rarity"], 0)
-                    if specific_bonus:
-                        mods.append(f"Special: {specific_bonus:+.1f}x")
+                            if time_rare_bonus:
+                                mods.append(f"Time: {time_rare_bonus:+.1f}x")
+                        
+                        specific_bonus = weather_data.get("specific_rarity_bonus", {}).get(fish_data["rarity"], 0)
+                        if specific_bonus:
+                            mods.append(f"Special: {specific_bonus:+.1f}x")
                     
                     if mods:
                         base_text += f" ({', '.join(mods)})"
