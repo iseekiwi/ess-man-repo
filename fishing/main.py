@@ -182,199 +182,204 @@ class Fishing(commands.Cog):
             await ctx.send("❌ An error occurred. Please try again.")
 
     async def _catch_fish(
-        self,
-        user: discord.Member,
-        user_data: dict,
-        bait_type: str,
-        location: str,
-        weather: str,
-        time_of_day: str
-    ) -> dict:
-        """Calculate catch results with all modifiers."""
-        try:
-            # Get weather data
-            weather_data = self.data["weather"][weather]
-            self.logger.debug(
-                f"Starting catch calculation:\n"
-                f"Location: {location}\n"
-                f"Weather: {weather}\n"
-                f"Time: {time_of_day}\n"
-                f"Bait: {bait_type}"
-            )
-            
-            # Calculate catch chance
-            base_chance = self.data["rods"][user_data["rod"]]["chance"]
-            bait_bonus = self.data["bait"][bait_type]["catch_bonus"]
-            weather_bonus = weather_data.get("catch_bonus", 0)
-            time_bonus = self.data["time"][time_of_day].get("catch_bonus", 0)
-            
-            # Apply location-specific weather bonus if exists
-            location_bonus = weather_data.get("location_bonus", {}).get(location, 0)
-            weather_bonus += location_bonus
-            
-            # Apply time-based weather multiplier if exists
-            time_multiplier = weather_data.get("time_multiplier", {}).get(time_of_day, 0)
-            weather_bonus += time_multiplier
-            
-            total_chance = base_chance + bait_bonus + weather_bonus + time_bonus
-            
-            self.logger.debug(
-                f"Catch chance breakdown:\n"
-                f"Base (Rod): {base_chance}\n"
-                f"Bait Bonus: {bait_bonus}\n"
-                f"Weather Bonus: {weather_bonus}\n"
-                f"Location Bonus: {location_bonus}\n"
-                f"Time Bonus: {time_bonus}\n"
-                f"Time Multiplier: {time_multiplier}\n"
-                f"Total: {total_chance}"
-            )
-    
-            # First roll for fish catch
-            catch_roll = random.random()
-            if catch_roll < total_chance:
-                self.logger.debug(f"Catch roll succeeded: {catch_roll} < {total_chance}")
-                # Fish catch logic
-                location_mods = self.data["locations"][location]["fish_modifiers"]
-                weather_rare_bonus = weather_data.get("rare_bonus", 0)
-    
-                weighted_fish = []
-                weights = []
-                
-                # Calculate weights for each fish type
-                for fish, data in self.data["fish"].items():
-                    if "variants" not in data:
-                        self.logger.warning(f"Fish type {fish} missing variants!")
-                        continue
-                        
-                    weight = data["chance"] * location_mods[fish]
-                    
-                    # Apply weather rare bonus to rare/legendary fish
-                    if weather_rare_bonus and data["rarity"] in ["rare", "legendary"]:
-                        rare_multiplier = 1 + weather_rare_bonus
-                        weight *= rare_multiplier
-                        self.logger.debug(f"Applied rare bonus to {fish}: {rare_multiplier}x")
-                    
-                    # Apply specific rarity bonus if exists
-                    specific_bonus = weather_data.get("specific_rarity_bonus", {}).get(data["rarity"], 0)
-                    if specific_bonus:
-                        specific_multiplier = 1 + specific_bonus
-                        weight *= specific_multiplier
-                        self.logger.debug(f"Applied specific bonus to {fish}: {specific_multiplier}x")
-                    
-                    weighted_fish.append(fish)
-                    weights.append(weight)
-                    self.logger.debug(f"Fish weight for {fish}: {weight}")
-    
-                if not weighted_fish:
-                    self.logger.warning("No valid fish types found!")
-                    return None
-    
-                caught_fish = random.choices(weighted_fish, weights=weights, k=1)[0]
-                fish_data = self.data["fish"][caught_fish]
-    
-                # Calculate XP reward with location modifier
-                location_data = self.data["locations"][location]
-                xp_reward = self.level_manager.calculate_xp_reward(
-                    fish_data["rarity"],
-                    location_mods[caught_fish]
+            self,
+            user: discord.Member,
+            user_data: dict,
+            bait_type: str,
+            location: str,
+            weather: str,
+            time_of_day: str
+        ) -> dict:
+            """Calculate catch results with all modifiers."""
+            try:
+                # Get weather data
+                weather_data = self.data["weather"][weather]
+                self.logger.debug(
+                    f"Starting catch calculation:\n"
+                    f"Location: {location}\n"
+                    f"Weather: {weather}\n"
+                    f"Time: {time_of_day}\n"
+                    f"Bait: {bait_type}"
                 )
-    
-                self.logger.debug(f"Fish caught: {caught_fish}, XP reward: {xp_reward}")
-                success = await self._add_to_inventory(user, caught_fish)
-                self.logger.debug(f"Added {caught_fish} to inventory: {success}")
                 
-                result = {
-                    "name": caught_fish,
-                    "value": fish_data["value"],
-                    "xp_gained": xp_reward,
-                    "type": "fish"
-                }
+                # Calculate catch chance
+                base_chance = self.data["rods"][user_data["rod"]]["chance"]
+                bait_bonus = self.data["bait"][bait_type]["catch_bonus"]
+                weather_bonus = 0
+                if location in weather_data.get("affects_locations", []):
+                    weather_bonus = weather_data.get("catch_bonus", 0)
+                    # Apply location-specific weather bonus if exists
+                    location_bonus = weather_data.get("location_bonus", {}).get(location, 0)
+                    weather_bonus += location_bonus
+                    
+                    # Apply time-based weather multiplier if exists
+                    time_multiplier = weather_data.get("time_multiplier", {}).get(time_of_day, 0)
+                    weather_bonus += time_multiplier
+                    
+                time_bonus = self.data["time"][time_of_day].get("catch_bonus", 0)
                 
-                # Check for additional catches from weather effect
-                catch_quantity_bonus = weather_data.get("catch_quantity", 0)
-                if catch_quantity_bonus:
-                    bonus_roll = random.random()
-                    self.logger.debug(f"Bonus catch roll: {bonus_roll} vs {catch_quantity_bonus}")
-                    if bonus_roll < catch_quantity_bonus:
-                        # Roll for an additional fish
-                        bonus_catch = random.choices(weighted_fish, weights=weights, k=1)[0]
-                        bonus_fish_data = self.data["fish"][bonus_catch]
-                        # Add bonus fish to inventory
-                        await self._add_to_inventory(user, bonus_catch)
-                        self.logger.debug(f"Bonus fish caught: {bonus_catch}")
-                        
-                        # Add bonus catch info to result
-                        result["bonus_catch"] = {
-                            "name": bonus_catch,
-                            "value": bonus_fish_data["value"]
-                        }
+                total_chance = base_chance + bait_bonus + weather_bonus + time_bonus
                 
-                return result
-                
-            else:
-                self.logger.debug(f"Catch roll failed: {catch_roll} >= {total_chance}")
-                # If fish catch fails, roll for junk (75% chance to find junk on failed fish catch)
-                if random.random() < 0.75:
-                    self.logger.debug(f"Rolling for junk - Current junk count: {user_data.get('junk_caught', 0)}")
-                    weighted_junk = []
+                self.logger.debug(
+                    f"Catch chance breakdown:\n"
+                    f"Base (Rod): {base_chance}\n"
+                    f"Bait Bonus: {bait_bonus}\n"
+                    f"Weather Bonus: {weather_bonus}\n"
+                    f"Time Bonus: {time_bonus}\n"
+                    f"Total: {total_chance}"
+                )
+        
+                # First roll for fish catch
+                catch_roll = random.random()
+                if catch_roll < total_chance:
+                    self.logger.debug(f"Catch roll succeeded: {catch_roll} < {total_chance}")
+                    # Fish catch logic
+                    location_mods = self.data["locations"][location]["fish_modifiers"]
+                    weather_rare_bonus = 0
+                    if location in weather_data.get("affects_locations", []):
+                        weather_rare_bonus = weather_data.get("rare_bonus", 0)
+                    time_rare_bonus = self.data["time"][time_of_day].get("rare_bonus", 0)
+        
+                    weighted_fish = []
                     weights = []
                     
-                    for junk, data in self.data["junk"].items():
+                    # Calculate weights for each fish type
+                    for fish, data in self.data["fish"].items():
                         if "variants" not in data:
-                            self.logger.warning(f"Junk type {junk} missing variants!")
+                            self.logger.warning(f"Fish type {fish} missing variants!")
                             continue
                             
-                        weighted_junk.append(junk)
-                        weights.append(data["chance"])
-    
-                    if not weighted_junk:
-                        self.logger.warning("No valid junk types found!")
+                        weight = data["chance"] * location_mods[fish]
+                        
+                        # Apply weather rare bonus to rare/legendary fish only if location is affected
+                        if location in weather_data.get("affects_locations", []):
+                            if data["rarity"] in ["rare", "legendary"]:
+                                rare_multiplier = 1 + weather_rare_bonus + time_rare_bonus
+                                weight *= rare_multiplier
+                                self.logger.debug(f"Applied rare bonus to {fish}: {rare_multiplier}x")
+                            
+                            # Apply specific rarity bonus if exists
+                            specific_bonus = weather_data.get("specific_rarity_bonus", {}).get(data["rarity"], 0)
+                            if specific_bonus:
+                                specific_multiplier = 1 + specific_bonus
+                                weight *= specific_multiplier
+                                self.logger.debug(f"Applied specific bonus to {fish}: {specific_multiplier}x")
+                        
+                        weighted_fish.append(fish)
+                        weights.append(weight)
+                        self.logger.debug(f"Fish weight for {fish}: {weight}")
+        
+                    if not weighted_fish:
+                        self.logger.warning("No valid fish types found!")
                         return None
-    
-                    caught_junk = random.choices(weighted_junk, weights=weights, k=1)[0]
-                    junk_data = self.data["junk"][caught_junk]
-    
-                    # Calculate reduced XP reward for junk
+        
+                    caught_fish = random.choices(weighted_fish, weights=weights, k=1)[0]
+                    fish_data = self.data["fish"][caught_fish]
+        
+                    # Calculate XP reward with location modifier
+                    location_data = self.data["locations"][location]
                     xp_reward = self.level_manager.calculate_xp_reward(
-                        junk_data["rarity"],
-                        0.5  # 50% XP modifier for junk items
+                        fish_data["rarity"],
+                        location_mods[caught_fish]
                     )
-    
-                    self.logger.debug(f"Junk caught: {caught_junk}, XP reward: {xp_reward}")
-                    success = await self._add_to_inventory(user, caught_junk)
-                    self.logger.debug(f"Added {caught_junk} to inventory: {success}")
-    
-                    # Update junk count
-                    current_junk = user_data.get("junk_caught", 0)
-                    self.logger.debug(f"Updating junk count from {current_junk} to {current_junk + 1}")
+        
+                    self.logger.debug(f"Fish caught: {caught_fish}, XP reward: {xp_reward}")
+                    success = await self._add_to_inventory(user, caught_fish)
+                    self.logger.debug(f"Added {caught_fish} to inventory: {success}")
                     
-                    update_result = await self.config_manager.update_user_data(
-                        user.id,
-                        {"junk_caught": current_junk + 1},
-                        fields=["junk_caught"]
-                    )
-                    
-                    if update_result.success:
-                        self.logger.debug("Junk count update successful")
-                        # Verify the update
-                        verify_result = await self.config_manager.get_user_data(user.id)
-                        if verify_result.success:
-                            self.logger.debug(f"Verified junk count after update: {verify_result.data.get('junk_caught', 0)}")
-                    else:
-                        self.logger.error("Failed to update junk count")
-    
-                    return {
-                        "name": caught_junk,
-                        "value": junk_data["value"],
+                    result = {
+                        "name": caught_fish,
+                        "value": fish_data["value"],
                         "xp_gained": xp_reward,
-                        "type": "junk"
+                        "type": "fish"
                     }
+                    
+                    # Check for additional catches from weather effect only if location is affected
+                    if location in weather_data.get("affects_locations", []):
+                        catch_quantity_bonus = weather_data.get("catch_quantity", 0)
+                        if catch_quantity_bonus:
+                            bonus_roll = random.random()
+                            self.logger.debug(f"Bonus catch roll: {bonus_roll} vs {catch_quantity_bonus}")
+                            if bonus_roll < catch_quantity_bonus:
+                                # Roll for an additional fish
+                                bonus_catch = random.choices(weighted_fish, weights=weights, k=1)[0]
+                                bonus_fish_data = self.data["fish"][bonus_catch]
+                                # Add bonus fish to inventory
+                                await self._add_to_inventory(user, bonus_catch)
+                                self.logger.debug(f"Bonus fish caught: {bonus_catch}")
+                                
+                                # Add bonus catch info to result
+                                result["bonus_catch"] = {
+                                    "name": bonus_catch,
+                                    "value": bonus_fish_data["value"]
+                                }
+                    
+                    return result
                 
-            return None
-            
-        except Exception as e:
-            self.logger.error(f"Error in _catch_fish: {e}", exc_info=True)
-            return None
+                else:
+                    self.logger.debug(f"Catch roll failed: {catch_roll} >= {total_chance}")
+                    # If fish catch fails, roll for junk (75% chance to find junk on failed fish catch)
+                    if random.random() < 0.75:
+                        self.logger.debug(f"Rolling for junk - Current junk count: {user_data.get('junk_caught', 0)}")
+                        weighted_junk = []
+                        weights = []
+                        
+                        for junk, data in self.data["junk"].items():
+                            if "variants" not in data:
+                                self.logger.warning(f"Junk type {junk} missing variants!")
+                                continue
+                                
+                            weighted_junk.append(junk)
+                            weights.append(data["chance"])
+        
+                        if not weighted_junk:
+                            self.logger.warning("No valid junk types found!")
+                            return None
+        
+                        caught_junk = random.choices(weighted_junk, weights=weights, k=1)[0]
+                        junk_data = self.data["junk"][caught_junk]
+        
+                        # Calculate reduced XP reward for junk
+                        xp_reward = self.level_manager.calculate_xp_reward(
+                            junk_data["rarity"],
+                            0.5  # 50% XP modifier for junk items
+                        )
+        
+                        self.logger.debug(f"Junk caught: {caught_junk}, XP reward: {xp_reward}")
+                        success = await self._add_to_inventory(user, caught_junk)
+                        self.logger.debug(f"Added {caught_junk} to inventory: {success}")
+        
+                        # Update junk count
+                        current_junk = user_data.get("junk_caught", 0)
+                        self.logger.debug(f"Updating junk count from {current_junk} to {current_junk + 1}")
+                        
+                        update_result = await self.config_manager.update_user_data(
+                            user.id,
+                            {"junk_caught": current_junk + 1},
+                            fields=["junk_caught"]
+                        )
+                        
+                        if update_result.success:
+                            self.logger.debug("Junk count update successful")
+                            # Verify the update
+                            verify_result = await self.config_manager.get_user_data(user.id)
+                            if verify_result.success:
+                                self.logger.debug(f"Verified junk count after update: {verify_result.data.get('junk_caught', 0)}")
+                        else:
+                            self.logger.error("Failed to update junk count")
+        
+                        return {
+                            "name": caught_junk,
+                            "value": junk_data["value"],
+                            "xp_gained": xp_reward,
+                            "type": "junk"
+                        }
+                    
+                return None
+                
+            except Exception as e:
+                self.logger.error(f"Error in _catch_fish: {e}", exc_info=True)
+                return None
 
     async def _add_to_inventory(self, user: discord.Member, item_name: str) -> bool:
         """Add fish or junk to user's inventory."""
