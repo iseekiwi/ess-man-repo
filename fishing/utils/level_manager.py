@@ -21,26 +21,26 @@ class LevelManager:
         
         # Define XP thresholds for each level
         self.xp_thresholds = {
-            1: 0,      # Start
-            2: 100,    # ~1 hour
-            3: 250,    # ~2 hours
-            4: 450,    # ~3 hours
-            5: 700,    # ~4 hours
-            6: 1000,   # ~6 hours
-            7: 1350,   # ~8 hours
-            8: 1750,   # ~10 hours
-            9: 2200,   # ~12 hours
-            10: 2700,  # ~15 hours
-            11: 3250,  # ~18 hours
-            12: 3850,  # ~21 hours
-            13: 4500,  # ~24 hours
-            14: 5200,  # ~27 hours
-            15: 5950,  # ~30 hours
-            16: 6750,  # ~33 hours
-            17: 7600,  # ~35 hours
-            18: 8500,  # ~37 hours
-            19: 9450,  # ~39 hours
-            20: 10450  # ~40 hours
+            1: 0,          # Start
+            2: 100,        # 1 hour
+            3: 400,        # +2 hours (300 XP needed)
+            4: 1000,       # +3 hours (600 XP needed)
+            5: 1900,       # +4 hours (900 XP needed)
+            6: 3100,       # +6 hours (1200 XP needed)
+            7: 4600,       # +8 hours (1500 XP needed)
+            8: 6400,       # +10 hours (1800 XP needed)
+            9: 8500,       # +12 hours (2100 XP needed)
+            10: 11000,     # +15 hours (2500 XP needed)
+            11: 13800,     # +18 hours (2800 XP needed)
+            12: 16900,     # +21 hours (3100 XP needed)
+            13: 20300,     # +24 hours (3400 XP needed)
+            14: 24000,     # +27 hours (3700 XP needed)
+            15: 28000,     # +30 hours (4000 XP needed)
+            16: 32300,     # +33 hours (4300 XP needed)
+            17: 36900,     # +35 hours (4600 XP needed)
+            18: 41800,     # +37 hours (4900 XP needed)
+            19: 47000,     # +39 hours (5200 XP needed)
+            20: 52500      # +40 hours (5500 XP needed)
         }
         
         # Define base XP rewards for each rarity
