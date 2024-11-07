@@ -456,7 +456,9 @@ class ShopView(BaseView):
                     requirements = rod_data.get("requirements")
                     req_text = ""
                     if requirements:
-                        req_text = f"\n*Requires*: Level {requirements['level']}, {requirements['fish_caught']} fish caught"
+                        req_text = f"\n*Requires*: Level {requirements['level']}"
+                    else:
+                        req_text = ""
                     
                     rod_entry = (
                         f"**{rod_name}**\n"
