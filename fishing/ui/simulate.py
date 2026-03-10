@@ -305,7 +305,6 @@ class SimulationMenuView(BaseView):
         total_attempts = r["duration_hours"] * r["catches_per_hour"]
         total_fish = sum(r["rarity_breakdown"].values())
         total_items = total_fish + r.get("junk_caught", 0)
-        active_attempts = total_attempts - r.get("missed", 0)
 
         embed = discord.Embed(
             title="Fishing Simulation Results",
@@ -318,15 +317,16 @@ class SimulationMenuView(BaseView):
         )
 
         # Catch statistics
-        fish_rate = (total_fish / active_attempts * 100) if active_attempts else 0
-        junk_rate = (r.get("junk_caught", 0) / active_attempts * 100) if active_attempts else 0
+        fish_rate = (total_fish / total_attempts * 100) if total_attempts else 0
+        junk_rate = (r.get("junk_caught", 0) / total_attempts * 100) if total_attempts else 0
+        nothing_rate = (r.get("nothing_caught", 0) / total_attempts * 100) if total_attempts else 0
         catch_lines = [
-            f"Total Fish: **{total_fish:,}** ({fish_rate:.1f}% of attempts)",
-            f"Junk: **{r.get('junk_caught', 0):,}** ({junk_rate:.1f}% of attempts)",
+            f"Total Fish: **{total_fish:,}** ({fish_rate:.1f}%)",
+            f"Junk: **{r.get('junk_caught', 0):,}** ({junk_rate:.1f}%)",
+            f"Nothing: **{r.get('nothing_caught', 0):,}** ({nothing_rate:.1f}%)",
         ]
         if r.get("bonus_catches", 0):
             catch_lines.append(f"Bonus Catches: **{r['bonus_catches']:,}** (from weather)")
-        catch_lines.append(f"Missed: **{r.get('missed', 0)}** (button misses)")
         embed.add_field(
             name="Catch Statistics",
             value="\n".join(catch_lines),
