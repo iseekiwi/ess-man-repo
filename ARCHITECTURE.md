@@ -893,9 +893,11 @@ Pages: `"main"`, `"bait"`, `"rods"`, `"gear"`.
 
 **Main page**: "Buy Bait", "Buy Rods", "Buy Gear", "Back to Menu" buttons.
 
-**Bait page**: One "Buy {name}" button per available bait (stock > 0, user meets level req). Clicking opens `BaitQuantityModal`.
+**Bait page**: Select dropdown of available baits (stock > 0, user meets level req). Selection opens `BaitQuantityModal`.
 
-**Gear page**: Select dropdown listing all purchasable gear the user qualifies for. Selection triggers `handle_gear_select` → confirmation → `_handle_gear_purchase`. Embed splits long category listings into multiple fields (1024 char Discord limit). Each inventory item SETs total capacity (not additive).
+**Rods page**: Select dropdown of purchasable rods (not owned, user meets level/fish req). Selection shows `PurchaseConfirmView`.
+
+**Gear page**: Paginated display (5 items/page) with `<` `>` navigation buttons. Select dropdown lists purchasable gear on the current page. Selection shows `PurchaseConfirmView` then calls `_handle_gear_purchase`. Each inventory item SETs total capacity (not additive).
 
 **Rods page**: One "Buy {name}" button per unowned rod the user qualifies for. Clicking creates `PurchaseConfirmView` (quantity always 1).
 
