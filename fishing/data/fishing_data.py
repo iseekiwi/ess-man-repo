@@ -467,33 +467,101 @@ DEFAULT_INVENTORY_CAPACITY = 5
 # Gear types - organized by category
 GEAR_TYPES = {
     "Inventory": {
-        "Fish Basket I": {
-            "cost": 200,
-            "description": "A woven basket to carry more fish.",
-            "effect": {"inventory_capacity": 5},
+        "Fanny Pack": {
+            "cost": 25,
+            "description": "A small pouch that clips to your belt.",
+            "effect": {"inventory_capacity": 6},
             "requirements": {"level": 3},
-            "prerequisite": None
         },
-        "Fish Basket II": {
-            "cost": 500,
-            "description": "A sturdy upgraded basket with extra compartments.",
+        "Satchel": {
+            "cost": 75,
+            "description": "A leather bag slung over the shoulder.",
             "effect": {"inventory_capacity": 8},
-            "requirements": {"level": 8},
-            "prerequisite": "Fish Basket I"
+            "requirements": {"level": 5},
         },
-        "Fish Basket III": {
-            "cost": 1200,
-            "description": "A reinforced basket that holds a serious haul.",
+        "Basket": {
+            "cost": 200,
+            "description": "A woven basket for carrying your catch.",
             "effect": {"inventory_capacity": 10},
-            "requirements": {"level": 14},
-            "prerequisite": "Fish Basket II"
+            "requirements": {"level": 8},
         },
-        "Fish Basket IV": {
-            "cost": 2500,
-            "description": "Master-crafted basket with maximum storage.",
+        "Bucket": {
+            "cost": 400,
+            "description": "A sturdy bucket that holds a decent haul.",
             "effect": {"inventory_capacity": 12},
+            "requirements": {"level": 12},
+        },
+        "Crate": {
+            "cost": 750,
+            "description": "A wooden crate with plenty of room.",
+            "effect": {"inventory_capacity": 15},
             "requirements": {"level": 20},
-            "prerequisite": "Fish Basket III"
+        },
+        "Creel": {
+            "cost": 1500,
+            "description": "A traditional fishing creel built for serious anglers.",
+            "effect": {"inventory_capacity": 19},
+            "requirements": {"level": 30},
+        },
+        "Large Crate": {
+            "cost": 2500,
+            "description": "An oversized crate reinforced with iron bands.",
+            "effect": {"inventory_capacity": 21},
+            "requirements": {"level": 35},
+        },
+        "Small Chest": {
+            "cost": 4000,
+            "description": "A compact chest with a secure latch.",
+            "effect": {"inventory_capacity": 24},
+            "requirements": {"level": 40},
+        },
+        "Medium Chest": {
+            "cost": 6000,
+            "description": "A proper storage chest with brass fittings.",
+            "effect": {"inventory_capacity": 27},
+            "requirements": {"level": 47},
+        },
+        "Fishing Barrel": {
+            "cost": 10000,
+            "description": "A massive barrel that holds an impressive catch.",
+            "effect": {"inventory_capacity": 37},
+            "requirements": {"level": 65},
+        },
+        "Large Chest": {
+            "cost": 16000,
+            "description": "A heavy chest that takes two hands to carry.",
+            "effect": {"inventory_capacity": 43},
+            "requirements": {"level": 73},
+        },
+        "Magic Fanny Pack": {
+            "cost": 25000,
+            "description": "A tiny pack enchanted to hold far more than it should.",
+            "effect": {"inventory_capacity": 50},
+            "requirements": {"level": 80},
+        },
+        "Almost Bottomless Bucket": {
+            "cost": 40000,
+            "description": "You can't quite see the bottom. Almost.",
+            "effect": {"inventory_capacity": 70},
+            "requirements": {"level": 85},
+        },
+        "Magic Satchel": {
+            "cost": 60000,
+            "description": "Woven with arcane thread — it defies physics.",
+            "effect": {"inventory_capacity": 80},
+            "requirements": {"level": 90},
+        },
+        "Nearly Bottomless Bucket": {
+            "cost": 85000,
+            "description": "Seriously, where does it all go?",
+            "effect": {"inventory_capacity": 100},
+            "requirements": {"level": 99},
+        },
+        "Void Satchel of Hell": {
+            "cost": 150000,
+            "description": "Forged in the abyss. Holds everything. Smells faintly of brimstone.",
+            "effect": {"inventory_capacity": 200},
+            "requirements": {"level": 100},
         },
     },
     "Gear": {},

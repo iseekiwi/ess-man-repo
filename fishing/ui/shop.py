@@ -347,10 +347,9 @@ class ShopView(BaseView):
 
                             requirements = gear_data.get("requirements", {})
                             level_req = requirements.get("level", 1) if requirements else 1
-                            prerequisite = gear_data.get("prerequisite")
 
-                            # Check level requirement and prerequisite
-                            if user_level >= level_req and (prerequisite is None or prerequisite in purchased_gear):
+                            # Check level requirement
+                            if user_level >= level_req:
                                 purchase_button = Button(
                                     label=f"Buy {gear_name}",
                                     style=discord.ButtonStyle.green,
@@ -500,8 +499,6 @@ class ShopView(BaseView):
                             status = "✅ Owned"
                         elif level_req > user_level:
                             status = f"🔒 Requires Level {level_req}"
-                        elif prerequisite and prerequisite not in purchased_gear:
-                            status = f"🔒 Requires {prerequisite}"
                         else:
                             status = f"💰 Cost: {gear_data['cost']} {currency_name}"
 
@@ -509,7 +506,8 @@ class ShopView(BaseView):
                         effects = gear_data.get("effect", {})
                         effect_text = ""
                         if "inventory_capacity" in effects:
-                            effect_text = f"📊 +{effects['inventory_capacity']} inventory slots"
+                            bonus = effects["inventory_capacity"] - 5  # bonus over base
+                            effect_text = f"📊 +{bonus} slots ({effects['inventory_capacity']} total)"
 
                         gear_lines.append(
                             f"**{gear_name}**\n"
@@ -793,9 +791,11 @@ class ShopView(BaseView):
                 # Apply effects
                 effects = gear_data.get("effect", {})
                 if "inventory_capacity" in effects:
-                    current_capacity = user_data.get("inventory_capacity", 5)
-                    user_data["inventory_capacity"] = current_capacity + effects["inventory_capacity"]
+                    user_data["inventory_capacity"] = effects["inventory_capacity"]
 
+            effects = gear_data.get("effect", {})
+            if "inventory_capacity" in effects:
+                return True, f"✅ Purchased **{gear_name}**! Inventory capacity is now **{effects['inventory_capacity']}**."
             return True, f"✅ Purchased **{gear_name}**! {gear_data['description']}"
 
         except Exception as e:
