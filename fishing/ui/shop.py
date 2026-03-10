@@ -340,23 +340,34 @@ class ShopView(BaseView):
                     user_level = self.user_data.get("level", 1)
                     purchased_gear = self.user_data.get("purchased_gear", [])
 
-                    # For each category, only show the buy button for the next upgrade tier
+                    # Build select options for all purchasable gear across categories
+                    options = []
                     for category, items in GEAR_TYPES.items():
                         for gear_name, gear_data in items.items():
                             if gear_name in purchased_gear:
                                 continue
-                            # This is the next unpurchased item in the tier
                             requirements = gear_data.get("requirements", {})
                             level_req = requirements.get("level", 1) if requirements else 1
                             if user_level >= level_req:
-                                purchase_button = Button(
-                                    label=f"Buy {gear_name}",
-                                    style=discord.ButtonStyle.green,
-                                    custom_id=f"buy_{gear_name}"
-                                )
-                                purchase_button.callback = self.handle_purchase
-                                self.add_item(purchase_button)
-                            break  # Only consider the first unpurchased item per category
+                                effects = gear_data.get("effect", {})
+                                desc = f"{gear_data['cost']} coins"
+                                if "inventory_capacity" in effects:
+                                    bonus = effects["inventory_capacity"] - 5
+                                    desc += f" | +{bonus} slots ({effects['inventory_capacity']} total)"
+                                options.append(discord.SelectOption(
+                                    label=gear_name,
+                                    value=gear_name,
+                                    description=desc[:100],  # Discord caps at 100 chars
+                                ))
+
+                    if options:
+                        gear_select = Select(
+                            placeholder="Select gear to purchase...",
+                            options=options,
+                            custom_id="gear_select"
+                        )
+                        gear_select.callback = self.handle_gear_select
+                        self.add_item(gear_select)
 
                 elif self.current_page == "rods":
                     self.logger.debug("Setting up rods page")
@@ -639,6 +650,59 @@ class ShopView(BaseView):
             )
             self.cog.bot.loop.create_task(self.delete_after_delay(message))
     
+    async def handle_gear_select(self, interaction: discord.Interaction):
+        """Handle gear dropdown selection"""
+        try:
+            gear_name = interaction.data["values"][0]
+            gear_data = self._get_gear_data(gear_name)
+            if not gear_data:
+                await interaction.response.send_message("Item not found!", ephemeral=True, delete_after=2)
+                return
+
+            cost = gear_data["cost"]
+            if not await self.cog._can_afford(self.ctx.author, cost):
+                await interaction.response.send_message(
+                    f"You don't have enough coins! This costs {cost} coins.",
+                    ephemeral=True,
+                    delete_after=2
+                )
+                return
+
+            confirm_view = PurchaseConfirmView(self.cog, self.ctx, gear_name, 1, cost)
+            await interaction.response.send_message(
+                f"Confirm purchase of **{gear_name}** for {cost} coins?",
+                view=confirm_view,
+                ephemeral=True
+            )
+
+            confirm_view.message = await interaction.original_response()
+            await confirm_view.wait()
+
+            if confirm_view.value:
+                success, msg = await self._handle_gear_purchase(interaction.user, gear_name, gear_data)
+
+                if success:
+                    await self.cog.config_manager.invalidate_cache(f"user_{interaction.user.id}")
+                    fresh_data = await self.cog.config_manager.get_user_data(interaction.user.id)
+                    if fresh_data.success:
+                        self.user_data = fresh_data.data
+                        if hasattr(self, 'parent_menu_view'):
+                            self.parent_menu_view.user_data = fresh_data.data
+                        await self.initialize_view()
+                        await self.update_view()
+
+                message = await interaction.followup.send(msg, ephemeral=True, wait=True)
+                self.cog.bot.loop.create_task(self.delete_after_delay(message))
+
+        except Exception as e:
+            self.logger.error(f"Error in handle_gear_select: {e}", exc_info=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "An error occurred. Please try again.",
+                    ephemeral=True,
+                    delete_after=2
+                )
+
     async def handle_purchase(self, interaction: discord.Interaction):
         """Handle purchase button interactions"""
         try:
@@ -702,48 +766,6 @@ class ShopView(BaseView):
                     message = await interaction.followup.send(msg, ephemeral=True, wait=True)
                     self.cog.bot.loop.create_task(self.delete_after_delay(message))
                     
-            # Handle gear purchases
-            elif self._is_gear_item(item_name):
-                gear_data = self._get_gear_data(item_name)
-                if not gear_data:
-                    await interaction.response.send_message("❌ Item not found!", ephemeral=True, delete_after=2)
-                    return
-
-                cost = gear_data["cost"]
-                if not await self.cog._can_afford(self.ctx.author, cost):
-                    await interaction.response.send_message(
-                        f"❌ You don't have enough coins! This costs {cost} coins.",
-                        ephemeral=True,
-                        delete_after=2
-                    )
-                    return
-
-                confirm_view = PurchaseConfirmView(self.cog, self.ctx, item_name, 1, cost)
-                await interaction.response.send_message(
-                    f"Confirm purchase of {item_name} for {cost} coins?",
-                    view=confirm_view,
-                    ephemeral=True
-                )
-
-                confirm_view.message = await interaction.original_response()
-                await confirm_view.wait()
-
-                if confirm_view.value:
-                    success, msg = await self._handle_gear_purchase(interaction.user, item_name, gear_data)
-
-                    if success:
-                        await self.cog.config_manager.invalidate_cache(f"user_{interaction.user.id}")
-                        fresh_data = await self.cog.config_manager.get_user_data(interaction.user.id)
-                        if fresh_data.success:
-                            self.user_data = fresh_data.data
-                            if hasattr(self, 'parent_menu_view'):
-                                self.parent_menu_view.user_data = fresh_data.data
-                            await self.initialize_view()
-                            await self.update_view()
-
-                    message = await interaction.followup.send(msg, ephemeral=True, wait=True)
-                    self.cog.bot.loop.create_task(self.delete_after_delay(message))
-
             # Handle bait purchases with modal
             else:
                 modal = BaitQuantityModal(self, item_name)
