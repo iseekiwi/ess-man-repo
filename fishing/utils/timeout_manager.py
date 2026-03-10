@@ -184,14 +184,16 @@ class TimeoutManager:
                             expired_views.append((view_id, view))
                             self.logger.debug(f"Marking view {view_id} for expiration")
     
-                # Handle expired views
+                # Handle expired views — let on_timeout() handle its own cleanup/removal
                 for view_id, view in expired_views:
                     try:
                         self.logger.info(f"Expiring view {view_id}")
-                        await self.remove_view(view)
                         await view.on_timeout()
                     except Exception as e:
                         self.logger.error(f"Error handling timeout for view {view_id}: {e}")
+                        # Ensure the view is removed even if on_timeout() failed
+                        self._timeouts.pop(view_id, None)
+                        self._views.pop(view_id, None)
     
                 await asyncio.sleep(1)
                 

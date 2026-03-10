@@ -70,49 +70,62 @@ class BaseView(View):
             self.logger.error(f"Error in timeout handler: {e}")
         
     async def on_timeout(self):
-        """Enhanced timeout handler"""
+        """Handle view timeout.
+
+        If this is a child view (has parent_menu_view), delegates to the parent's
+        on_timeout so the parent can show the "Session Ended" embed and release the
+        session. Otherwise, disables components and releases the session directly.
+        """
         try:
             self.logger.info(
                 f"View timed out for user {self.ctx.author.id} "
                 f"in {self.__class__.__name__}"
             )
-            await self.cleanup()
-            await self.timeout_manager.remove_view(self)
 
-            # Disable all components
-            for item in self.children:
-                item.disabled = True
+            # Child view → delegate timeout to parent (e.g. FishingMenuView)
+            if hasattr(self, 'parent_menu_view') and self.parent_menu_view:
+                self.logger.debug(
+                    f"Delegating timeout from {self.__class__.__name__} "
+                    f"to parent {self.parent_menu_view.__class__.__name__}"
+                )
+                await self.timeout_manager.remove_view(self)
+                await self.parent_menu_view.on_timeout()
+                return
+
+            # Root view timeout: disable components and edit message
+            self.clear_items()
             if self.message:
                 try:
                     await self.message.edit(view=self)
                 except discord.NotFound:
                     pass
+
+            await self.timeout_manager.remove_view(self)
+            self._release_session()
 
         except Exception as e:
             self.logger.error(f"Error in timeout handler: {e}")
             self._release_session()  # ensure session is freed even if cleanup failed
 
     async def cleanup(self):
-        """Clean up view resources and handle timeout hierarchy"""
+        """Clean up view resources.
+
+        Disables all components, edits the message, removes from timeout manager,
+        and releases the active session. Does NOT resume parent views — that is
+        handled explicitly by navigation code (e.g. "Back to Menu" buttons).
+        """
         try:
             self.logger.debug(f"Cleaning up view for {self.ctx.author.name}")
             for item in self.children:
                 item.disabled = True
 
-            # Update message if it exists
             if self.message:
                 try:
                     await self.message.edit(view=self)
-                    # Remove from timeout manager
-                    await self.timeout_manager.remove_view(self)
-
-                    # Signal parent view if this was a child view
-                    if hasattr(self, 'parent_menu_view'):
-                        await self.timeout_manager.resume_parent_view(self)
                 except discord.NotFound:
                     pass
 
-            # Release active session if this view owns one
+            await self.timeout_manager.remove_view(self)
             self._release_session()
 
             self.logger.debug(f"View cleanup completed for {self.ctx.author.name}")

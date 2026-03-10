@@ -690,8 +690,10 @@ When transitioning from parent to child view:
 1. Parent is **paused** (timeout stops expiring)
 2. Child **inherits** parent's remaining timeout duration
 3. Child stores `parent_id` in its timeout data
-4. When child closes, `resume_parent_view()` transfers remaining time back to parent and unpauses it
-5. `reset_timeout()` cascades: resets the view, its parent, and all children
+4. When child closes via navigation ("Back to Menu"), `resume_parent_view()` transfers remaining time back to parent and unpauses it
+5. When child times out, `BaseView.on_timeout()` delegates to the parent's `on_timeout()` to show "Session Ended" and release the session — it does NOT resume the parent
+6. `reset_timeout()` cascades: resets the view, its parent, and all children
+7. `_check_timeouts` lets `on_timeout()` handle its own cleanup/removal — does not pre-remove views
 
 ### 4.9 `fishing/utils/logging_config.py` -- LoggerManager (Singleton)
 
@@ -810,14 +812,15 @@ class BaseView(View):
 Base class for all views. Discord's built-in `View.timeout` is disabled (`super().__init__(timeout=None)`). All timeout management uses `_custom_timeout` via the custom `TimeoutManager`. Provides:
 - **Interaction authorization**: `interaction_check()` verifies `interaction.user.id == ctx.author.id`
 - **Timeout integration**: Resets `TimeoutManager` timeout on each valid interaction via `_custom_timeout`
-- **Cleanup**: `cleanup()` disables all children, edits message, removes from TimeoutManager, resumes parent if applicable
+- **Cleanup**: `cleanup()` disables all children, edits message, removes from TimeoutManager. Does NOT resume parent views (navigation code handles that explicitly).
+- **Timeout delegation**: `on_timeout()` delegates to `parent_menu_view.on_timeout()` for child views, ensuring the "Session Ended" embed is shown and the session is released. Root views disable components and release session directly.
 - **Error handling**: `on_error()` sends ephemeral error message
 
 ##### Key Methods
 
 ```python
 async def interaction_check(self, interaction: discord.Interaction) -> bool
-async def on_timeout(self) -> None           # Calls cleanup(), disables children, edits message
+async def on_timeout(self) -> None           # Delegates to parent for child views; clears items for root views
 async def cleanup(self) -> None              # Disable items, edit message, remove from timeout manager
 async def on_error(self, interaction, error, item) -> None
 async def update_message(self, **kwargs) -> None
