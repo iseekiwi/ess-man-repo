@@ -891,9 +891,11 @@ class ShopView(BaseView):
 
 Pages: `"main"`, `"bait"`, `"rods"`, `"gear"`.
 
-**Main page**: "Buy Bait", "Buy Rods", "Back to Menu" buttons.
+**Main page**: "Buy Bait", "Buy Rods", "Buy Gear", "Back to Menu" buttons.
 
 **Bait page**: One "Buy {name}" button per available bait (stock > 0, user meets level req). Clicking opens `BaitQuantityModal`.
+
+**Gear page**: Select dropdown listing all purchasable gear the user qualifies for. Selection triggers `handle_gear_select` → confirmation → `_handle_gear_purchase`. Embed splits long category listings into multiple fields (1024 char Discord limit). Each inventory item SETs total capacity (not additive).
 
 **Rods page**: One "Buy {name}" button per unowned rod the user qualifies for. Clicking creates `PurchaseConfirmView` (quantity always 1).
 
