@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from contextlib import asynccontextmanager
 from redbot.core import Config
 from .logging_config import get_logger
-from ..data.fishing_data import DEFAULT_USER_DATA, DEFAULT_GLOBAL_SETTINGS
+from ..data.fishing_data import DEFAULT_USER_DATA, DEFAULT_GLOBAL_SETTINGS, GEAR_TYPES, DEFAULT_INVENTORY_CAPACITY
 
 T = TypeVar('T')
 
@@ -198,17 +198,22 @@ class ConfigManager:
                     self.logger.warning(f"Invalid {field} value, resetting to 0")
                     validated[field] = 0
                     
-            # Validate inventory capacity
-            try:
-                validated["inventory_capacity"] = max(1, int(data.get("inventory_capacity", DEFAULT_USER_DATA["inventory_capacity"])))
-            except (ValueError, TypeError):
-                validated["inventory_capacity"] = DEFAULT_USER_DATA["inventory_capacity"]
-
-            # Validate purchased_gear
+            # Validate purchased_gear (before inventory_capacity, since capacity depends on it)
             purchased_gear = data.get("purchased_gear", [])
             if not isinstance(purchased_gear, list):
                 purchased_gear = []
             validated["purchased_gear"] = purchased_gear
+
+            # Validate inventory capacity — derive from purchased gear to fix legacy values
+            expected_capacity = DEFAULT_INVENTORY_CAPACITY
+            for gear_name in purchased_gear:
+                for category_items in GEAR_TYPES.values():
+                    if gear_name in category_items:
+                        gear_effect = category_items[gear_name].get("effect", {})
+                        cap = gear_effect.get("inventory_capacity")
+                        if cap and cap > expected_capacity:
+                            expected_capacity = cap
+            validated["inventory_capacity"] = expected_capacity
 
             # Validate materials dictionary
             if not isinstance(data.get("materials", {}), dict):

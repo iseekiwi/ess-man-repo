@@ -95,6 +95,7 @@ class FishingMenuView(BaseView):
                     ("🎣 Fish", "fish", discord.ButtonStyle.green),
                     ("🏪 Shop", "shop", discord.ButtonStyle.blurple),
                     ("🎒 Inventory", "inventory", discord.ButtonStyle.blurple),
+                    ("🗺️ Location", "location", discord.ButtonStyle.blurple),
                     ("🌤️ Weather", "weather", discord.ButtonStyle.blurple)
                 ]
 
@@ -121,33 +122,38 @@ class FishingMenuView(BaseView):
                     stop_btn.callback = self.handle_button
                     self.add_item(stop_btn)
 
-                # Location select dropdown (only when not actively fishing)
-                if not self.fishing_in_progress:
-                    location_options = []
-                    for loc_name, loc_data in self.cog.data["locations"].items():
-                        requirements = loc_data.get("requirements")
-                        is_locked = False
-                        if requirements:
-                            if (self.user_data["level"] < requirements.get("level", 0) or
-                                self.user_data["fish_caught"] < requirements.get("fish_caught", 0)):
-                                is_locked = True
-                        if is_locked:
-                            continue
-                        location_options.append(discord.SelectOption(
-                            label=loc_name,
-                            value=loc_name,
-                            description=loc_data["description"][:100],
-                            default=(loc_name == self.user_data.get("current_location"))
-                        ))
+            elif self.current_page == "location":
+                # Back button
+                back_button = Button(label="Back", custom_id="back", style=discord.ButtonStyle.grey)
+                back_button.callback = self.handle_button
+                self.add_item(back_button)
 
-                    if location_options:
-                        location_select = Select(
-                            placeholder="Change location...",
-                            options=location_options,
-                            custom_id="location_select"
-                        )
-                        location_select.callback = self.handle_location_dropdown
-                        self.add_item(location_select)
+                # Location select dropdown
+                location_options = []
+                for loc_name, loc_data in self.cog.data["locations"].items():
+                    requirements = loc_data.get("requirements")
+                    is_locked = False
+                    if requirements:
+                        if (self.user_data["level"] < requirements.get("level", 0) or
+                            self.user_data["fish_caught"] < requirements.get("fish_caught", 0)):
+                            is_locked = True
+                    if is_locked:
+                        continue
+                    location_options.append(discord.SelectOption(
+                        label=loc_name,
+                        value=loc_name,
+                        description=loc_data["description"][:100],
+                        default=(loc_name == self.user_data.get("current_location"))
+                    ))
+
+                if location_options:
+                    location_select = Select(
+                        placeholder="Select a location...",
+                        options=location_options,
+                        custom_id="location_select"
+                    )
+                    location_select.callback = self.handle_location_dropdown
+                    self.add_item(location_select)
 
             else:
                 # Add back button for other pages
@@ -345,6 +351,42 @@ class FishingMenuView(BaseView):
                 
                 return embed
                 
+            elif self.current_page == "location":
+                embed = discord.Embed(
+                    title="🗺️ Fishing Locations",
+                    description="Select a location from the dropdown below.",
+                    color=discord.Color.blue()
+                )
+
+                for loc_name, loc_data in self.cog.data["locations"].items():
+                    requirements = loc_data.get("requirements", {})
+                    is_locked = False
+                    if requirements:
+                        if (self.user_data["level"] < requirements.get("level", 0) or
+                            self.user_data["fish_caught"] < requirements.get("fish_caught", 0)):
+                            is_locked = True
+
+                    status = "🔒 Locked" if is_locked else "📍 Current" if loc_name == self.user_data["current_location"] else "✅ Available"
+
+                    modifier_text = []
+                    for fish_type, modifier in loc_data["fish_modifiers"].items():
+                        if modifier != 1.0:
+                            modifier_text.append(f"• {fish_type}: {modifier:+.1f}x")
+
+                    req_text = ""
+                    if requirements:
+                        req_text = f"\n**Requirements**\n• Level {requirements.get('level', 1)}"
+
+                    embed.add_field(
+                        name=f"{loc_name} ({status})",
+                        value=(
+                            f"{loc_data['description']}\n\n"
+                            f"**Location Effects**\n{chr(10).join(modifier_text)}"
+                            f"{req_text}"
+                        ),
+                        inline=False
+                    )
+
             elif self.current_page == "weather":
                 weather_result = await self.cog.config_manager.get_global_setting("current_weather")
                 current_weather = weather_result.data if weather_result.success else "Sunny"
@@ -528,7 +570,7 @@ class FishingMenuView(BaseView):
                     self.inventory_view.message = await interaction.original_response()
                     self.logger.debug("Inventory view transition complete")
                 
-            elif custom_id == "weather":
+            elif custom_id in ["location", "weather"]:
                 self.current_page = custom_id
                 await self.initialize_view()
                 embed = await self.generate_embed()
@@ -956,15 +998,14 @@ class FishingMenuView(BaseView):
                 
             # Update local user data
             self.user_data["current_location"] = location_name
-            
-            # Return to main menu
-            self.current_page = "main"
+
+            # Stay on location page so user can see updated status
             await interaction.response.defer()
             await self.update_view()
-            
+
             # Send confirmation with manual deletion
             message = await interaction.followup.send(
-                f"🌍 Now fishing at: {location_name}\n{location_data['description']}",
+                f"📍 Now fishing at: **{location_name}**",
                 ephemeral=True,
                 wait=True
             )
