@@ -462,7 +462,43 @@ TIME_EFFECTS: Dict[str, TimeData] = {
     }
 }
 
-DEFAULT_INVENTORY_CAPACITY = 28
+DEFAULT_INVENTORY_CAPACITY = 5
+
+# Gear types - organized by category
+GEAR_TYPES = {
+    "Inventory": {
+        "Fish Basket I": {
+            "cost": 200,
+            "description": "A woven basket to carry more fish.",
+            "effect": {"inventory_capacity": 5},
+            "requirements": {"level": 3},
+            "prerequisite": None
+        },
+        "Fish Basket II": {
+            "cost": 500,
+            "description": "A sturdy upgraded basket with extra compartments.",
+            "effect": {"inventory_capacity": 8},
+            "requirements": {"level": 8},
+            "prerequisite": "Fish Basket I"
+        },
+        "Fish Basket III": {
+            "cost": 1200,
+            "description": "A reinforced basket that holds a serious haul.",
+            "effect": {"inventory_capacity": 10},
+            "requirements": {"level": 14},
+            "prerequisite": "Fish Basket II"
+        },
+        "Fish Basket IV": {
+            "cost": 2500,
+            "description": "Master-crafted basket with maximum storage.",
+            "effect": {"inventory_capacity": 12},
+            "requirements": {"level": 20},
+            "prerequisite": "Fish Basket III"
+        },
+    },
+    "Gear": {},
+    "Tools": {},
+}
 
 # Default user data structure
 DEFAULT_USER_DATA = {
@@ -479,6 +515,7 @@ DEFAULT_USER_DATA = {
     "level": 1,
     "experience": 0,
     "inventory_capacity": DEFAULT_INVENTORY_CAPACITY,
+    "purchased_gear": [],
     "settings": {
         "notifications": True,
         "auto_sell": False

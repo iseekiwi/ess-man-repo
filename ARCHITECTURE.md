@@ -174,7 +174,7 @@ Adds a fish or junk item to inventory via `InventoryManager.add_item()` using `"
 ```python
 async def is_inventory_full(self, user_id: int) -> bool
 ```
-Checks if user's inventory has reached `inventory_capacity` (default 28, per-user for upgrades). Called by `do_fishing` to block fishing when full.
+Checks if user's inventory has reached `inventory_capacity` (default 5, per-user upgradeable via gear). Called by `do_fishing` to block fishing when full.
 
 ```python
 async def _update_total_value(self, user, value: int, *, item_type: str = "fish") -> bool
@@ -356,7 +356,8 @@ class TimeData(TypedDict):
     "junk_caught": 0,            # int - lifetime junk count
     "level": 1,                  # int - current level (1-20)
     "experience": 0,             # int - total XP
-    "inventory_capacity": 28,    # int - max fish+junk slots (upgradeable)
+    "inventory_capacity": 5,     # int - max fish+junk slots (upgradeable via gear)
+    "purchased_gear": [],        # list - names of purchased gear items
     "settings": {
         "notifications": True,   # Not implemented
         "auto_sell": False       # Not implemented
@@ -895,7 +896,7 @@ class ShopView(BaseView):
     def __init__(self, cog, ctx, user_data: Dict)
 ```
 
-Pages: `"main"`, `"bait"`, `"rods"`.
+Pages: `"main"`, `"bait"`, `"rods"`, `"gear"`.
 
 **Main page**: "Buy Bait", "Buy Rods", "Back to Menu" buttons.
 

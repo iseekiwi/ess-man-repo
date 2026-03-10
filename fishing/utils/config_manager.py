@@ -204,6 +204,12 @@ class ConfigManager:
             except (ValueError, TypeError):
                 validated["inventory_capacity"] = DEFAULT_USER_DATA["inventory_capacity"]
 
+            # Validate purchased_gear
+            purchased_gear = data.get("purchased_gear", [])
+            if not isinstance(purchased_gear, list):
+                purchased_gear = []
+            validated["purchased_gear"] = purchased_gear
+
             # Validate string fields with defaults
             validated["rod"] = str(data.get("rod", "Basic Rod"))
             validated["current_location"] = str(data.get("current_location", "Pond"))

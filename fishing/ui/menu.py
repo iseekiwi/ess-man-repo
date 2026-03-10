@@ -56,6 +56,33 @@ class FishingMenuView(BaseView):
             self.logger.error(f"Error in FishingMenuView setup: {str(e)}", exc_info=True)
             raise
 
+    async def on_timeout(self):
+        """Show a clean session-ended embed when the menu times out."""
+        try:
+            self.logger.info(f"FishingMenuView timed out for user {self.ctx.author.id}")
+            # Stop any in-progress fishing loop
+            self.fishing_in_progress = False
+            self._stop_fishing_event.set()
+
+            self.clear_items()
+            embed = discord.Embed(
+                title="🎣 Session Ended",
+                description="Your fishing session has expired due to inactivity.",
+                color=discord.Color.greyple()
+            )
+            if self.message:
+                try:
+                    await self.message.edit(embed=embed, view=self)
+                except discord.NotFound:
+                    pass
+
+            await self.timeout_manager.remove_view(self)
+            self._release_session()
+
+        except Exception as e:
+            self.logger.error(f"Error in FishingMenuView on_timeout: {e}", exc_info=True)
+            self._release_session()
+
     async def initialize_view(self):
         """Initialize the view based on current page"""
         try:
@@ -163,7 +190,7 @@ class FishingMenuView(BaseView):
                 
                 # Add current status
                 inventory_count = len(self.user_data.get("inventory", []))
-                inventory_capacity = self.user_data.get("inventory_capacity", 28)
+                inventory_capacity = self.user_data.get("inventory_capacity", 5)
                 embed.add_field(
                     name="Current Status",
                     value=(
@@ -607,7 +634,7 @@ class FishingMenuView(BaseView):
 
             # Check inventory capacity
             inventory = self.user_data.get("inventory", [])
-            capacity = self.user_data.get("inventory_capacity", 28)
+            capacity = self.user_data.get("inventory_capacity", 5)
             if len(inventory) >= capacity:
                 self.fishing_in_progress = False
                 await self.initialize_view()
@@ -638,7 +665,7 @@ class FishingMenuView(BaseView):
                 self.add_item(stop_btn)
 
                 inv_count = len(self.user_data.get("inventory", []))
-                inv_cap = self.user_data.get("inventory_capacity", 28)
+                inv_cap = self.user_data.get("inventory_capacity", 5)
 
                 fishing_embed = discord.Embed(
                     title="🎣 Fishing in Progress",
@@ -739,7 +766,7 @@ class FishingMenuView(BaseView):
 
                 # Check if inventory is now full
                 inv_count = len(self.user_data.get("inventory", []))
-                inv_cap = self.user_data.get("inventory_capacity", 28)
+                inv_cap = self.user_data.get("inventory_capacity", 5)
                 if inv_count >= inv_cap:
                     self.clear_items()
                     fishing_embed = discord.Embed(

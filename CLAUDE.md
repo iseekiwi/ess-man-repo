@@ -15,7 +15,7 @@ The cog is installed into a Red-DiscordBot instance via `[p]cog install` and loa
 Entry point: `__init__.py` calls `bot.add_cog(Fishing(bot))` loading the main `Fishing` class from `main.py`.
 
 **Data layer** (`data/fishing_data.py`):
-- All game constants: `FISH_TYPES`, `JUNK_TYPES`, `ROD_TYPES`, `BAIT_TYPES`, `LOCATIONS`, `WEATHER_TYPES`, `TIME_EFFECTS`
+- All game constants: `FISH_TYPES`, `JUNK_TYPES`, `ROD_TYPES`, `BAIT_TYPES`, `GEAR_TYPES`, `LOCATIONS`, `WEATHER_TYPES`, `TIME_EFFECTS`
 - `DEFAULT_USER_DATA` and `DEFAULT_GLOBAL_SETTINGS` — canonical schema for per-user and global config
 - Uses TypedDict classes for type hints on data structures
 - Items have a rarity system (common/uncommon/rare/legendary) with probability-based catch chances
@@ -31,7 +31,7 @@ Entry point: `__init__.py` calls `bot.add_cog(Fishing(bot))` loading the main `F
 **UI layer** (`ui/`):
 - `base.py` — `BaseView` extends `discord.ui.View` with timeout management, interaction auth checks (only command author can interact), cleanup, and `delete_after_delay`. Also has `ConfirmView`.
 - `menu.py` — `FishingMenuView`, the main interactive menu with fishing, inventory, shop, and profile pages. Contains the core fishing minigame as a continuous loop (`do_fishing`): cast → minigame → result → cast again. The loop exits on: timeout (no button press), Stop Fishing button (shown during casting phase only), inventory full, or out of bait. A "Stop Fishing" button on the main menu ends the entire session.
-- `shop.py` — `ShopView` and `PurchaseConfirmView` for buying rods, bait, and location access.
+- `shop.py` — `ShopView` and `PurchaseConfirmView` for buying rods, bait, gear, and location access. Gear is organized into 3 categories (Inventory, Gear, Tools) defined in `GEAR_TYPES`.
 - `inventory.py` — `InventoryView` for browsing and selling caught items.
 - `components.py` — shared UI components and `MessageManager` for ephemeral/temporary messages.
 - `simulate.py` — `SimulationMenuView` for the interactive profit simulation menu (owner-only). Uses 4 Select menus (rod, bait, location, weather) + 1 button row (time cycle, duration ±, run) to configure and run simulations via `ProfitSimulator`.
@@ -47,7 +47,8 @@ Entry point: `__init__.py` calls `bot.add_cog(Fishing(bot))` loading the main `F
 - **Singleton cleanup**: `TimeoutManager` and `LoggerManager` are singletons that must be reset in `cog_unload` to avoid stale state on cog reload.
 - **Active session guard**: `Fishing._active_sessions` (dict of user_id -> view) prevents users from opening multiple fishing menus. `BaseView._release_session()` frees the slot on cleanup/timeout using identity check (`is self`) so child→parent view transitions don't accidentally release sessions. When creating new menu views during navigation, always use `cog.create_menu()` which updates the session reference.
 - **Redbot conventions**: Uses `redbot.core.Config` for persistence, `redbot.core.bank` for currency, `redbot.core.commands` for command decorators. Config identifier is `123456789`.
-- **Inventory capacity**: Fish/junk inventory is capped at `inventory_capacity` (default 28, stored per-user for future upgrades). When full, fishing is blocked — the player must sell items first. The check happens in `do_fishing` before casting. The capacity is per-user to support future inventory upgrade items.
+- **Inventory capacity**: Fish/junk inventory is capped at `inventory_capacity` (default 5, upgradeable via gear purchases). When full, fishing is blocked — the player must sell items first. The check happens in `do_fishing` before casting. Gear items in the "Inventory" category (Fish Basket I–IV) add slots.
+- **Gear system**: `GEAR_TYPES` in `fishing_data.py` defines purchasable gear across 3 categories: Inventory, Gear, and Tools. Gear has `prerequisite` chains (must own previous tier). Purchased gear is tracked in `user_data["purchased_gear"]` (list of names). Effects are applied at purchase time (e.g., inventory capacity increase).
 - **Data refresh**: After writes, invalidate cache then read once — do not triple-read or verify-after-every-write.
 - **Bait effectiveness**: `_catch_fish` multiplies `catch_bonus` by the bait's location-specific `effectiveness` value (defaults to 1.0). This makes bait choice location-dependent — baits are profitable at intended locations but break-even/loss elsewhere. Fish values: Common=10, Uncommon=25, Rare=65, Legendary=200.
 - **Simulation**: `ProfitSimulator.analyze_full_setup()` mirrors `_catch_fish` logic exactly. When catch logic changes, update the simulator to match. The `[p]simulate` command opens an interactive menu — it no longer uses subcommands. The simulator assumes perfect player input (no button-press misses). "Nothing caught" in results is pure RNG (25% of failed fish rolls produce nothing, matching the 75% junk fallback in `_catch_fish`).

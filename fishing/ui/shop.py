@@ -8,6 +8,7 @@ from discord.ui import Button, Select
 from redbot.core import bank
 from .base import BaseView
 from ..utils.logging_config import get_logger
+from ..data.fishing_data import GEAR_TYPES
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .menu import FishingMenuView
@@ -280,7 +281,15 @@ class ShopView(BaseView):
                 )
                 rod_button.callback = self.handle_button
                 self.add_item(rod_button)
-                
+
+                gear_button = Button(
+                    label="Buy Gear",
+                    style=discord.ButtonStyle.blurple,
+                    custom_id="gear"
+                )
+                gear_button.callback = self.handle_button
+                self.add_item(gear_button)
+
                 # Add back button to main shop page
                 back_button = Button(
                     label="Back to Menu",
@@ -326,6 +335,30 @@ class ShopView(BaseView):
                             purchase_button.callback = self.handle_purchase
                             self.add_item(purchase_button)
     
+                elif self.current_page == "gear":
+                    self.logger.debug("Setting up gear page")
+                    user_level = self.user_data.get("level", 1)
+                    purchased_gear = self.user_data.get("purchased_gear", [])
+
+                    for category, items in GEAR_TYPES.items():
+                        for gear_name, gear_data in items.items():
+                            if gear_name in purchased_gear:
+                                continue
+
+                            requirements = gear_data.get("requirements", {})
+                            level_req = requirements.get("level", 1) if requirements else 1
+                            prerequisite = gear_data.get("prerequisite")
+
+                            # Check level requirement and prerequisite
+                            if user_level >= level_req and (prerequisite is None or prerequisite in purchased_gear):
+                                purchase_button = Button(
+                                    label=f"Buy {gear_name}",
+                                    style=discord.ButtonStyle.green,
+                                    custom_id=f"buy_{gear_name}"
+                                )
+                                purchase_button.callback = self.handle_purchase
+                                self.add_item(purchase_button)
+
                 elif self.current_page == "rods":
                     self.logger.debug("Setting up rods page")
                     for rod_name, rod_data in self.cog.data["rods"].items():
@@ -390,7 +423,8 @@ class ShopView(BaseView):
                     name="Categories",
                     value=(
                         "🪱 **Bait** - Various baits for fishing\n"
-                        "🎣 **Rods** - Better rods, better catches!"
+                        "🎣 **Rods** - Better rods, better catches!\n"
+                        "🛠️ **Gear** - Upgrades and tools"
                     ),
                     inline=False
                 )
@@ -437,6 +471,62 @@ class ShopView(BaseView):
                     bait_list.append(bait_entry)
                 
                 embed.description = "\n".join(bait_list) if bait_list else "No bait available!"
+
+            elif self.current_page == "gear":
+                self.logger.debug("Generating gear page embed")
+                embed.title = "🛠️ Gear Shop"
+                purchased_gear = self.user_data.get("purchased_gear", [])
+                user_level = self.user_data.get("level", 1)
+
+                category_icons = {
+                    "Inventory": "🎒",
+                    "Gear": "🧥",
+                    "Tools": "🔧",
+                }
+
+                for category, items in GEAR_TYPES.items():
+                    if not items:
+                        continue
+
+                    icon = category_icons.get(category, "📦")
+                    gear_lines = []
+                    for gear_name, gear_data in items.items():
+                        owned = gear_name in purchased_gear
+                        requirements = gear_data.get("requirements", {})
+                        level_req = requirements.get("level", 1) if requirements else 1
+                        prerequisite = gear_data.get("prerequisite")
+
+                        if owned:
+                            status = "✅ Owned"
+                        elif level_req > user_level:
+                            status = f"🔒 Requires Level {level_req}"
+                        elif prerequisite and prerequisite not in purchased_gear:
+                            status = f"🔒 Requires {prerequisite}"
+                        else:
+                            status = f"💰 Cost: {gear_data['cost']} {currency_name}"
+
+                        # Show effect
+                        effects = gear_data.get("effect", {})
+                        effect_text = ""
+                        if "inventory_capacity" in effects:
+                            effect_text = f"📊 +{effects['inventory_capacity']} inventory slots"
+
+                        gear_lines.append(
+                            f"**{gear_name}**\n"
+                            f"{gear_data['description']}\n"
+                            f"{effect_text}\n"
+                            f"{status}"
+                        )
+
+                    if gear_lines:
+                        embed.add_field(
+                            name=f"{icon} {category}",
+                            value="\n\n".join(gear_lines),
+                            inline=False
+                        )
+
+                if not any(items for items in GEAR_TYPES.values()):
+                    embed.description = "No gear available yet!"
 
             elif self.current_page == "rods":
                 self.logger.debug("Generating rods page embed")
@@ -502,7 +592,14 @@ class ShopView(BaseView):
                 embed = await self.generate_embed()
                 await interaction.response.edit_message(embed=embed, view=self)
                 self.message = await interaction.original_response()
-                
+
+            elif custom_id == "gear":
+                self.current_page = "gear"
+                await self.initialize_view()
+                embed = await self.generate_embed()
+                await interaction.response.edit_message(embed=embed, view=self)
+                self.message = await interaction.original_response()
+
             elif custom_id == "back":
                 self.current_page = "main"
                 self.selected_quantity = 1
@@ -598,6 +695,48 @@ class ShopView(BaseView):
                     message = await interaction.followup.send(msg, ephemeral=True, wait=True)
                     self.cog.bot.loop.create_task(self.delete_after_delay(message))
                     
+            # Handle gear purchases
+            elif self._is_gear_item(item_name):
+                gear_data = self._get_gear_data(item_name)
+                if not gear_data:
+                    await interaction.response.send_message("❌ Item not found!", ephemeral=True, delete_after=2)
+                    return
+
+                cost = gear_data["cost"]
+                if not await self.cog._can_afford(self.ctx.author, cost):
+                    await interaction.response.send_message(
+                        f"❌ You don't have enough coins! This costs {cost} coins.",
+                        ephemeral=True,
+                        delete_after=2
+                    )
+                    return
+
+                confirm_view = PurchaseConfirmView(self.cog, self.ctx, item_name, 1, cost)
+                await interaction.response.send_message(
+                    f"Confirm purchase of {item_name} for {cost} coins?",
+                    view=confirm_view,
+                    ephemeral=True
+                )
+
+                confirm_view.message = await interaction.original_response()
+                await confirm_view.wait()
+
+                if confirm_view.value:
+                    success, msg = await self._handle_gear_purchase(interaction.user, item_name, gear_data)
+
+                    if success:
+                        await self.cog.config_manager.invalidate_cache(f"user_{interaction.user.id}")
+                        fresh_data = await self.cog.config_manager.get_user_data(interaction.user.id)
+                        if fresh_data.success:
+                            self.user_data = fresh_data.data
+                            if hasattr(self, 'parent_menu_view'):
+                                self.parent_menu_view.user_data = fresh_data.data
+                            await self.initialize_view()
+                            await self.update_view()
+
+                    message = await interaction.followup.send(msg, ephemeral=True, wait=True)
+                    self.cog.bot.loop.create_task(self.delete_after_delay(message))
+
             # Handle bait purchases with modal
             else:
                 modal = BaitQuantityModal(self, item_name)
@@ -619,6 +758,50 @@ class ShopView(BaseView):
                 )
                 self.cog.bot.loop.create_task(self.delete_after_delay(message))
     
+    def _is_gear_item(self, item_name: str) -> bool:
+        """Check if an item name is a gear item"""
+        for category, items in GEAR_TYPES.items():
+            if item_name in items:
+                return True
+        return False
+
+    def _get_gear_data(self, item_name: str) -> Optional[Dict]:
+        """Get gear data by item name across all categories"""
+        for category, items in GEAR_TYPES.items():
+            if item_name in items:
+                return items[item_name]
+        return None
+
+    async def _handle_gear_purchase(self, user, gear_name: str, gear_data: Dict):
+        """Process a gear purchase"""
+        try:
+            cost = gear_data["cost"]
+
+            # Withdraw cost
+            try:
+                await bank.withdraw_credits(user, cost)
+            except Exception as e:
+                self.logger.error(f"Error withdrawing credits for gear: {e}")
+                return False, f"❌ Failed to process payment: {e}"
+
+            # Add gear to purchased list and apply effects
+            async with self.cog.config_manager.config_transaction(user.id) as user_data:
+                purchased_gear = user_data.get("purchased_gear", [])
+                purchased_gear.append(gear_name)
+                user_data["purchased_gear"] = purchased_gear
+
+                # Apply effects
+                effects = gear_data.get("effect", {})
+                if "inventory_capacity" in effects:
+                    current_capacity = user_data.get("inventory_capacity", 5)
+                    user_data["inventory_capacity"] = current_capacity + effects["inventory_capacity"]
+
+            return True, f"✅ Purchased **{gear_name}**! {gear_data['description']}"
+
+        except Exception as e:
+            self.logger.error(f"Error handling gear purchase: {e}", exc_info=True)
+            return False, f"❌ An error occurred: {e}"
+
     async def update_view(self):
         """Update the message with current embed and view"""
         try:

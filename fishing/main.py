@@ -22,6 +22,7 @@ from .data.fishing_data import (
     FISH_TYPES,
     ROD_TYPES,
     BAIT_TYPES,
+    GEAR_TYPES,
     LOCATIONS,
     WEATHER_TYPES,
     TIME_EFFECTS,
@@ -52,6 +53,7 @@ class Fishing(commands.Cog):
             "weather": WEATHER_TYPES,
             "time": TIME_EFFECTS,
             "junk": JUNK_TYPES,
+            "gear": GEAR_TYPES,
         }
         
         # Initialize inventory manager
@@ -424,7 +426,7 @@ class Fishing(commands.Cog):
             return False
         user_data = user_result.data
         inventory = user_data.get("inventory", [])
-        capacity = user_data.get("inventory_capacity", 28)
+        capacity = user_data.get("inventory_capacity", 5)
         return len(inventory) >= capacity
 
     async def _update_total_value(self, user, value: int, *, item_type: str = "fish") -> bool:
