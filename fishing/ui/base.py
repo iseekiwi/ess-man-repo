@@ -157,6 +157,25 @@ class BaseView(View):
         except Exception as e:
             self.logger.error(f"Error updating message: {e}")
 
+    @staticmethod
+    def pad_embed(embed: discord.Embed, min_lines: int = 16):
+        """Pad an embed's description with blank lines to maintain consistent UI height.
+
+        Counts visible content lines across description and all fields,
+        then appends zero-width-space lines to the description until
+        the embed reaches ``min_lines``.
+        """
+        current = 0
+        if embed.description:
+            current += embed.description.count("\n") + 1
+        for field in embed.fields:
+            current += str(field.value).count("\n") + 1
+            current += 1  # field name line
+
+        if current < min_lines:
+            padding = "\n\u200b" * (min_lines - current)
+            embed.description = (embed.description or "") + padding
+
 class ConfirmView(BaseView):
     """Enhanced confirmation view with improved feedback and error handling"""
     

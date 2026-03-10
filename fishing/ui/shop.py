@@ -452,6 +452,7 @@ class ShopView(BaseView):
             embed.set_footer(text=f"Your balance: {self.current_balance} {currency_name}")
             
             self.logger.debug("Embed generated successfully")
+            self.pad_embed(embed)
             return embed
     
         except Exception as e:

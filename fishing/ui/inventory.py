@@ -158,8 +158,9 @@ class InventoryView(BaseView):
                         f"Balance: {balance} {currency_name}"
                     )
             
+            self.pad_embed(embed)
             return embed
-            
+
         except Exception as e:
             self.logger.error(f"Error generating embed: {e}", exc_info=True)
             return discord.Embed(

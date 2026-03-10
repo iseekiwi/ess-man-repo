@@ -69,11 +69,11 @@ class FishingMenuView(BaseView):
                     ("🗺️ Location", "location", discord.ButtonStyle.blurple),
                     ("🌤️ Weather", "weather", discord.ButtonStyle.blurple)
                 ]
-                
+
                 for label, custom_id, style in buttons:
                     if self.fishing_in_progress and custom_id != "fish":
                         continue  # Skip non-fishing buttons during fishing
-                        
+
                     button = Button(
                         label=label,
                         custom_id=custom_id,
@@ -82,6 +82,16 @@ class FishingMenuView(BaseView):
                     )
                     button.callback = self.handle_button
                     self.add_item(button)
+
+                # Stop button — always available on main menu
+                if not self.fishing_in_progress:
+                    stop_btn = Button(
+                        label="Stop Fishing",
+                        custom_id="stop",
+                        style=discord.ButtonStyle.red
+                    )
+                    stop_btn.callback = self.handle_button
+                    self.add_item(stop_btn)
                     
             elif self.current_page == "location":
                 # Location selection
@@ -436,8 +446,9 @@ class FishingMenuView(BaseView):
                         inline=False
                     )
             
+            self.pad_embed(embed)
             return embed
-            
+
         except Exception as e:
             self.logger.error(f"Error generating embed: {str(e)}", exc_info=True)
             raise
@@ -447,6 +458,22 @@ class FishingMenuView(BaseView):
         try:
             custom_id = interaction.data["custom_id"]
             
+            if custom_id == "stop":
+                await interaction.response.defer()
+                embed = discord.Embed(
+                    title="🎣 Session Ended",
+                    description="You packed up your fishing gear. See you next time!",
+                    color=discord.Color.greyple()
+                )
+                self.pad_embed(embed)
+                self.clear_items()
+                for item in self.children:
+                    item.disabled = True
+                await self.message.edit(embed=embed, view=self)
+                self._release_session()
+                self.stop()
+                return
+
             if custom_id == "fish":
                 if self.fishing_in_progress:
                     await interaction.response.send_message(
@@ -568,7 +595,8 @@ class FishingMenuView(BaseView):
                 description="Casting line...",
                 color=discord.Color.blue()
             )
-            
+            self.pad_embed(fishing_embed)
+
             # Since interaction was already responded to, use message edit directly
             if self.message:
                 await self.message.edit(embed=fishing_embed, view=self)
@@ -595,6 +623,7 @@ class FishingMenuView(BaseView):
                 description=f"Quick! Click `{self.correct_action}` to catch the fish!",
                 color=discord.Color.blue()
             )
+            self.pad_embed(fishing_embed)
             await self.message.edit(embed=fishing_embed, view=self)
     
             # Wait for catch attempt or timeout
@@ -614,6 +643,7 @@ class FishingMenuView(BaseView):
                     description="The fish got away!\n\nReturning to menu...",
                     color=discord.Color.red()
                 )
+                self.pad_embed(fishing_embed)
                 await self.message.edit(embed=fishing_embed)
                 await asyncio.sleep(2)
     
@@ -780,7 +810,7 @@ class FishingMenuView(BaseView):
                         description="\n".join(description),
                         color=discord.Color.green()
                     )
-                    
+
                 else:
                     fishing_embed = discord.Embed(
                         title="🎣 Nothing!",
@@ -794,7 +824,8 @@ class FishingMenuView(BaseView):
                     description="Whatever was on the line got away!\n\nReturning to menu...",
                     color=discord.Color.red()
                 )
-            
+
+            self.pad_embed(fishing_embed)
             await self.message.edit(embed=fishing_embed)
             await asyncio.sleep(4)  # Brief pause to show result
             
