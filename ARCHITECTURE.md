@@ -536,21 +536,21 @@ class LevelManager:
 
 #### XP Thresholds (99 levels)
 
-Gap between levels grows by ~350 XP per level, with acceleration after level 50 (+100/level) and level 75 (+150/level). Full table in `level_manager.py`. Key milestones:
+RuneScape-style exponential curve: `gap(L) = 50 + 3350 * (2^(L/24.5) - 2^(2/24.5))`. Halfway point (50% of total XP) falls at level 80. Full table in `level_manager.py`. Key milestones:
 
 | Level | Total XP Required |
 |-------|-------------------|
 | 1 | 0 |
-| 10 | 11,000 |
-| 20 | 52,500 |
-| 30 | 126,750 |
-| 40 | 236,000 |
-| 50 | 380,250 |
-| 60 | 565,000 |
-| 70 | 794,750 |
-| 80 | 1,071,750 |
-| 90 | 1,407,250 |
-| 99 | 1,760,500 |
+| 10 | 4,364 |
+| 20 | 21,520 |
+| 30 | 55,716 |
+| 40 | 112,522 |
+| 50 | 199,334 |
+| 60 | 325,964 |
+| 70 | 505,433 |
+| 80 | 755,016 |
+| 90 | 1,097,642 |
+| 99 | 1,510,510 |
 
 #### Rarity XP Rewards
 
