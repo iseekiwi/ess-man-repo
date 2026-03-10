@@ -564,7 +564,12 @@ class Fishing(commands.Cog):
             meets_req, msg = await self.check_requirements(user_data, rod_data["requirements"])
             if not meets_req:
                 return False, msg
-    
+
+            # Check sequential prerequisite
+            has_prereq, prereq_msg = self.check_rod_prerequisite(user_data, rod_name)
+            if not has_prereq:
+                return False, prereq_msg
+
             # Check if already owned
             if rod_name in user_data.get("purchased_rods", {}):
                 return False, f"🚫 You already own a {rod_name}!"
@@ -635,6 +640,44 @@ class Fishing(commands.Cog):
         except Exception as e:
             self.logger.error(f"Error consuming materials: {e}", exc_info=True)
             return False, f"Error consuming materials: {e}"
+
+    def check_rod_prerequisite(self, user_data: dict, rod_name: str) -> tuple[bool, str]:
+        """Check if user owns the previous rod in the upgrade chain.
+
+        Returns:
+            Tuple[bool, str]: (meets_prerequisite, error_message)
+        """
+        rod_names = list(self.data["rods"].keys())
+        rod_index = rod_names.index(rod_name) if rod_name in rod_names else -1
+        if rod_index <= 0:
+            # Basic Rod or first rod — no prerequisite
+            return True, ""
+        prev_rod = rod_names[rod_index - 1]
+        purchased_rods = user_data.get("purchased_rods", {})
+        # Basic Rod is always owned
+        if prev_rod == "Basic Rod" or prev_rod in purchased_rods:
+            return True, ""
+        return False, f"🔒 You must own **{prev_rod}** before purchasing **{rod_name}**."
+
+    def check_gear_prerequisite(self, user_data: dict, gear_name: str) -> tuple[bool, str]:
+        """Check if user owns the previous gear item in the same category's upgrade chain.
+
+        Returns:
+            Tuple[bool, str]: (meets_prerequisite, error_message)
+        """
+        for category, category_items in GEAR_TYPES.items():
+            item_names = list(category_items.keys())
+            if gear_name in item_names:
+                item_index = item_names.index(gear_name)
+                if item_index == 0:
+                    # First item in category — no prerequisite
+                    return True, ""
+                prev_item = item_names[item_index - 1]
+                purchased_gear = user_data.get("purchased_gear", [])
+                if prev_item in purchased_gear:
+                    return True, ""
+                return False, f"🔒 You must own **{prev_item}** before purchasing **{gear_name}**."
+        return True, ""
 
     async def _equip_rod(self, user: discord.Member, rod_name: str) -> tuple[bool, str]:
         """Helper method to equip a fishing rod"""

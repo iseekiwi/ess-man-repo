@@ -329,7 +329,10 @@ class ShopView(BaseView):
                         level_req = requirements.get("level", 1)
                         fish_req = requirements.get("fish_caught", 0)
 
-                        if user_level >= level_req and user_fish >= fish_req:
+                        # Check sequential prerequisite
+                        has_prereq, _ = self.cog.check_rod_prerequisite(self.user_data, rod_name)
+
+                        if user_level >= level_req and user_fish >= fish_req and has_prereq:
                             desc = f"{rod_data['cost']} coins | +{rod_data['chance']*100:.0f}% catch bonus"
                             options.append(discord.SelectOption(
                                 label=rod_name,
@@ -363,7 +366,9 @@ class ShopView(BaseView):
                             continue
                         requirements = gear_data.get("requirements", {})
                         level_req = requirements.get("level", 1) if requirements else 1
-                        if user_level >= level_req:
+                        # Check sequential prerequisite
+                        has_prereq, _ = self.cog.check_gear_prerequisite(self.user_data, gear_name)
+                        if user_level >= level_req and has_prereq:
                             effects = gear_data.get("effect", {})
                             desc = f"{gear_data['cost']} coins"
                             if "inventory_capacity" in effects:
@@ -520,11 +525,17 @@ class ShopView(BaseView):
                     owned = gear_name in purchased_gear
                     requirements = gear_data.get("requirements", {})
                     level_req = requirements.get("level", 1) if requirements else 1
+                    has_prereq, _ = self.cog.check_gear_prerequisite(self.user_data, gear_name)
 
                     if owned:
                         status = "✅ Owned"
                     elif level_req > user_level:
                         status = f"🔒 Requires Level {level_req}"
+                    elif not has_prereq:
+                        # Find previous item in same category
+                        cat_items = list(GEAR_TYPES[category].keys())
+                        prev_item = cat_items[cat_items.index(gear_name) - 1]
+                        status = f"🔒 Requires **{prev_item}**"
                     else:
                         status = f"💰 Cost: {gear_data['cost']} {currency_name}"
 
@@ -571,15 +582,29 @@ class ShopView(BaseView):
             elif self.current_page == "rods":
                 embed.title = "🎣 Rod Shop"
                 rod_list = []
+                user_level = self.user_data.get("level", 1)
 
                 for rod_name, rod_data in self.cog.data["rods"].items():
                     if rod_name == "Basic Rod":
                         continue
 
                     owned = rod_name in self.user_data.get("purchased_rods", {})
-                    status = "✅ Owned" if owned else f"💰 *Cost*: {rod_data['cost']} {currency_name}"
-
                     requirements = rod_data.get("requirements")
+                    level_req = requirements.get("level", 1) if requirements else 1
+                    has_prereq, prereq_msg = self.cog.check_rod_prerequisite(self.user_data, rod_name)
+
+                    if owned:
+                        status = "✅ Owned"
+                    elif level_req > user_level:
+                        status = f"🔒 Requires Level {level_req}"
+                    elif not has_prereq:
+                        # Extract previous rod name from the message
+                        rod_names = list(self.cog.data["rods"].keys())
+                        prev_rod = rod_names[rod_names.index(rod_name) - 1]
+                        status = f"🔒 Requires **{prev_rod}**"
+                    else:
+                        status = f"💰 *Cost*: {rod_data['cost']} {currency_name}"
+
                     req_text = ""
                     if requirements:
                         req_text = f"\n*Requires*: Level {requirements['level']}"
@@ -678,6 +703,12 @@ class ShopView(BaseView):
                 await interaction.response.send_message("Rod not found!", ephemeral=True, delete_after=2)
                 return
 
+            # Check sequential prerequisite
+            has_prereq, prereq_msg = self.cog.check_rod_prerequisite(self.user_data, rod_name)
+            if not has_prereq:
+                await interaction.response.send_message(prereq_msg, ephemeral=True, delete_after=5)
+                return
+
             cost = rod_data["cost"]
             if not await self.cog._can_afford(self.ctx.author, cost):
                 await interaction.response.send_message(
@@ -733,6 +764,12 @@ class ShopView(BaseView):
             gear_data = self._get_gear_data(gear_name)
             if not gear_data:
                 await interaction.response.send_message("Item not found!", ephemeral=True, delete_after=2)
+                return
+
+            # Check sequential prerequisite
+            has_prereq, prereq_msg = self.cog.check_gear_prerequisite(self.user_data, gear_name)
+            if not has_prereq:
+                await interaction.response.send_message(prereq_msg, ephemeral=True, delete_after=5)
                 return
 
             cost = gear_data["cost"]

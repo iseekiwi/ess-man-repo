@@ -189,7 +189,7 @@ Full bait purchase flow: validates stock, updates global stock, adds to inventor
 ```python
 async def _handle_rod_purchase(self, user, rod_name: str, user_data: dict) -> tuple[bool, str]
 ```
-Rod purchase flow: checks requirements, checks ownership, adds to inventory, withdraws credits. Includes rollback.
+Rod purchase flow: checks requirements, checks sequential prerequisite (must own previous rod), checks ownership, adds to inventory, withdraws credits. Includes rollback.
 
 ```python
 async def _can_afford(self, user, cost: int) -> bool
@@ -225,6 +225,16 @@ Checks if user has required materials. Returns `(True, "")` or `(False, "Missing
 async def consume_materials(self, user_id: int, material_cost: dict) -> tuple[bool, str]
 ```
 Removes required materials from user inventory via `InventoryManager.remove_item()`.
+
+```python
+def check_rod_prerequisite(self, user_data: dict, rod_name: str) -> tuple[bool, str]
+```
+Checks if user owns the previous rod in the `ROD_TYPES` ordering. Basic Rod is always considered owned.
+
+```python
+def check_gear_prerequisite(self, user_data: dict, gear_name: str) -> tuple[bool, str]
+```
+Checks if user owns the previous gear item in the same category's ordering within `GEAR_TYPES`.
 
 #### Bot Commands
 
@@ -919,11 +929,9 @@ Pages: `"main"`, `"bait"`, `"rods"`, `"gear"`.
 
 **Bait page**: Select dropdown of available baits (stock > 0, user meets level req). Selection opens `BaitQuantityModal`.
 
-**Rods page**: Select dropdown of purchasable rods (not owned, user meets level/fish req). Selection shows `PurchaseConfirmView`.
+**Rods page**: Select dropdown of purchasable rods (not owned, user meets level/fish req, owns previous rod in chain). Embed shows all rods with status: owned, level-locked, prerequisite-locked, or available with price. Selection shows `PurchaseConfirmView`.
 
-**Gear page**: Paginated display (5 items/page) with `<` `>` navigation buttons. Select dropdown lists purchasable gear on the current page. Selection shows `PurchaseConfirmView` then calls `_handle_gear_purchase`. Each inventory item SETs total capacity (not additive).
-
-**Rods page**: One "Buy {name}" button per unowned rod the user qualifies for. Clicking creates `PurchaseConfirmView` (quantity always 1).
+**Gear page**: Paginated display (5 items/page) with `<` `>` navigation buttons. Select dropdown lists purchasable gear on the current page (not owned, user meets level req, owns previous gear in category chain). Embed shows prerequisite-locked status for items missing the prior tier. Selection shows `PurchaseConfirmView` then calls `_handle_gear_purchase`. Each inventory item SETs total capacity (not additive).
 
 Has `parent_menu_view` attribute set by FishingMenuView for data refresh propagation.
 
@@ -1423,6 +1431,8 @@ async def sell_fish(self, ctx) -> tuple[bool, int, str]
 async def check_requirements(self, user_data, requirements) -> tuple[bool, str]
 def check_material_cost(self, user_data, material_cost) -> tuple[bool, str]
 async def consume_materials(self, user_id, material_cost) -> tuple[bool, str]
+def check_rod_prerequisite(self, user_data, rod_name) -> tuple[bool, str]
+def check_gear_prerequisite(self, user_data, gear_name) -> tuple[bool, str]
 ```
 
 ### BaseView
