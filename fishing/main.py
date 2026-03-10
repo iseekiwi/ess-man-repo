@@ -14,6 +14,8 @@ from .utils.logging_config import get_logger
 from .utils.config_manager import ConfigManager, ConfigResult
 from .utils.level_manager import LevelManager
 from .utils.profit_simulator import ProfitSimulator
+from .utils.timeout_manager import TimeoutManager
+from .utils.logging_config import LoggerManager
 from redbot.core import commands, Config, bank
 from redbot.core.bot import Red
 from collections import Counter
@@ -125,11 +127,16 @@ class Fishing(commands.Cog):
         try:
             # Stop background tasks
             asyncio.create_task(self.bg_task_manager.stop())
-            
-            # Clean up timeout manager
+
+            # Clean up and reset timeout manager singleton
             timeout_manager = TimeoutManager()
             asyncio.create_task(timeout_manager.cleanup())
-            
+            TimeoutManager._instance = None
+            TimeoutManager._initialized = False
+
+            # Reset logger manager singleton to avoid stale handlers
+            LoggerManager.reset()
+
             self.logger.info("Cog unloaded, background tasks cancelled")
         except Exception as e:
             self.logger.error(f"Error in cog_unload: {e}")
@@ -402,48 +409,30 @@ class Fishing(commands.Cog):
                 
             user_data = user_data_result.data
             self.logger.debug(f"Current user data: {user_data}")
-            old_level = user_data["level"]
-            
-            # Calculate new level based on current fish count - don't increment here
+
             fish_caught = user_data["fish_caught"]
-            new_level = max(1, fish_caught // 50)
-            
-            # Prepare base updates
+
+            # Prepare updates — level is managed solely by LevelManager.award_xp
             updates = {
                 "total_value": user_data["total_value"] + value,
-                "level": new_level,
-                "experience": user_data.get("experience", 0)
             }
-            
-            # Set base fields
-            fields = ["total_value", "level", "experience"]
-            
+            fields = ["total_value"]
+
             # Only update fish_caught if this is actually a fish
             if item_type == "fish":
                 updates["fish_caught"] = fish_caught + 1
                 fields.append("fish_caught")
-                
+
             update_result = await self.config_manager.update_user_data(
                 user.id,
                 updates,
                 fields=fields
             )
-            
+
             if not update_result.success:
                 self.logger.error(f"Failed to update user data in _update_total_value: {update_result.error}")
                 return False
-                
-            # Verify the update
-            verify_result = await self.config_manager.get_user_data(user.id)
-            if not verify_result.success:
-                self.logger.error(f"Failed to verify data update: {verify_result.error}")
-                return False
-                
-            self.logger.debug(f"Updated user data: {verify_result.data}")
-            
-            if new_level > old_level:
-                self.logger.info(f"User {user.name} leveled up from {old_level} to {new_level}")
-                
+
             return True
             
         except Exception as e:
@@ -501,9 +490,6 @@ class Fishing(commands.Cog):
                 
                 if updated_bait < amount:
                     self.logger.error(f"Bait amount verification failed: Expected at least {amount}, got {updated_bait}")
-                    # Let's also check the raw config data
-                    raw_data = await self.config.user(user).all()
-                    self.logger.debug(f"Raw config data: {raw_data}")
                     return False, "Error verifying inventory update."
             
             # Process payment last to minimize need for rollbacks

@@ -142,35 +142,7 @@ class InventoryManager:
                 
                 # Store updates in transaction
                 transaction[f"user_{user_id}"] = updates
-                
-            # Verify the update
-            verify_result = await self.config_manager.get_user_data(user_id)
-            if not verify_result.success:
-                self.logger.error("Failed to verify inventory update")
-                return False, "Error verifying inventory update"
-                
-            verified_data = verify_result.data
-            self.logger.debug(f"Verification data: {verified_data}")
-            
-            # Verify specific update based on item type
-            if item_type == "bait":
-                verified_amount = verified_data.get("bait", {}).get(item_name, 0)
-                expected_amount = max(0, current_amount + (amount if operation == "add" else -amount))
-                if verified_amount != expected_amount:
-                    self.logger.error(f"Verification failed - Expected: {expected_amount}, Got: {verified_amount}")
-                    return False, "Error verifying inventory update"
-                    
-            elif item_type == "rod":
-                if operation == "add" and item_name not in verified_data.get("purchased_rods", {}):
-                    return False, "Error verifying inventory update"
-                    
-            elif item_type == "fish":
-                verified_count = verified_data.get("inventory", []).count(item_name)
-                expected_count = (user_data.get("inventory", []).count(item_name) + 
-                                (amount if operation == "add" else -amount))
-                if verified_count != expected_count:
-                    return False, "Error verifying inventory update"
-            
+
             action = "added to" if operation == "add" else "removed from"
             return True, f"Successfully {action} inventory: {amount}x {item_name}"
             
@@ -240,36 +212,8 @@ class InventoryManager:
                 # Store updates in transaction
                 transaction[f"user_{user_id}"] = updates
                 self.logger.debug(f"Updates being applied: {updates}")
-                
-            # Verify the update
-            verify_result = await self.config_manager.get_user_data(user_id)
-            if not verify_result.success:
-                self.logger.error("Failed to verify inventory update")
-                return False, "Error verifying inventory update"
-                
-            verified_data = verify_result.data
-            self.logger.debug(f"Verification data after update: {verified_data}")
-            
-            # Verify specific update based on item type
-            if item_type == "inventory":
-                inventory_count = verified_data.get("inventory", []).count(item_name)
-                expected_count = user_data.get("inventory", []).count(item_name) + amount
-                if inventory_count != expected_count:
-                    self.logger.error(f"Inventory verification failed - Expected: {expected_count}, Got: {inventory_count}")
-                    return False, "Error verifying inventory update"
-            elif item_type == "bait":
-                verified_amount = verified_data.get("bait", {}).get(item_name, 0)
-                expected_amount = user_data.get("bait", {}).get(item_name, 0) + amount
-                if verified_amount != expected_amount:
-                    self.logger.error(f"Bait verification failed - Expected: {expected_amount}, Got: {verified_amount}")
-                    return False, "Error verifying inventory update"
-            elif item_type == "rod":
-                if item_name not in verified_data.get("purchased_rods", {}):
-                    self.logger.error("Rod verification failed - Rod not found in inventory")
-                    return False, "Error verifying inventory update"
-                    
-            action = "added to"
-            return True, f"Successfully {action} inventory: {amount}x {item_name}"
+
+            return True, f"Successfully added to inventory: {amount}x {item_name}"
             
         except Exception as e:
             self.logger.error(f"Error in inventory update: {e}", exc_info=True)

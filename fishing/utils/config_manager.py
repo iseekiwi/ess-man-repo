@@ -373,16 +373,10 @@ class ConfigManager:
                         self.logger.error(f"Error saving {key}: {e}")
                         return ConfigResult(False, error=f"Failed to save {key}", error_code="SAVE_ERROR")
                         
-            # Invalidate cache
+            # Invalidate cache so next read fetches fresh data
             await self.invalidate_cache(f"user_{user_id}")
-            
-            # Verify update
-            verify_result = await self.get_user_data(user_id)
-            if not verify_result.success:
-                self.logger.error("Failed to verify update")
-                return ConfigResult(False, error="Failed to verify update", error_code="VERIFY_ERROR")
-                
-            self.logger.debug(f"Successfully updated user data: {verify_result.data}")
+
+            self.logger.debug(f"Successfully updated user data for {user_id}")
             return ConfigResult(True, True)
             
         except Exception as e:
@@ -458,16 +452,10 @@ class ConfigManager:
                     self.logger.error(f"Error resetting {key}: {e}")
                     return ConfigResult(False, error=f"Failed to reset {key}", error_code="RESET_ERROR")
             
-            # Invalidate cache
+            # Invalidate cache so next read fetches fresh data
             await self.invalidate_cache(f"user_{user_id}")
-            
-            # Verify reset
-            verify_result = await self.get_user_data(user_id)
-            if not verify_result.success:
-                self.logger.error("Failed to verify reset")
-                return ConfigResult(False, error="Failed to verify reset", error_code="VERIFY_ERROR")
-                
-            self.logger.debug(f"Successfully reset user data: {verify_result.data}")
+
+            self.logger.debug(f"Successfully reset user data for {user_id}")
             return ConfigResult(True, True)
             
         except Exception as e:

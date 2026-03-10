@@ -84,29 +84,18 @@ class BaitQuantityModal(discord.ui.Modal):
                 )
 
                 if success:
-                    # Refresh user data
-                    user_data_result = await self.shop_view.cog.config_manager.get_user_data(interaction.user.id)
-                    if user_data_result.success:
-                        self.shop_view.user_data = user_data_result.data
-                        await self.shop_view.cog.config_manager.refresh_cache(interaction.user.id)
-                        
-                        fresh_data = await self.shop_view.cog.config_manager.get_user_data(interaction.user.id)
-                        if fresh_data.success:
-                            self.shop_view.user_data = fresh_data.data
-                            
-                            # Update parent menu view if it exists
-                            if hasattr(self.shop_view, 'parent_menu_view'):
-                                self.shop_view.parent_menu_view.user_data = fresh_data.data
-                                await self.shop_view.parent_menu_view.initialize_view()
-                                menu_embed = await self.shop_view.parent_menu_view.generate_embed()
-                                await self.shop_view.parent_menu_view.message.edit(
-                                    embed=menu_embed,
-                                    view=self.shop_view.parent_menu_view
-                                )
-                                await self.shop_view.parent_menu_view.setup()
+                    # Refresh user data with a single read
+                    await self.shop_view.cog.config_manager.invalidate_cache(f"user_{interaction.user.id}")
+                    fresh_data = await self.shop_view.cog.config_manager.get_user_data(interaction.user.id)
+                    if fresh_data.success:
+                        self.shop_view.user_data = fresh_data.data
 
-                            await self.shop_view.initialize_view()
-                            await self.shop_view.update_view()
+                        # Update parent menu view if it exists
+                        if hasattr(self.shop_view, 'parent_menu_view'):
+                            self.shop_view.parent_menu_view.user_data = fresh_data.data
+
+                        await self.shop_view.initialize_view()
+                        await self.shop_view.update_view()
 
                 # Show result message
                 result_msg = await interaction.followup.send(msg, ephemeral=True, wait=True)
@@ -222,16 +211,6 @@ class PurchaseConfirmView(BaseView):
                     ephemeral=True
                 )
                 self.cog.bot.loop.create_task(self.delete_after_delay(error_msg))
-
-    async def delete_after_delay(self, message):
-        """Helper method to delete a message after a delay"""
-        try:
-            await asyncio.sleep(2)  # Wait 2 seconds
-            await message.delete()
-        except discord.NotFound:
-            pass  # Message was already deleted
-        except Exception as e:
-            self.logger.error(f"Error in delete_after_delay: {e}")
 
     async def on_timeout(self):
         """Handle view timeout."""
@@ -582,33 +561,21 @@ class ShopView(BaseView):
                         item_name,
                         self.user_data
                     )
-        
+
                     if success:
-                        # Refresh user data from config
-                        user_data_result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
-                        if user_data_result.success:
-                            # Update the view's user data
-                            self.user_data = user_data_result.data
-                            
-                            # Force refresh the cache
-                            await self.cog.config_manager.refresh_cache(self.ctx.author.id)
-                            
-                            # Get fresh data after cache refresh
-                            fresh_data = await self.cog.config_manager.get_user_data(self.ctx.author.id)
-                            if fresh_data.success:
-                                self.user_data = fresh_data.data
-                                
-                                # Update parent menu view if it exists
-                                if hasattr(self, 'parent_menu_view'):
-                                    self.parent_menu_view.user_data = fresh_data.data
-                                    await self.parent_menu_view.initialize_view()
-                                    menu_embed = await self.parent_menu_view.generate_embed()
-                                    await self.parent_menu_view.message.edit(embed=menu_embed, view=self.parent_menu_view)
-                                    await self.parent_menu_view.setup()
-                                
-                                # Reinitialize the view with new data
-                                await self.initialize_view()
-                                await self.update_view()
+                        # Single refresh: invalidate cache then read fresh
+                        await self.cog.config_manager.invalidate_cache(f"user_{self.ctx.author.id}")
+                        fresh_data = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+                        if fresh_data.success:
+                            self.user_data = fresh_data.data
+
+                            # Update parent menu view if it exists
+                            if hasattr(self, 'parent_menu_view'):
+                                self.parent_menu_view.user_data = fresh_data.data
+
+                            # Reinitialize the view with new data
+                            await self.initialize_view()
+                            await self.update_view()
                     
                     # Always show the result message
                     message = await interaction.followup.send(msg, ephemeral=True, wait=True)
@@ -635,17 +602,6 @@ class ShopView(BaseView):
                 )
                 self.cog.bot.loop.create_task(self.delete_after_delay(message))
     
-    # Add delete_after_delay method to both classes
-    async def delete_after_delay(self, message):
-        """Helper method to delete a message after a delay"""
-        try:
-            await asyncio.sleep(2)  # Wait 2 seconds
-            await message.delete()
-        except discord.NotFound:
-            pass  # Message already deleted
-        except Exception as e:
-            self.logger.error(f"Error in delete_after_delay: {e}")
-        
     async def update_view(self):
         """Update the message with current embed and view"""
         try:

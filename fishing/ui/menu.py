@@ -27,6 +27,7 @@ class FishingMenuView(BaseView):
         self.fishing_in_progress = False
         self.stored_buttons = []
         self.correct_action = None
+        self._catch_event = asyncio.Event()
         
     async def setup(self):
         """Async setup method to initialize the view"""
@@ -466,20 +467,7 @@ class FishingMenuView(BaseView):
                 await self.initialize_view()
                 await self.do_fishing(interaction)
                 return
-                
-                # Create initial fishing embed
-                fishing_embed = discord.Embed(
-                    title="🎣 Fishing in Progress",
-                    description="Casting line...",
-                    color=discord.Color.blue()
-                )
-                
-                # Initial response and store the message reference
-                await interaction.response.edit_message(embed=fishing_embed, view=self)
-                self.message = await interaction.original_response()
-                await self.do_fishing(interaction)
-                return
-                
+
             elif custom_id == "menu":
                 # Instead of importing FishingMenuView, use cog's create_menu method
                 menu_view = await self.cog.create_menu(self.ctx, self.user_data)
@@ -609,24 +597,17 @@ class FishingMenuView(BaseView):
             )
             await self.message.edit(embed=fishing_embed, view=self)
     
-            # Add a catch_attempted flag
-            self.catch_attempted = False
-                
-            # Set up timeout for catch attempt
-            await asyncio.sleep(5.0)
-                
+            # Wait for catch attempt or timeout
+            self._catch_event.clear()
+            try:
+                await asyncio.wait_for(self._catch_event.wait(), timeout=5.0)
+            except asyncio.TimeoutError:
+                pass
+
             # Only handle timeout if no catch attempt was made
-            if not self.catch_attempted and not self.children[0].disabled:
+            if not self._catch_event.is_set():
                 # Consume bait on timeout
-                update_data = {"bait": self.user_data.get("bait", {})}
-                equipped_bait = self.user_data.get("equipped_bait")
-                if equipped_bait:
-                    update_data["bait"][equipped_bait] = update_data["bait"].get(equipped_bait, 0) - 1
-                    if update_data["bait"][equipped_bait] <= 0:
-                        del update_data["bait"][equipped_bait]
-                        update_data["equipped_bait"] = None
-                    await self.cog.config_manager.update_user_data(self.ctx.author.id, update_data)
-                    self.logger.debug("Bait consumed on timeout")
+                await self.consume_bait(self.ctx.author.id)
     
                 fishing_embed = discord.Embed(
                     title="🎣 Too Slow!",
@@ -675,8 +656,8 @@ class FishingMenuView(BaseView):
     async def handle_catch_attempt(self, interaction: discord.Interaction):
         """Handle fishing catch attempt button press"""
         try:
-            # Set catch_attempted flag
-            self.catch_attempted = True
+            # Signal the catch event to cancel the timeout
+            self._catch_event.set()
             self.logger.debug(f"Starting catch attempt for user {interaction.user.id}")
             
             # Get the button that was pressed
@@ -690,17 +671,7 @@ class FishingMenuView(BaseView):
             await interaction.response.edit_message(view=self)
     
             # Always consume bait on attempt
-            user_data_result = await self.cog.config_manager.get_user_data(interaction.user.id)
-            if user_data_result.success:
-                update_data = {"bait": user_data_result.data.get("bait", {})}
-                equipped_bait = user_data_result.data.get("equipped_bait")
-                if equipped_bait:
-                    update_data["bait"][equipped_bait] = update_data["bait"].get(equipped_bait, 0) - 1
-                    if update_data["bait"][equipped_bait] <= 0:
-                        del update_data["bait"][equipped_bait]
-                        update_data["equipped_bait"] = None
-                    await self.cog.config_manager.update_user_data(interaction.user.id, update_data)
-                    self.logger.debug("Bait consumed")
+            await self.consume_bait(interaction.user.id)
             
             # Check if correct button was pressed
             if action == self.correct_action:
@@ -742,18 +713,9 @@ class FishingMenuView(BaseView):
                     # Update user data with correct item type
                     await self.cog._update_total_value(interaction.user, item_value, item_type=item_type)
                     
-                    # Only update fish count for fish
-                    if item_type == "fish":
-                        # Update fish count directly in ConfigManager since _update_total_value handles it
-                        pass
-                    else:  # junk
-                        # Update junk count
-                        await self.cog.config_manager.update_user_data(
-                            interaction.user.id,
-                            {"junk_caught": self.user_data.get("junk_caught", 0) + 1},
-                            fields=["junk_caught"]
-                        )
-                    
+                    # Note: fish_caught is updated by _update_total_value
+                    # Note: junk_caught is updated by _catch_fish
+
                     # Award XP and check for level up
                     xp_success, old_level, new_level = await self.cog.level_manager.award_xp(
                         interaction.user.id,
@@ -927,32 +889,26 @@ class FishingMenuView(BaseView):
                     delete_after=2
                 )
 
-    async def consume_bait(self, interaction: discord.Interaction):
-        """Helper method to consume bait"""
+    async def consume_bait(self, user_id: int):
+        """Consume one unit of the user's equipped bait. Updates user_data in place."""
         try:
-            user_data_result = await self.cog.config_manager.get_user_data(interaction.user.id)
-            if user_data_result.success:
-                update_data = {"bait": user_data_result.data.get("bait", {})}
-                equipped_bait = user_data_result.data.get("equipped_bait")
-                if equipped_bait:
-                    update_data["bait"][equipped_bait] = update_data["bait"].get(equipped_bait, 0) - 1
-                    if update_data["bait"][equipped_bait] <= 0:
-                        del update_data["bait"][equipped_bait]
-                        update_data["equipped_bait"] = None
-                    await self.cog.config_manager.update_user_data(interaction.user.id, update_data)
-                    self.logger.debug("Bait consumed")
+            user_data_result = await self.cog.config_manager.get_user_data(user_id)
+            if not user_data_result.success:
+                return
+            data = user_data_result.data
+            equipped_bait = data.get("equipped_bait")
+            if not equipped_bait:
+                return
+            bait_inv = data.get("bait", {}).copy()
+            bait_inv[equipped_bait] = bait_inv.get(equipped_bait, 0) - 1
+            updates = {"bait": bait_inv}
+            if bait_inv[equipped_bait] <= 0:
+                del bait_inv[equipped_bait]
+                updates["equipped_bait"] = None
+            await self.cog.config_manager.update_user_data(user_id, updates)
+            self.logger.debug("Bait consumed")
         except Exception as e:
             self.logger.error(f"Error consuming bait: {e}")
-    
-    async def delete_after_delay(self, message):
-        """Helper method to delete a message after a delay"""
-        try:
-            await asyncio.sleep(2)  # Wait 2 seconds
-            await message.delete()
-        except discord.NotFound:
-            pass  # Message already deleted
-        except Exception as e:
-            self.logger.error(f"Error in delete_after_delay: {e}")
     
     async def update_view(self):
         """Update the message with current embed and view"""

@@ -7,10 +7,8 @@ from collections import Counter
 from redbot.core import bank
 from typing import Dict
 from discord.ui import Button, View
-from collections import Counter
 from .base import BaseView, ConfirmView
 from ..utils.logging_config import get_logger
-from ..utils.timeout_manager import TimeoutManager
 
 
 logger = get_logger('inventory')
@@ -271,6 +269,7 @@ class InventoryView(BaseView):
                 await self.update_view()
                 
             elif custom_id == "sell_all":
+                await interaction.response.defer()
                 success, amount, msg = await self.cog.sell_fish(self.ctx)
                 if success:
                     # Get fresh user data after sale
@@ -322,16 +321,6 @@ class InventoryView(BaseView):
                     ephemeral=True,
                     delete_after=2
                 )
-
-    async def delete_after_delay(self, message):
-        """Helper method to delete a message after a delay"""
-        try:
-            await asyncio.sleep(2)  # Wait 2 seconds
-            await message.delete()
-        except discord.NotFound:
-            pass  # Message already deleted
-        except Exception as e:
-            self.logger.error(f"Error in delete_after_delay: {e}")
 
     async def update_view(self):
         """Update the message with current embed and view"""

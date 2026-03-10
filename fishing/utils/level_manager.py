@@ -141,18 +141,7 @@ class LevelManager:
             if not update_result.success:
                 self.logger.error(f"Failed to update user XP: {update_result.error}")
                 return False, None, None
-                
-            # Verify the update
-            verify_result = await self.config_manager.get_user_data(user_id)
-            if not verify_result.success:
-                self.logger.error("Failed to verify XP update")
-                return False, None, None
-                
-            verified_data = verify_result.data
-            if verified_data.get("experience") != new_xp:
-                self.logger.error(f"XP verification failed. Expected: {new_xp}, Got: {verified_data.get('experience')}")
-                return False, None, None
-                
+
             # Return level up information if applicable
             if new_level > old_level:
                 self.logger.info(f"User {user_id} leveled up from {old_level} to {new_level}")

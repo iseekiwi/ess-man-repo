@@ -121,6 +121,16 @@ class BaseView(View):
             ephemeral=True
         )
 
+    async def delete_after_delay(self, message, delay: int = 2):
+        """Delete a message after a delay"""
+        try:
+            await asyncio.sleep(delay)
+            await message.delete()
+        except discord.NotFound:
+            pass
+        except Exception as e:
+            self.logger.error(f"Error in delete_after_delay: {e}")
+
     async def update_message(self, **kwargs):
         """Update view message with error handling"""
         try:

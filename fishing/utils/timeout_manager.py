@@ -9,12 +9,13 @@ logger = get_logger('tmanager')
 class TimeoutManager:
     """
     Centralized timeout management system for views.
-    
+
     This class manages timeouts for all views in the application using a single
     background task and efficient timeout tracking.
     """
     _instance = None
-    
+    _initialized = False
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(TimeoutManager, cls).__new__(cls)
