@@ -1092,7 +1092,7 @@ user_data = result.data  # Safe to use
 Views form a parent-child tree managed by `TimeoutManager`:
 
 ```
-FishingMenuView (parent, 600s timeout)
+FishingMenuView (parent, 300s timeout)
   +-- ShopView (child, inherits remaining timeout)
   +-- InventoryView (child, inherits remaining timeout)
 ```

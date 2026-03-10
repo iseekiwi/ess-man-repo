@@ -18,7 +18,7 @@ class FishingMenuView(BaseView):
     """Main menu interface for the fishing cog"""
     
     def __init__(self, cog, ctx, user_data: Dict):
-        super().__init__(cog, ctx)
+        super().__init__(cog, ctx, timeout=300)  # 5 minute inactivity timeout
         self.user_data = user_data
         self.current_page = "main"
         self.logger = get_logger('menu.view')
