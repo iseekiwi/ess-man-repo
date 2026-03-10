@@ -334,7 +334,7 @@ class Fishing(commands.Cog):
                                 # Add bonus fish to inventory
                                 await self._add_to_inventory(user, bonus_catch)
                                 self.logger.debug(f"Bonus fish caught: {bonus_catch}")
-                                
+
                                 # Add bonus catch info to result
                                 result["bonus_catch"] = {
                                     "name": bonus_catch,
@@ -416,6 +416,16 @@ class Fishing(commands.Cog):
             return success
         self.logger.warning(f"Invalid item attempted to add to inventory: {item_name}")
         return False
+
+    async def is_inventory_full(self, user_id: int) -> bool:
+        """Check if a user's inventory is at capacity."""
+        user_result = await self.config_manager.get_user_data(user_id)
+        if not user_result.success:
+            return False
+        user_data = user_result.data
+        inventory = user_data.get("inventory", [])
+        capacity = user_data.get("inventory_capacity", 28)
+        return len(inventory) >= capacity
 
     async def _update_total_value(self, user, value: int, *, item_type: str = "fish") -> bool:
         """Update total value and check for level up."""

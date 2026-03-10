@@ -172,6 +172,11 @@ async def _add_to_inventory(self, user: discord.Member, item_name: str) -> bool
 Adds a fish or junk item to inventory via `InventoryManager.add_item()` using `"inventory"` item type.
 
 ```python
+async def is_inventory_full(self, user_id: int) -> bool
+```
+Checks if user's inventory has reached `inventory_capacity` (default 28, per-user for upgrades). Called by `do_fishing` to block fishing when full.
+
+```python
 async def _update_total_value(self, user, value: int, *, item_type: str = "fish") -> bool
 ```
 Updates `total_value`, recalculates `level` (as `fish_caught // 50`), increments `fish_caught` if `item_type == "fish"`.
@@ -351,6 +356,7 @@ class TimeData(TypedDict):
     "junk_caught": 0,            # int - lifetime junk count
     "level": 1,                  # int - current level (1-20)
     "experience": 0,             # int - total XP
+    "inventory_capacity": 28,    # int - max fish+junk slots (upgradeable)
     "settings": {
         "notifications": True,   # Not implemented
         "auto_sell": False       # Not implemented
@@ -1385,6 +1391,7 @@ async def create_menu(self, ctx, user_data) -> FishingMenuView
 async def _ensure_user_data(self, user) -> Optional[dict]
 async def _catch_fish(self, user, user_data, bait_type, location, weather, time_of_day) -> Optional[dict]
 async def _add_to_inventory(self, user, item_name) -> bool
+async def is_inventory_full(self, user_id) -> bool
 async def _update_total_value(self, user, value, *, item_type="fish") -> bool
 async def _handle_bait_purchase(self, user, bait_name, amount, user_data) -> tuple[bool, str]
 async def _handle_rod_purchase(self, user, rod_name, user_data) -> tuple[bool, str]

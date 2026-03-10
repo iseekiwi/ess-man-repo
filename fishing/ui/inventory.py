@@ -62,12 +62,13 @@ class InventoryView(BaseView):
                 )
                 
                 # Inventory summary section
+                capacity = self.user_data.get("inventory_capacity", 28)
                 embed.add_field(
                     name="Summary",
                     value=(
                         f"🎣 Rods Owned: `{summary['rod_count']}`\n"
                         f"🪱 Bait Available: `{summary['bait_count']}`\n"
-                        f"🐟 Fish & Items: `{summary['fish_count']}`\n"
+                        f"🐟 Fish & Items: `{summary['fish_count']}/{capacity}`\n"
                         f"💰 Total Value: `{summary['total_value']}` *{currency_name}*\n"
                         f"💰 Current Balance: `{balance}` *{currency_name}*"
                     ),
@@ -114,8 +115,10 @@ class InventoryView(BaseView):
                 embed.set_footer(text=f"Balance: {balance} {currency_name}")
                 
             elif self.current_page == "fish":
+                capacity = self.user_data.get("inventory_capacity", 28)
+                inv_count = len(self.user_data.get("inventory", []))
                 embed = discord.Embed(
-                    title="🐟 Your Caught Items",
+                    title=f"🐟 Your Caught Items ({inv_count}/{capacity})",
                     color=discord.Color.blue()
                 )
                 

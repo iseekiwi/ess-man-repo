@@ -160,12 +160,15 @@ class FishingMenuView(BaseView):
                     balance = 0
                 
                 # Add current status
+                inventory_count = len(self.user_data.get("inventory", []))
+                inventory_capacity = self.user_data.get("inventory_capacity", 28)
                 embed.add_field(
                     name="Current Status",
                     value=(
                         f"🎣 Rod: `{self.user_data['rod']}`\n"
                         f"🪱 Bait: `{self.user_data.get('equipped_bait', 'None')}`\n"
                         f"📍 Location: `{self.user_data['current_location']}`\n"
+                        f"🎒 Inventory: `{inventory_count}/{inventory_capacity}`\n"
                         f"💰 Balance: `{balance:,}` {currency_name}"
                     ),
                     inline=False
@@ -579,6 +582,24 @@ class FishingMenuView(BaseView):
                 await self.initialize_view()
                 message = await interaction.followup.send(
                     "🚫 You need to equip bait first! Use the `Inventory` menu to equip some bait.",
+                    ephemeral=True,
+                    wait=True
+                )
+                self.cog.bot.loop.create_task(self.delete_after_delay(message))
+                main_embed = await self.generate_embed()
+                if self.message:
+                    await self.message.edit(embed=main_embed, view=self)
+                return
+
+            # Check inventory capacity
+            inventory = self.user_data.get("inventory", [])
+            capacity = self.user_data.get("inventory_capacity", 28)
+            if len(inventory) >= capacity:
+                self.fishing_in_progress = False
+                await self.initialize_view()
+                message = await interaction.followup.send(
+                    f"🎒 Your inventory is full! ({len(inventory)}/{capacity})\n"
+                    "Sell your items from the Inventory menu to make room.",
                     ephemeral=True,
                     wait=True
                 )

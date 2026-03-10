@@ -198,6 +198,12 @@ class ConfigManager:
                     self.logger.warning(f"Invalid {field} value, resetting to 0")
                     validated[field] = 0
                     
+            # Validate inventory capacity
+            try:
+                validated["inventory_capacity"] = max(1, int(data.get("inventory_capacity", DEFAULT_USER_DATA["inventory_capacity"])))
+            except (ValueError, TypeError):
+                validated["inventory_capacity"] = DEFAULT_USER_DATA["inventory_capacity"]
+
             # Validate string fields with defaults
             validated["rod"] = str(data.get("rod", "Basic Rod"))
             validated["current_location"] = str(data.get("current_location", "Pond"))

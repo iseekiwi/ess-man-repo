@@ -462,6 +462,8 @@ TIME_EFFECTS: Dict[str, TimeData] = {
     }
 }
 
+DEFAULT_INVENTORY_CAPACITY = 28
+
 # Default user data structure
 DEFAULT_USER_DATA = {
     "inventory": [],
@@ -476,6 +478,7 @@ DEFAULT_USER_DATA = {
     "junk_caught": 0,
     "level": 1,
     "experience": 0,
+    "inventory_capacity": DEFAULT_INVENTORY_CAPACITY,
     "settings": {
         "notifications": True,
         "auto_sell": False
