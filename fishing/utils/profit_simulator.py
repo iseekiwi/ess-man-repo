@@ -113,7 +113,11 @@ class ProfitSimulator:
         self, mods: Dict, fish_names: List, fish_weights: List,
         junk_names: List, junk_weights: List, location: str
     ) -> Dict:
-        """Simulate a single fishing attempt. Returns result dict or None."""
+        """Simulate a single fishing attempt (assumes player pressed the button).
+
+        Always returns a result — either fish or junk. The caller handles
+        player misses (button-press failures) separately.
+        """
         catch_roll = random.random()
 
         if catch_roll < mods["total_chance"]:
@@ -140,18 +144,15 @@ class ProfitSimulator:
                     }
             return result
 
-        # Failed fish roll — 75% chance for junk
-        if random.random() < 0.75:
-            caught = random.choices(junk_names, weights=junk_weights, k=1)[0]
-            jdata = self.data["junk"][caught]
-            return {
-                "type": "junk",
-                "name": caught,
-                "value": jdata["value"],
-                "rarity": jdata["rarity"],
-            }
-
-        return None  # nothing caught
+        # Failed fish roll — always catch junk (player pressed button, just unlucky)
+        caught = random.choices(junk_names, weights=junk_weights, k=1)[0]
+        jdata = self.data["junk"][caught]
+        return {
+            "type": "junk",
+            "name": caught,
+            "value": jdata["value"],
+            "rarity": jdata["rarity"],
+        }
 
     # ------------------------------------------------------------------
     # Full setup analysis — used by the simulation menu
@@ -179,22 +180,21 @@ class ProfitSimulator:
         total_attempts = duration_hours * catches_per_hour
         bait_cost_per = self.data["bait"][bait]["cost"]
 
+        # Player misses: 1-5 button-press failures (attentive player)
+        missed = random.randint(1, 5)
+        active_attempts = total_attempts - missed
+
         rarity_counts = {"common": 0, "uncommon": 0, "rare": 0, "legendary": 0}
         gross_value = 0
         bonus_catches = 0
         junk_caught = 0
         junk_value = 0
-        missed = 0
         total_xp = 0
 
-        for _ in range(total_attempts):
+        for _ in range(active_attempts):
             result = self._simulate_single(
                 mods, fish_names, fish_weights, junk_names, junk_weights, location
             )
-
-            if result is None:
-                missed += 1
-                continue
 
             if result["type"] == "fish":
                 rarity_counts[result["rarity"]] += 1
@@ -212,6 +212,7 @@ class ProfitSimulator:
                 junk_value += result["value"]
                 total_xp += int(RARITY_XP.get(result["rarity"], 0) * JUNK_RARITY_XP_MODIFIER)
 
+        # Bait is consumed on every attempt, including misses
         total_bait_cost = total_attempts * bait_cost_per
         total_gross = gross_value + junk_value
         net_profit = total_gross - total_bait_cost

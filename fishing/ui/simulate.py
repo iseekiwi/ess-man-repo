@@ -302,6 +302,10 @@ class SimulationMenuView(BaseView):
     def _build_results_embed(self) -> discord.Embed:
         """Build the simulation results embed"""
         r = self.results
+        total_attempts = r["duration_hours"] * r["catches_per_hour"]
+        total_fish = sum(r["rarity_breakdown"].values())
+        total_items = total_fish + r.get("junk_caught", 0)
+        active_attempts = total_attempts - r.get("missed", 0)
 
         embed = discord.Embed(
             title="Fishing Simulation Results",
@@ -314,34 +318,40 @@ class SimulationMenuView(BaseView):
         )
 
         # Catch statistics
-        total_fish = sum(r["rarity_breakdown"].values())
-        catch_lines = [f"Total Fish Caught: **{total_fish:,}**"]
-        if r.get("junk_caught", 0):
-            catch_lines.append(f"Junk Found: **{r['junk_caught']:,}**")
+        fish_rate = (total_fish / active_attempts * 100) if active_attempts else 0
+        junk_rate = (r.get("junk_caught", 0) / active_attempts * 100) if active_attempts else 0
+        catch_lines = [
+            f"Total Fish: **{total_fish:,}** ({fish_rate:.1f}% of attempts)",
+            f"Junk: **{r.get('junk_caught', 0):,}** ({junk_rate:.1f}% of attempts)",
+        ]
         if r.get("bonus_catches", 0):
             catch_lines.append(f"Bonus Catches: **{r['bonus_catches']:,}** (from weather)")
-        if r.get("missed", 0):
-            catch_lines.append(f"Missed (nothing): **{r['missed']:,}**")
+        catch_lines.append(f"Missed: **{r.get('missed', 0)}** (button misses)")
         embed.add_field(
             name="Catch Statistics",
             value="\n".join(catch_lines),
             inline=False
         )
 
-        # Rarity breakdown
+        # Rarity breakdown with distribution percentages
         rarity_lines = []
         for rarity, count in r["rarity_breakdown"].items():
-            pct = (count / total_fish * 100) if total_fish > 0 else 0
-            rarity_lines.append(f"{rarity.title()}: **{count:,}** ({pct:.1f}%)")
+            pct_of_fish = (count / total_fish * 100) if total_fish > 0 else 0
+            per_hour = count / r["duration_hours"] if r["duration_hours"] else 0
+            rarity_lines.append(
+                f"{rarity.title()}: **{count:,}** ({pct_of_fish:.1f}%) "
+                f"| ~{per_hour:.0f}/hr"
+            )
         embed.add_field(
-            name="Rarity Breakdown",
+            name="Rarity Distribution",
             value="\n".join(rarity_lines),
-            inline=True
+            inline=False
         )
 
         # Financial analysis
         profit_per_hour = r["net_profit"] / r["duration_hours"] if r["duration_hours"] else 0
         profit_per_catch = r["net_profit"] / total_fish if total_fish else 0
+        avg_fish_value = r.get("gross_profit", 0) / total_items if total_items else 0
         embed.add_field(
             name="Financial Analysis",
             value=(
@@ -349,7 +359,21 @@ class SimulationMenuView(BaseView):
                 f"Bait Cost: **{r['bait_cost']:,}** coins\n"
                 f"Net Profit: **{r['net_profit']:,}** coins\n"
                 f"Profit/Hour: **{profit_per_hour:,.0f}** coins\n"
-                f"Profit/Catch: **{profit_per_catch:.1f}** coins"
+                f"Profit/Catch: **{profit_per_catch:.1f}** coins\n"
+                f"Avg Value/Item: **{avg_fish_value:.1f}** coins"
+            ),
+            inline=True
+        )
+
+        # XP estimate
+        xp_per_hour = r['estimated_xp'] // r['duration_hours'] if r['duration_hours'] else 0
+        xp_per_catch = r['estimated_xp'] / total_fish if total_fish else 0
+        embed.add_field(
+            name="XP Estimate",
+            value=(
+                f"Total XP: **{r['estimated_xp']:,}**\n"
+                f"XP/Hour: **{xp_per_hour:,}**\n"
+                f"XP/Catch: **{xp_per_catch:.1f}**"
             ),
             inline=True
         )
@@ -366,24 +390,15 @@ class SimulationMenuView(BaseView):
         else:
             mod_lines.append("Weather: `N/A` (location not affected)")
         mod_lines.append(f"Time: `{r['modifiers']['time_bonus']*100:+.1f}%`")
-        mod_lines.append(f"**Total Catch Chance: `{r['modifiers']['total_chance']*100:.1f}%`**")
+        if r["modifiers"].get("time_rare_bonus"):
+            mod_lines.append(f"Time Rare: `{r['modifiers']['time_rare_bonus']*100:+.1f}%`")
+        mod_lines.append(f"**Total Catch: `{r['modifiers']['total_chance']*100:.1f}%`**")
         embed.add_field(
             name="Active Modifiers",
             value="\n".join(mod_lines),
             inline=False
         )
 
-        # XP estimate
-        embed.add_field(
-            name="XP Estimate",
-            value=(
-                f"Total XP: **{r['estimated_xp']:,}**\n"
-                f"XP/Hour: **{r['estimated_xp'] // r['duration_hours']:,}**"
-            ),
-            inline=True
-        )
-
-        total_attempts = r["duration_hours"] * r["catches_per_hour"]
         embed.set_footer(
             text=f"Simulated {total_attempts:,} attempts over {r['duration_hours']}h at {r['catches_per_hour']}/hr"
         )
