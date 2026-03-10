@@ -340,15 +340,14 @@ class ShopView(BaseView):
                     user_level = self.user_data.get("level", 1)
                     purchased_gear = self.user_data.get("purchased_gear", [])
 
+                    # For each category, only show the buy button for the next upgrade tier
                     for category, items in GEAR_TYPES.items():
                         for gear_name, gear_data in items.items():
                             if gear_name in purchased_gear:
                                 continue
-
+                            # This is the next unpurchased item in the tier
                             requirements = gear_data.get("requirements", {})
                             level_req = requirements.get("level", 1) if requirements else 1
-
-                            # Check level requirement
                             if user_level >= level_req:
                                 purchase_button = Button(
                                     label=f"Buy {gear_name}",
@@ -357,6 +356,7 @@ class ShopView(BaseView):
                                 )
                                 purchase_button.callback = self.handle_purchase
                                 self.add_item(purchase_button)
+                            break  # Only consider the first unpurchased item per category
 
                 elif self.current_page == "rods":
                     self.logger.debug("Setting up rods page")
@@ -493,7 +493,6 @@ class ShopView(BaseView):
                         owned = gear_name in purchased_gear
                         requirements = gear_data.get("requirements", {})
                         level_req = requirements.get("level", 1) if requirements else 1
-                        prerequisite = gear_data.get("prerequisite")
 
                         if owned:
                             status = "✅ Owned"
@@ -516,12 +515,22 @@ class ShopView(BaseView):
                             f"{status}"
                         )
 
+                    # Split into multiple fields if content exceeds Discord's 1024 char limit
                     if gear_lines:
-                        embed.add_field(
-                            name=f"{icon} {category}",
-                            value="\n\n".join(gear_lines),
-                            inline=False
-                        )
+                        chunk = []
+                        chunk_num = 0
+                        for line in gear_lines:
+                            test_value = "\n\n".join(chunk + [line])
+                            if len(test_value) > 1024 and chunk:
+                                field_name = f"{icon} {category}" if chunk_num == 0 else f"{icon} {category} (cont.)"
+                                embed.add_field(name=field_name, value="\n\n".join(chunk), inline=False)
+                                chunk = [line]
+                                chunk_num += 1
+                            else:
+                                chunk.append(line)
+                        if chunk:
+                            field_name = f"{icon} {category}" if chunk_num == 0 else f"{icon} {category} (cont.)"
+                            embed.add_field(name=field_name, value="\n\n".join(chunk), inline=False)
 
                 if not any(items for items in GEAR_TYPES.values()):
                     embed.description = "No gear available yet!"
