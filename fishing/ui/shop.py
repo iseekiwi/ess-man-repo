@@ -609,10 +609,20 @@ class ShopView(BaseView):
             custom_id = interaction.data["custom_id"]
 
             if custom_id == "menu":
-                menu_view = await self.cog.create_menu(self.ctx, self.user_data)
-                embed = await menu_view.generate_embed()
-                await interaction.response.edit_message(embed=embed, view=menu_view)
-                menu_view.message = await interaction.original_response()
+                if hasattr(self, 'parent_menu_view') and self.parent_menu_view:
+                    parent = self.parent_menu_view
+                    parent.user_data = self.user_data
+                    await self.timeout_manager.resume_parent_view(self)
+                    parent.current_page = "main"
+                    await parent.initialize_view()
+                    embed = await parent.generate_embed()
+                    await interaction.response.edit_message(embed=embed, view=parent)
+                    parent.message = await interaction.original_response()
+                else:
+                    menu_view = await self.cog.create_menu(self.ctx, self.user_data)
+                    embed = await menu_view.generate_embed()
+                    await interaction.response.edit_message(embed=embed, view=menu_view)
+                    menu_view.message = await interaction.original_response()
                 return
 
             if custom_id == "bait":

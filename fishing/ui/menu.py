@@ -7,7 +7,7 @@ import random
 import datetime
 from redbot.core import bank
 from typing import Dict, Optional
-from discord.ui import Button
+from discord.ui import Button, Select
 from .base import BaseView
 from ..utils.logging_config import get_logger
 from .shop import ShopView
@@ -40,7 +40,7 @@ class FishingMenuView(BaseView):
             await self.timeout_manager.start()
             
             # Register this view with timeout manager
-            await self.timeout_manager.add_view(self, self.timeout)
+            await self.timeout_manager.add_view(self, self._custom_timeout)
             self.logger.debug(f"FishingMenuView registered with timeout manager")
             
             # Verify user data
@@ -95,7 +95,6 @@ class FishingMenuView(BaseView):
                     ("🎣 Fish", "fish", discord.ButtonStyle.green),
                     ("🏪 Shop", "shop", discord.ButtonStyle.blurple),
                     ("🎒 Inventory", "inventory", discord.ButtonStyle.blurple),
-                    ("🗺️ Location", "location", discord.ButtonStyle.blurple),
                     ("🌤️ Weather", "weather", discord.ButtonStyle.blurple)
                 ]
 
@@ -121,33 +120,35 @@ class FishingMenuView(BaseView):
                     )
                     stop_btn.callback = self.handle_button
                     self.add_item(stop_btn)
-                    
-            elif self.current_page == "location":
-                # Location selection
-                for location_name in self.cog.data["locations"].keys():
-                    location_data = self.cog.data["locations"][location_name]
-                    requirements = location_data.get("requirements", {})
-                    
-                    # Check if location is locked
-                    is_locked = False
-                    if requirements:
-                        if (self.user_data["level"] < requirements.get("level", 0) or
-                            self.user_data["fish_caught"] < requirements.get("fish_caught", 0)):
-                            is_locked = True
-                    
-                    button = Button(
-                        label=location_name,
-                        custom_id=f"loc_{location_name}",
-                        style=discord.ButtonStyle.green if not is_locked else discord.ButtonStyle.gray,
-                        disabled=is_locked
-                    )
-                    button.callback = self.handle_location_select
-                    self.add_item(button)
-                    
-                back_button = Button(label="Back", custom_id="back", style=discord.ButtonStyle.grey)
-                back_button.callback = self.handle_button
-                self.add_item(back_button)
-                
+
+                # Location select dropdown (only when not actively fishing)
+                if not self.fishing_in_progress:
+                    location_options = []
+                    for loc_name, loc_data in self.cog.data["locations"].items():
+                        requirements = loc_data.get("requirements")
+                        is_locked = False
+                        if requirements:
+                            if (self.user_data["level"] < requirements.get("level", 0) or
+                                self.user_data["fish_caught"] < requirements.get("fish_caught", 0)):
+                                is_locked = True
+                        if is_locked:
+                            continue
+                        location_options.append(discord.SelectOption(
+                            label=loc_name,
+                            value=loc_name,
+                            description=loc_data["description"][:100],
+                            default=(loc_name == self.user_data.get("current_location"))
+                        ))
+
+                    if location_options:
+                        location_select = Select(
+                            placeholder="Change location...",
+                            options=location_options,
+                            custom_id="location_select"
+                        )
+                        location_select.callback = self.handle_location_dropdown
+                        self.add_item(location_select)
+
             else:
                 # Add back button for other pages
                 back_button = Button(label="Back", custom_id="back", style=discord.ButtonStyle.grey)
@@ -344,46 +345,6 @@ class FishingMenuView(BaseView):
                 
                 return embed
                 
-            elif self.current_page == "location":
-                embed = discord.Embed(
-                    title="🗺️ Select Location",
-                    description="Choose a fishing location:",
-                    color=discord.Color.blue()
-                )
-                
-                for loc_name, loc_data in self.cog.data["locations"].items():
-                    # Check if location is locked
-                    requirements = loc_data.get("requirements", {})
-                    is_locked = False
-                    if requirements:
-                        if (self.user_data["level"] < requirements.get("level", 0) or
-                            self.user_data["fish_caught"] < requirements.get("fish_caught", 0)):
-                            is_locked = True
-                    
-                    status = "🔒 Locked" if is_locked else "📍 Current" if loc_name == self.user_data["current_location"] else "✅ Available"
-                    
-                    # Format modifiers
-                    modifier_text = []
-                    for fish_type, modifier in loc_data["fish_modifiers"].items():
-                        if modifier != 1.0:  # Only show non-neutral modifiers
-                            modifier_text.append(f"• {fish_type}: {modifier:+.1f}x")
-                    
-                    # Format requirements if they exist
-                    req_text = ""
-                    if requirements:
-                        req_text = f"\n**Requirements**\n• Level {requirements['level']}"
-                    
-                    # Create location entry
-                    embed.add_field(
-                        name=f"{loc_name} ({status})",
-                        value=(
-                            f"{loc_data['description']}\n\n"
-                            f"**Location Effects**\n{chr(10).join(modifier_text)}"
-                            f"{req_text}"
-                        ),
-                        inline=False
-                    )
-                    
             elif self.current_page == "weather":
                 weather_result = await self.cog.config_manager.get_global_setting("current_weather")
                 current_weather = weather_result.data if weather_result.success else "Sunny"
@@ -556,6 +517,7 @@ class FishingMenuView(BaseView):
                     self.logger.debug("Transitioning to inventory view")
                     from .inventory import InventoryView
                     self.inventory_view = InventoryView(self.cog, self.ctx, self.user_data)
+                    self.inventory_view.parent_menu_view = self
                     await self.inventory_view.initialize_view()
                     embed = await self.inventory_view.generate_embed()
                     
@@ -566,7 +528,7 @@ class FishingMenuView(BaseView):
                     self.inventory_view.message = await interaction.original_response()
                     self.logger.debug("Inventory view transition complete")
                 
-            elif custom_id in ["location", "weather"]:
+            elif custom_id == "weather":
                 self.current_page = custom_id
                 await self.initialize_view()
                 embed = await self.generate_embed()
@@ -948,12 +910,11 @@ class FishingMenuView(BaseView):
         finally:
             self._catch_processed.set()
 
-    async def handle_location_select(self, interaction: discord.Interaction):
-        """Handle location selection button interactions"""
+    async def handle_location_dropdown(self, interaction: discord.Interaction):
+        """Handle location selection from dropdown"""
         try:
-            custom_id = interaction.data["custom_id"]
-            location_name = custom_id.replace("loc_", "")
-            
+            location_name = interaction.data["values"][0]
+
             # Verify location exists
             if location_name not in self.cog.data["locations"]:
                 await interaction.response.send_message(
@@ -1010,7 +971,7 @@ class FishingMenuView(BaseView):
             self.cog.bot.loop.create_task(self.delete_after_delay(message))
             
         except Exception as e:
-            self.logger.error(f"Error in handle_location_select: {e}", exc_info=True)
+            self.logger.error(f"Error in handle_location_dropdown: {e}", exc_info=True)
             if not interaction.response.is_done():
                 await interaction.response.send_message(
                     "An error occurred while changing location. Please try again.",

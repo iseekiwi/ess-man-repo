@@ -14,9 +14,12 @@ class BaseView(View):
     """Enhanced base view class with improved error handling, logging and timeout management"""
     
     def __init__(self, cog, ctx: commands.Context, timeout: int = 600):
-        super().__init__(timeout=timeout)
+        # Disable Discord's built-in timeout — the custom TimeoutManager handles all expiry.
+        # This prevents Discord from firing on_timeout independently during view transitions.
+        super().__init__(timeout=None)
         self.cog = cog
         self.ctx = ctx
+        self._custom_timeout = timeout
         self.message: Optional[discord.Message] = None
         self.logger = get_logger('base.view')
         self.timeout_manager = TimeoutManager()
@@ -40,7 +43,7 @@ class BaseView(View):
                 return False
     
             # Reset timeout on valid interaction
-            if self.timeout is not None:
+            if self._custom_timeout is not None:
                 self.logger.debug(
                     f"Processing interaction in {self.__class__.__name__} "
                     f"for user {self.ctx.author.name}"
@@ -57,8 +60,8 @@ class BaseView(View):
     async def _handle_timeout(self):
         """Handle view timeout with delay from last interaction"""
         try:
-            if self.timeout is not None:
-                await asyncio.sleep(self.timeout)
+            if self._custom_timeout is not None:
+                await asyncio.sleep(self._custom_timeout)
                 await self.on_timeout()
         except asyncio.CancelledError:
             # Task was cancelled due to new interaction

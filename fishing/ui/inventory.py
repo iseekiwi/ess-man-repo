@@ -6,9 +6,10 @@ import logging
 from collections import Counter
 from redbot.core import bank
 from typing import Dict
-from discord.ui import Button, View
+from discord.ui import Button, View, Select
 from .base import BaseView, ConfirmView
 from ..utils.logging_config import get_logger
+from ..data.fishing_data import MATERIAL_TYPES
 
 
 logger = get_logger('inventory')
@@ -121,7 +122,7 @@ class InventoryView(BaseView):
                     title=f"🐟 Your Caught Items ({inv_count}/{capacity})",
                     color=discord.Color.blue()
                 )
-                
+
                 if not self.user_data.get("inventory"):
                     embed.description = "No items caught yet!"
                 else:
@@ -130,7 +131,7 @@ class InventoryView(BaseView):
                     junk_text = []
                     fish_total = 0
                     junk_total = 0
-                    
+
                     for item, count in item_counts.most_common():
                         if item in self.cog.data["fish"]:
                             value = self.cog.data["fish"][item]["value"] * count
@@ -140,27 +141,49 @@ class InventoryView(BaseView):
                             value = self.cog.data["junk"][item]["value"] * count
                             junk_total += value
                             junk_text.append(f"{item}: x{count} (Worth: {value} {currency_name})")
-                    
+
                     if fish_text:
                         embed.add_field(
-                            name="🐟 Fish", 
-                            value="\n".join(fish_text), 
+                            name="🐟 Fish",
+                            value="\n".join(fish_text),
                             inline=False
                         )
                     if junk_text:
                         embed.add_field(
-                            name="📦 Junk Items", 
-                            value="\n".join(junk_text), 
+                            name="📦 Junk Items",
+                            value="\n".join(junk_text),
                             inline=False
                         )
-                    
+
                     total_value = fish_total + junk_total
                     embed.set_footer(
                         text=f"Total Value: {total_value} {currency_name} "
                         f"(Fish: {fish_total}, Junk: {junk_total}) | "
                         f"Balance: {balance} {currency_name}"
                     )
-            
+
+            elif self.current_page == "materials":
+                embed = discord.Embed(
+                    title="🧱 Your Materials",
+                    color=discord.Color.blue()
+                )
+                user_materials = self.user_data.get("materials", {})
+                if not user_materials:
+                    embed.description = "No materials collected yet!\nMaterials are rare drops used to upgrade gear."
+                else:
+                    mat_text = []
+                    for mat_name, amount in user_materials.items():
+                        mat_info = MATERIAL_TYPES.get(mat_name, {})
+                        emoji = mat_info.get("emoji", "")
+                        rarity = mat_info.get("rarity", "unknown")
+                        value = mat_info.get("value", 0)
+                        mat_text.append(
+                            f"{emoji} **{mat_name}** x{amount}\n"
+                            f"*{rarity.capitalize()}* — Sell value: {value} {currency_name} each"
+                        )
+                    embed.description = "\n\n".join(mat_text)
+                embed.set_footer(text=f"Balance: {balance} {currency_name}")
+
             return embed
 
         except Exception as e:
@@ -188,31 +211,27 @@ class InventoryView(BaseView):
         try:
             self.logger.debug(f"Initializing view for page: {self.current_page}")
             self.clear_items()
-            
+
             if self.current_page == "main":
-                # Main menu buttons
                 buttons = [
                     ("🎣 View Rods", "rods", discord.ButtonStyle.blurple),
                     ("🪱 View Bait", "bait", discord.ButtonStyle.blurple),
                     ("🐟 View Inventory", "fish", discord.ButtonStyle.blurple),
+                    ("🧱 Materials", "materials", discord.ButtonStyle.blurple),
                     ("↩️ Back to Menu", "menu", discord.ButtonStyle.grey)
                 ]
-                
+
                 for label, custom_id, style in buttons:
                     button = Button(label=label, custom_id=custom_id, style=style)
                     button.callback = self.handle_button
                     self.add_item(button)
-                    
+
             else:
-                # Back button for sub-pages
-                back_button = Button(
-                    label="Back",
-                    custom_id="back",
-                    style=discord.ButtonStyle.grey
-                )
+                # Back button for all sub-pages
+                back_button = Button(label="Back", custom_id="back", style=discord.ButtonStyle.grey)
                 back_button.callback = self.handle_button
                 self.add_item(back_button)
-                
+
                 if self.current_page == "fish" and self.user_data.get("inventory"):
                     sell_button = Button(
                         label="Sell All Fish",
@@ -221,30 +240,77 @@ class InventoryView(BaseView):
                     )
                     sell_button.callback = self.handle_button
                     self.add_item(sell_button)
-                    
+
                 elif self.current_page == "rods":
-                    # Add equip buttons for owned rods
+                    rod_options = []
                     for rod in self.user_data.get("purchased_rods", {}):
-                        if rod != self.user_data['rod']:  # Don't show for currently equipped rod
-                            equip_button = Button(
-                                label=f"Equip {rod}",
-                                custom_id=f"equip_rod_{rod}",
-                                style=discord.ButtonStyle.green
-                            )
-                            equip_button.callback = self.handle_button
-                            self.add_item(equip_button)
-                            
+                        rod_data = self.cog.data["rods"].get(rod, {})
+                        is_equipped = (rod == self.user_data.get("rod"))
+                        desc = f"Catch Bonus: +{rod_data.get('chance', 0)*100:.0f}%"
+                        if is_equipped:
+                            desc += " (Equipped)"
+                        rod_options.append(discord.SelectOption(
+                            label=rod,
+                            value=rod,
+                            description=desc[:100],
+                            default=is_equipped
+                        ))
+
+                    if rod_options:
+                        rod_select = Select(
+                            placeholder="Select a rod to equip...",
+                            options=rod_options,
+                            custom_id="equip_rod_select"
+                        )
+                        rod_select.callback = self.handle_rod_equip
+                        self.add_item(rod_select)
+
                 elif self.current_page == "bait":
-                    # Add equip buttons for available bait
+                    bait_options = []
                     for bait_name, amount in self.user_data.get("bait", {}).items():
-                        if amount > 0 and bait_name != self.user_data.get('equipped_bait'):
-                            equip_button = Button(
-                                label=f"Equip {bait_name}",
-                                custom_id=f"equip_bait_{bait_name}",
-                                style=discord.ButtonStyle.green
+                        if amount > 0:
+                            bait_data = self.cog.data["bait"].get(bait_name, {})
+                            is_equipped = (bait_name == self.user_data.get("equipped_bait"))
+                            desc = f"x{amount} | +{bait_data.get('catch_bonus', 0)*100:.0f}% catch"
+                            if is_equipped:
+                                desc += " (Equipped)"
+                            bait_options.append(discord.SelectOption(
+                                label=bait_name,
+                                value=bait_name,
+                                description=desc[:100],
+                                default=is_equipped
+                            ))
+
+                    if bait_options:
+                        bait_select = Select(
+                            placeholder="Select bait to equip...",
+                            options=bait_options,
+                            custom_id="equip_bait_select"
+                        )
+                        bait_select.callback = self.handle_bait_equip
+                        self.add_item(bait_select)
+
+                elif self.current_page == "materials":
+                    user_materials = self.user_data.get("materials", {})
+                    if user_materials:
+                        mat_options = []
+                        for mat_name, amount in user_materials.items():
+                            mat_info = MATERIAL_TYPES.get(mat_name, {})
+                            emoji = mat_info.get("emoji", "")
+                            value = mat_info.get("value", 0)
+                            mat_options.append(discord.SelectOption(
+                                label=f"{mat_name} (x{amount})",
+                                value=mat_name,
+                                description=f"Sell 1 for {value} coins",
+                            ))
+                        if mat_options:
+                            mat_select = Select(
+                                placeholder="Select material to sell...",
+                                options=mat_options,
+                                custom_id="sell_material_select"
                             )
-                            equip_button.callback = self.handle_button
-                            self.add_item(equip_button)
+                            mat_select.callback = self.handle_material_sell
+                            self.add_item(mat_select)
 
         except Exception as e:
             self.logger.error(f"Error in initialize_view: {str(e)}", exc_info=True)
@@ -256,14 +322,20 @@ class InventoryView(BaseView):
             custom_id = interaction.data["custom_id"]
             
             if custom_id == "menu":
-                menu_view = await self.cog.create_menu(self.ctx, self.user_data)
-                embed = await menu_view.generate_embed()
-                
-                # Resume parent menu timeout
-                await self.timeout_manager.resume_parent_view(self)
-                
-                await interaction.response.edit_message(embed=embed, view=menu_view)
-                menu_view.message = await interaction.original_response()
+                if hasattr(self, 'parent_menu_view') and self.parent_menu_view:
+                    parent = self.parent_menu_view
+                    parent.user_data = self.user_data
+                    await self.timeout_manager.resume_parent_view(self)
+                    parent.current_page = "main"
+                    await parent.initialize_view()
+                    embed = await parent.generate_embed()
+                    await interaction.response.edit_message(embed=embed, view=parent)
+                    parent.message = await interaction.original_response()
+                else:
+                    menu_view = await self.cog.create_menu(self.ctx, self.user_data)
+                    embed = await menu_view.generate_embed()
+                    await interaction.response.edit_message(embed=embed, view=menu_view)
+                    menu_view.message = await interaction.original_response()
                 return
                 
             if custom_id == "back":
@@ -285,33 +357,7 @@ class InventoryView(BaseView):
                 message = await interaction.followup.send(msg, ephemeral=True, wait=True)
                 self.cog.bot.loop.create_task(self.delete_after_delay(message))
                 
-            elif custom_id.startswith("equip_rod_"):
-                rod_name = custom_id.replace("equip_rod_", "")
-                success, msg = await self.cog._equip_rod(interaction.user, rod_name)
-                
-                if success:
-                    self.user_data["rod"] = rod_name
-                    await interaction.response.defer()
-                    await self.update_view()
-                    message = await interaction.followup.send(msg, ephemeral=True, wait=True)
-                    self.cog.bot.loop.create_task(self.delete_after_delay(message))
-                else:
-                    await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
-                    
-            elif custom_id.startswith("equip_bait_"):
-                bait_name = custom_id.replace("equip_bait_", "")
-                success, msg = await self.cog._equip_bait(interaction.user, bait_name)
-                
-                if success:
-                    self.user_data["equipped_bait"] = bait_name
-                    await interaction.response.defer()
-                    await self.update_view()
-                    message = await interaction.followup.send(msg, ephemeral=True, wait=True)
-                    self.cog.bot.loop.create_task(self.delete_after_delay(message))
-                else:
-                    await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
-                    
-            elif custom_id in ["rods", "bait", "fish"]:
+            elif custom_id in ["rods", "bait", "fish", "materials"]:
                 self.current_page = custom_id
                 await interaction.response.defer()
                 await self.update_view()
@@ -334,3 +380,103 @@ class InventoryView(BaseView):
         except Exception as e:
             self.logger.error(f"Error updating view: {e}", exc_info=True)
             await self.ctx.send(f"Error updating inventory view: {str(e)}")
+
+    async def handle_rod_equip(self, interaction: discord.Interaction):
+        """Handle rod equip from dropdown selection"""
+        try:
+            rod_name = interaction.data["values"][0]
+            success, msg = await self.cog._equip_rod(interaction.user, rod_name)
+
+            if success:
+                self.user_data["rod"] = rod_name
+                await interaction.response.defer()
+                await self.update_view()
+                message = await interaction.followup.send(msg, ephemeral=True, wait=True)
+                self.cog.bot.loop.create_task(self.delete_after_delay(message))
+            else:
+                await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
+
+        except Exception as e:
+            self.logger.error(f"Error in handle_rod_equip: {e}", exc_info=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "An error occurred. Please try again.",
+                    ephemeral=True, delete_after=2
+                )
+
+    async def handle_bait_equip(self, interaction: discord.Interaction):
+        """Handle bait equip from dropdown selection"""
+        try:
+            bait_name = interaction.data["values"][0]
+            success, msg = await self.cog._equip_bait(interaction.user, bait_name)
+
+            if success:
+                self.user_data["equipped_bait"] = bait_name
+                await interaction.response.defer()
+                await self.update_view()
+                message = await interaction.followup.send(msg, ephemeral=True, wait=True)
+                self.cog.bot.loop.create_task(self.delete_after_delay(message))
+            else:
+                await interaction.response.send_message(msg, ephemeral=True, delete_after=2)
+
+        except Exception as e:
+            self.logger.error(f"Error in handle_bait_equip: {e}", exc_info=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "An error occurred. Please try again.",
+                    ephemeral=True, delete_after=2
+                )
+
+    async def handle_material_sell(self, interaction: discord.Interaction):
+        """Handle selling a material from dropdown selection"""
+        try:
+            mat_name = interaction.data["values"][0]
+            mat_info = MATERIAL_TYPES.get(mat_name, {})
+            value = mat_info.get("value", 0)
+
+            if value <= 0:
+                await interaction.response.send_message(
+                    "This material has no sell value!",
+                    ephemeral=True, delete_after=2
+                )
+                return
+
+            # Remove 1 material
+            success, msg = await self.cog.inventory.remove_item(
+                interaction.user.id, "material", mat_name, 1
+            )
+            if not success:
+                await interaction.response.send_message(
+                    f"Failed to sell: {msg}",
+                    ephemeral=True, delete_after=2
+                )
+                return
+
+            # Deposit credits
+            await bank.deposit_credits(interaction.user, value)
+
+            # Refresh user data
+            await self.cog.config_manager.invalidate_cache(f"user_{interaction.user.id}")
+            fresh_data = await self.cog.config_manager.get_user_data(interaction.user.id)
+            if fresh_data.success:
+                self.user_data = fresh_data.data
+                if hasattr(self, 'parent_menu_view') and self.parent_menu_view:
+                    self.parent_menu_view.user_data = fresh_data.data
+
+            await interaction.response.defer()
+            await self.update_view()
+
+            emoji = mat_info.get("emoji", "")
+            message = await interaction.followup.send(
+                f"Sold {emoji} **{mat_name}** for {value} coins!",
+                ephemeral=True, wait=True
+            )
+            self.cog.bot.loop.create_task(self.delete_after_delay(message))
+
+        except Exception as e:
+            self.logger.error(f"Error in handle_material_sell: {e}", exc_info=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "An error occurred. Please try again.",
+                    ephemeral=True, delete_after=2
+                )

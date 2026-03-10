@@ -349,13 +349,13 @@ class TimeData(TypedDict):
 
 **`MATERIAL_TYPES`** (5 entries): Rare drop materials used as crafting requirements for gear upgrades.
 
-| Name | Rarity | Emoji | Used By |
-|------|--------|-------|---------|
-| Iron Hinge | uncommon | 🔩 | Medium Chest |
-| Steel Hinge | rare | ⚙️ | Large Chest |
-| Magic Scale | rare | ✨ | Almost Bottomless Bucket |
-| Magic Fish | legendary | 🐠 | Nearly Bottomless Bucket |
-| Void Scale | legendary | 🕳️ | Void Satchel of Hell |
+| Name | Rarity | Emoji | Value | Used By |
+|------|--------|-------|-------|---------|
+| Iron Hinge | uncommon | 🔩 | 15 | Medium Chest |
+| Steel Hinge | rare | ⚙️ | 50 | Large Chest |
+| Magic Scale | rare | ✨ | 50 | Almost Bottomless Bucket |
+| Magic Fish | legendary | 🐠 | 150 | Nearly Bottomless Bucket |
+| Void Scale | legendary | 🕳️ | 150 | Void Satchel of Hell |
 
 Any purchasable item can have an optional `material_cost: Dict[str, int]` field. Materials are stored in `user_data["materials"]` as `Dict[str, int]`. The system is universal — not limited to gear.
 
@@ -797,9 +797,9 @@ class BaseView(View):
     def __init__(self, cog, ctx: commands.Context, timeout: int = 600)
 ```
 
-Base class for all views. Provides:
+Base class for all views. Discord's built-in `View.timeout` is disabled (`super().__init__(timeout=None)`). All timeout management uses `_custom_timeout` via the custom `TimeoutManager`. Provides:
 - **Interaction authorization**: `interaction_check()` verifies `interaction.user.id == ctx.author.id`
-- **Timeout integration**: Resets `TimeoutManager` timeout on each valid interaction
+- **Timeout integration**: Resets `TimeoutManager` timeout on each valid interaction via `_custom_timeout`
 - **Cleanup**: `cleanup()` disables all children, edits message, removes from TimeoutManager, resumes parent if applicable
 - **Error handling**: `on_error()` sends ephemeral error message
 
@@ -875,7 +875,7 @@ async def setup(self) -> FishingMenuView        # Init timeout manager, register
 async def initialize_view(self) -> None          # Build buttons for current page
 async def generate_embed(self) -> discord.Embed  # Build embed for current page
 async def handle_button(self, interaction) -> None
-async def handle_location_select(self, interaction) -> None
+async def handle_location_dropdown(self, interaction) -> None
 async def do_fishing(self, interaction) -> None   # Continuous fishing loop
 async def handle_catch_attempt(self, interaction) -> None  # Sets _catch_result_embed
 async def _handle_stop_fishing(self, interaction) -> None  # Signals stop during casting
@@ -934,15 +934,17 @@ class InventoryView(BaseView):
     def __init__(self, cog, ctx, user_data: Dict)
 ```
 
-Pages: `"main"`, `"rods"`, `"bait"`, `"fish"`.
+Pages: `"main"`, `"rods"`, `"bait"`, `"fish"`, `"materials"`.
 
-**Main page**: "View Rods", "View Bait", "View Inventory", "Back to Menu" buttons.
+**Main page**: "View Rods", "View Bait", "View Inventory", "Materials", "Back to Menu" buttons.
 
-**Rods page**: Shows owned rods with catch bonus stats. "Equip {rod}" buttons for non-equipped rods.
+**Rods page**: Shows owned rods with catch bonus stats. Select dropdown to equip any owned rod.
 
-**Bait page**: Shows owned bait with quantities and catch bonus. "Equip {bait}" buttons for non-equipped bait.
+**Bait page**: Shows owned bait with quantities and catch bonus. Select dropdown to equip any owned bait.
 
-**Fish page**: Shows caught items (fish and junk) with counts and values. "Sell All Fish" button clears inventory and deposits credits.
+**Fish page**: Shows caught items (fish and junk) with counts and values. "Sell All Fish" button clears inventory and deposits credits. Does NOT affect materials.
+
+**Materials page**: Shows owned materials with emoji, rarity, and sell value. Select dropdown to sell individual materials. Materials are stored in `user_data["materials"]` (separate from fish/junk inventory).
 
 ### 4.15 `fishing/ui/components.py` -- Shared UI Components
 
@@ -1439,7 +1441,7 @@ async def setup(self) -> FishingMenuView
 async def initialize_view(self) -> None
 async def generate_embed(self) -> discord.Embed
 async def handle_button(self, interaction) -> None
-async def handle_location_select(self, interaction) -> None
+async def handle_location_dropdown(self, interaction) -> None
 async def do_fishing(self, interaction) -> None
 async def handle_catch_attempt(self, interaction) -> None
 async def consume_bait(self, interaction) -> None
@@ -1466,6 +1468,9 @@ async def generate_embed(self) -> discord.Embed
 async def start(self) -> Optional[InventoryView]
 async def initialize_view(self) -> None
 async def handle_button(self, interaction) -> None
+async def handle_rod_equip(self, interaction) -> None
+async def handle_bait_equip(self, interaction) -> None
+async def handle_material_sell(self, interaction) -> None
 async def delete_after_delay(self, message) -> None
 async def update_view(self) -> None
 ```

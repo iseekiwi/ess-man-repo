@@ -27,6 +27,7 @@ class MaterialData(TypedDict):
     description: str
     rarity: Literal["common", "uncommon", "rare", "legendary"]
     emoji: str
+    value: int
 
 class LocationData(TypedDict):
     description: str
@@ -473,26 +474,31 @@ MATERIAL_TYPES = {
         "description": "A sturdy iron hinge, salvaged from the depths.",
         "rarity": "uncommon",
         "emoji": "🔩",
+        "value": 15,
     },
     "Steel Hinge": {
         "description": "A reinforced steel hinge forged with care.",
         "rarity": "rare",
         "emoji": "⚙️",
+        "value": 50,
     },
     "Magic Scale": {
         "description": "A shimmering scale pulsing with arcane energy.",
         "rarity": "rare",
         "emoji": "✨",
+        "value": 50,
     },
     "Magic Fish": {
         "description": "A tiny enchanted fish that glows faintly.",
         "rarity": "legendary",
         "emoji": "🐠",
+        "value": 150,
     },
     "Void Scale": {
         "description": "A scale from something that should not exist.",
         "rarity": "legendary",
         "emoji": "🕳️",
+        "value": 150,
     },
 }
 

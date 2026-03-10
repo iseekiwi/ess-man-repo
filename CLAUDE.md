@@ -29,17 +29,18 @@ Entry point: `__init__.py` calls `bot.add_cog(Fishing(bot))` loading the main `F
 - `logging_config` — centralized logger factory via `get_logger(name)`. All modules log to a single `fishing.log` file. Singleton reset on cog unload.
 
 **UI layer** (`ui/`):
-- `base.py` — `BaseView` extends `discord.ui.View` with timeout management, interaction auth checks (only command author can interact), cleanup, and `delete_after_delay`. Also has `ConfirmView`.
-- `menu.py` — `FishingMenuView`, the main interactive menu with fishing, inventory, shop, and profile pages. Contains the core fishing minigame as a continuous loop (`do_fishing`): cast → minigame → result → cast again. The loop exits on: timeout (no button press), Stop Fishing button (shown during casting phase only), inventory full, or out of bait. A "Stop Fishing" button on the main menu ends the entire session.
+- `base.py` — `BaseView` extends `discord.ui.View` with timeout management, interaction auth checks (only command author can interact), cleanup, and `delete_after_delay`. Discord's built-in `View.timeout` is disabled (`timeout=None`); all expiry is handled by `TimeoutManager` via `_custom_timeout`. Also has `ConfirmView`.
+- `menu.py` — `FishingMenuView`, the main interactive menu with fishing, inventory, shop, and profile pages. Location selection uses a Select dropdown on the main menu (not a sub-page). Contains the core fishing minigame as a continuous loop (`do_fishing`): cast → minigame → result → cast again. The loop exits on: timeout (no button press), Stop Fishing button (shown during casting phase only), inventory full, or out of bait. A "Stop Fishing" button on the main menu ends the entire session.
 - `shop.py` — `ShopView` and `PurchaseConfirmView` for buying rods, bait, gear, and location access. All shop pages use Select dropdowns for purchases (uniform UX). Bait selection opens a quantity modal; rods and gear go to direct confirmation. Gear is organized into 3 categories (Inventory, Gear, Tools) defined in `GEAR_TYPES` with paginated display (5 items/page, `<` `>` navigation buttons).
-- `inventory.py` — `InventoryView` for browsing and selling caught items.
+- `inventory.py` — `InventoryView` for browsing and selling caught items. Rod/bait equipping uses Select dropdowns. Has a dedicated Materials page for viewing and individually selling rare drop materials (separate from fish/junk, not affected by "Sell All").
 - `components.py` — shared UI components and `MessageManager` for ephemeral/temporary messages.
 - `simulate.py` — `SimulationMenuView` for the interactive profit simulation menu (owner-only). Uses 4 Select menus (rod, bait, location, weather) + 1 button row (time cycle, duration ±, run) to configure and run simulations via `ProfitSimulator`.
 
 ### Key Patterns
 
 - **ConfigResult pattern**: All config operations return `ConfigResult(success, data, error, error_code)` — always check `.success` before using `.data`.
-- **View hierarchy**: Child views (shop, inventory) inherit timeout from parent `FishingMenuView` via `TimeoutManager.handle_view_transition()`. The parent view pauses while a child is active.
+- **View hierarchy**: Child views (shop, inventory) inherit timeout from parent `FishingMenuView` via `TimeoutManager.handle_view_transition()`. The parent view pauses while a child is active. "Back to Menu" reuses the parent view object (does not create a new one) to preserve timeout state.
+- **Timeout architecture**: Discord's built-in `View.timeout` is disabled (`super().__init__(timeout=None)`). All timeout management goes through the custom `TimeoutManager` using `_custom_timeout`. This prevents Discord from firing `on_timeout` independently during view transitions.
 - **Data validation**: `ConfigManager._validate_user_data()` repairs corrupted user data on every read, ensuring `Basic Rod` is always available and numeric fields are non-negative.
 - **Bait consumption**: Centralized in `FishingMenuView.consume_bait()` — do not duplicate inline.
 - **Junk counting**: `_catch_fish` increments `junk_caught` — do not increment elsewhere.

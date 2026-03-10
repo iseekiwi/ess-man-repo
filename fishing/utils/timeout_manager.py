@@ -139,7 +139,8 @@ class TimeoutManager:
                 )
             else:
                 self.logger.warning(f"View {view_id} not found in timeout manager")
-                await self.add_view(view, view.timeout)
+                custom_timeout = getattr(view, '_custom_timeout', view.timeout) or 300
+                await self.add_view(view, custom_timeout)
                 
         except Exception as e:
             self.logger.error(f"Error resetting timeout: {e}")
@@ -248,8 +249,10 @@ class TimeoutManager:
             else:
                 # If parent isn't registered, register both
                 self.logger.warning(f"Parent view {parent_id} not found, registering both views")
-                await self.add_view(parent_view, parent_view.timeout)
-                await self.add_view(child_view, child_view.timeout)
+                parent_timeout = getattr(parent_view, '_custom_timeout', parent_view.timeout) or 300
+                child_timeout = getattr(child_view, '_custom_timeout', child_view.timeout) or 300
+                await self.add_view(parent_view, parent_timeout)
+                await self.add_view(child_view, child_timeout)
                 
         except Exception as e:
             self.logger.error(f"Error in view transition: {e}")
