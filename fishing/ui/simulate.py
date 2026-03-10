@@ -211,9 +211,10 @@ class SimulationMenuView(BaseView):
         # Check if weather affects selected location
         weather_applies = self.selected_location in weather_data.get("affects_locations", [])
 
-        # Calculate total catch chance
+        # Calculate total catch chance (with bait effectiveness)
         rod_bonus = rod_data["chance"]
-        bait_bonus = bait_data["catch_bonus"]
+        bait_effectiveness = bait_data.get("effectiveness", {}).get(self.selected_location, 1.0)
+        bait_bonus = bait_data["catch_bonus"] * bait_effectiveness
         weather_bonus = 0
         if weather_applies:
             weather_bonus = weather_data.get("catch_bonus", 0)
@@ -228,11 +229,14 @@ class SimulationMenuView(BaseView):
             color=discord.Color.blue()
         )
 
+        bait_line = f"Bait: **{self.selected_bait}** (+{bait_bonus*100:.0f}%)"
+        if bait_effectiveness != 1.0:
+            bait_line += f" ({bait_effectiveness}x eff.)"
         embed.add_field(
             name="Equipment",
             value=(
                 f"Rod: **{self.selected_rod}** (+{rod_bonus*100:.0f}%)\n"
-                f"Bait: **{self.selected_bait}** (+{bait_bonus*100:.0f}%)\n"
+                f"{bait_line}\n"
                 f"Location: **{self.selected_location}**"
             ),
             inline=True
@@ -252,9 +256,12 @@ class SimulationMenuView(BaseView):
         )
 
         # Catch chance breakdown
+        bait_str = f"Bait: `{bait_bonus*100:+.1f}%`"
+        if bait_effectiveness != 1.0:
+            bait_str += f" (base {bait_data['catch_bonus']*100:.0f}% x {bait_effectiveness})"
         breakdown = [
             f"Rod: `{rod_bonus*100:+.1f}%`",
-            f"Bait: `{bait_bonus*100:+.1f}%`",
+            bait_str,
         ]
         if weather_applies:
             breakdown.append(f"Weather: `{weather_bonus*100:+.1f}%`")
@@ -383,9 +390,13 @@ class SimulationMenuView(BaseView):
         )
 
         # Active modifiers
+        bait_eff = r['modifiers'].get('bait_effectiveness', 1.0)
+        bait_mod = f"Bait: `{r['modifiers']['bait_bonus']*100:+.1f}%`"
+        if bait_eff != 1.0:
+            bait_mod += f" ({bait_eff}x eff.)"
         mod_lines = [
             f"Rod: `{r['modifiers']['rod_bonus']*100:+.1f}%`",
-            f"Bait: `{r['modifiers']['bait_bonus']*100:+.1f}%`",
+            bait_mod,
         ]
         if r["modifiers"]["weather_applies"]:
             mod_lines.append(f"Weather: `{r['modifiers']['weather_bonus']*100:+.1f}%`")

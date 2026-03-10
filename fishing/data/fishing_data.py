@@ -50,25 +50,25 @@ class TimeData(TypedDict):
 FISH_TYPES = {
     "Common Fish": {
         "rarity": "common",
-        "value": 3,
+        "value": 10,
         "chance": 0.70,
         "variants": ["Bluegill", "Bass", "Perch", "Carp", "Catfish"]
     },
     "Uncommon Fish": {
         "rarity": "uncommon",
-        "value": 8,
+        "value": 25,
         "chance": 0.20,
         "variants": ["Salmon", "Trout", "Pike", "Walleye", "Tuna"]
     },
     "Rare Fish": {
         "rarity": "rare",
-        "value": 20,
+        "value": 65,
         "chance": 0.08,
         "variants": ["Swordfish", "Marlin", "Sturgeon", "Mahi-mahi", "Barracuda"]
     },
     "Legendary Fish": {
         "rarity": "legendary",
-        "value": 60,
+        "value": 200,
         "chance": 0.02,
         "variants": ["Golden Koi", "Giant Tuna", "Megalodon", "Rainbow Trout", "Ancient Sturgeon"]
     }

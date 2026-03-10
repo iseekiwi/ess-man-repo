@@ -43,7 +43,9 @@ class ProfitSimulator:
     ) -> Dict:
         """Compute all catch-chance and rarity modifiers for a setup."""
         rod_bonus = self.data["rods"][rod]["chance"]
-        bait_bonus = self.data["bait"][bait]["catch_bonus"]
+        bait_base = self.data["bait"][bait]["catch_bonus"]
+        bait_effectiveness = self.data["bait"][bait].get("effectiveness", {}).get(location, 1.0)
+        bait_bonus = bait_base * bait_effectiveness
 
         weather_data = self.data["weather"][weather]
         time_data = self.data["time"][time_of_day]
@@ -66,6 +68,7 @@ class ProfitSimulator:
         return {
             "rod_bonus": rod_bonus,
             "bait_bonus": bait_bonus,
+            "bait_effectiveness": bait_effectiveness,
             "weather_bonus": weather_bonus,
             "weather_rare_bonus": weather_rare_bonus,
             "weather_applies": weather_applies,
@@ -251,6 +254,7 @@ class ProfitSimulator:
             "modifiers": {
                 "rod_bonus": mods["rod_bonus"],
                 "bait_bonus": mods["bait_bonus"],
+                "bait_effectiveness": mods["bait_effectiveness"],
                 "weather_bonus": mods["weather_bonus"],
                 "weather_rare_bonus": mods["weather_rare_bonus"],
                 "weather_applies": mods["weather_applies"],

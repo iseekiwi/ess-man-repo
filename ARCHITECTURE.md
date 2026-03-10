@@ -1270,9 +1270,9 @@ fishing/__init__.py
 
 Previously `_update_total_value()` calculated level as `fish_caught // 50`, conflicting with `LevelManager`. The fish-count formula has been removed. `LevelManager.award_xp` is now the sole authority on leveling.
 
-### 10.2 No Bait Effectiveness in Catch Logic
+### 10.2 ~~No Bait Effectiveness in Catch Logic~~ FIXED
 
-`BAIT_TYPES` defines `preferred_by` and `effectiveness` (per-location multipliers) fields, but `_catch_fish()` only uses `catch_bonus`. The detailed bait-location effectiveness system is defined but not wired into the catch calculation.
+**FIXED**: Bait `effectiveness` multipliers are now wired into `_catch_fish()` in `main.py`. The `catch_bonus` is multiplied by the location-specific effectiveness value (defaults to 1.0 if not defined). The `ProfitSimulator` mirrors this logic. The simulation UI displays effectiveness in both config and results embeds. Fish values were rebalanced (Common: 10, Uncommon: 25, Rare: 65, Legendary: 200) to ensure baits are profitable at their intended locations while remaining break-even or a loss at unintended ones.
 
 ### 10.3 Rod Durability Not Implemented
 

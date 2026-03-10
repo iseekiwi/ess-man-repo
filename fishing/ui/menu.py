@@ -183,7 +183,12 @@ class FishingMenuView(BaseView):
                 
                 # Calculate base chances
                 base_chance = self.cog.data["rods"][current_rod]["chance"]
-                bait_bonus = self.cog.data["bait"][equipped_bait]["catch_bonus"] if equipped_bait else 0
+                if equipped_bait:
+                    bait_base = self.cog.data["bait"][equipped_bait]["catch_bonus"]
+                    bait_effectiveness = self.cog.data["bait"][equipped_bait].get("effectiveness", {}).get(location, 1.0)
+                    bait_bonus = bait_base * bait_effectiveness
+                else:
+                    bait_bonus = 0
                 
                 # Only apply weather bonuses if location is affected
                 weather_bonus = 0

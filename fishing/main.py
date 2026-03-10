@@ -229,7 +229,9 @@ class Fishing(commands.Cog):
                 
                 # Calculate catch chance
                 base_chance = self.data["rods"][user_data["rod"]]["chance"]
-                bait_bonus = self.data["bait"][bait_type]["catch_bonus"]
+                bait_base = self.data["bait"][bait_type]["catch_bonus"]
+                bait_effectiveness = self.data["bait"][bait_type].get("effectiveness", {}).get(location, 1.0)
+                bait_bonus = bait_base * bait_effectiveness
                 weather_bonus = 0
                 if location in weather_data.get("affects_locations", []):
                     weather_bonus = weather_data.get("catch_bonus", 0)
