@@ -1,19 +1,20 @@
 # utils/profit_simulator.py
 
 import random
-import statistics
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 from ..utils.logging_config import get_logger
 
-@dataclass
-class GearTier:
-    level: int
-    rod: str
-    bait: str
-    location: str
-    unlocked_weather: List[str]
-    fish_per_hour: int = 360  # Based on 6 catches per minute average
+# XP values per rarity (mirrored from LevelManager to avoid circular import)
+RARITY_XP = {
+    "common": 15,
+    "uncommon": 35,
+    "rare": 100,
+    "legendary": 250,
+}
+
+JUNK_RARITY_XP_MODIFIER = 0.5
+
 
 @dataclass
 class CatchResult:
@@ -21,138 +22,225 @@ class CatchResult:
     value: int
     rarity: str
 
+
 class ProfitSimulator:
-    """Fishing profit simulation system for economy analysis"""
-    
+    """Fishing profit simulation system for economy analysis.
+
+    Mirrors the catch logic in Fishing._catch_fish so that simulation results
+    match real gameplay as closely as possible.
+    """
+
     def __init__(self, game_data: Dict):
         self.logger = get_logger('profit_simulator')
         self.data = game_data
-        self.logger.debug("Initializing profit simulator")
-        
-        # Define progression tiers
-        self.tiers = [
-            GearTier(1, "Basic Rod", "Worm", "Pond", 
-                    ["Sunny", "Rainy", "Clear", "Overcast"]),
-            GearTier(5, "Intermediate Rod", "Shrimp", "River", 
-                    ["Sunny", "Rainy", "Clear", "Overcast", "Foggy"]),
-            GearTier(8, "Intermediate Rod", "Cricket", "Lake", 
-                    ["Sunny", "Rainy", "Clear", "Overcast", "Foggy", "Windy"]),
-            GearTier(12, "Advanced Rod", "Firefly", "Ocean", 
-                    ["Sunny", "Rainy", "Clear", "Overcast", "Foggy", "Windy", "Stormy"]),
-            GearTier(15, "Expert Rod", "Nightcrawler", "Ocean", 
-                    ["Sunny", "Rainy", "Clear", "Overcast", "Foggy", "Windy", "Stormy", "Heat Wave"]),
-            GearTier(18, "Master Rod", "Anchovy", "Deep Sea", 
-                    ["Sunny", "Rainy", "Clear", "Overcast", "Foggy", "Windy", "Stormy", "Heat Wave", "Red Tide"])
-        ]
 
-    def simulate_catch(self, tier: GearTier) -> CatchResult:
-        """Simulate a single catch with given gear setup"""
-        try:
-            # Calculate base catch chance
-            rod_bonus = self.data["rods"][tier.rod]["chance"]
-            bait_bonus = self.data["bait"][tier.bait]["catch_bonus"]
-            location_mods = self.data["locations"][tier.location]["fish_modifiers"]
-            
-            # Simulate weather effects
-            weather_effects = []
-            for weather in tier.unlocked_weather:
-                if weather in self.data["weather"]:
-                    weather_effects.append(self.data["weather"][weather]["catch_bonus"])
-            
-            weather_bonus = statistics.mean(weather_effects) if weather_effects else 0
-            
-            # Calculate final catch modifiers
-            total_catch_mod = rod_bonus + bait_bonus + weather_bonus
-            
-            # Determine catch rarity
-            weights = []
-            fish_types = []
-            for fish, data in self.data["fish"].items():
-                modified_chance = data["chance"] * location_mods[fish]
-                weights.append(modified_chance)
-                fish_types.append(fish)
-                
-            caught_fish = random.choices(fish_types, weights=weights)[0]
-            fish_data = self.data["fish"][caught_fish]
-            
-            self.logger.debug(f"Simulated catch: {caught_fish} with modifier {total_catch_mod}")
-            return CatchResult(caught_fish, fish_data["value"], fish_data["rarity"])
-            
-        except Exception as e:
-            self.logger.error(f"Error in catch simulation: {e}")
-            return None
+    # ------------------------------------------------------------------
+    # Core simulation — matches _catch_fish logic in main.py
+    # ------------------------------------------------------------------
 
-    def analyze_tier(self, tier: GearTier) -> Dict:
-        """Analyze fishing profits for a specific gear tier"""
-        try:
-            total_catches = 0
-            total_value = 0
-            rarity_counts = {"common": 0, "uncommon": 0, "rare": 0, "legendary": 0}
-            bait_cost = self.data["bait"][tier.bait]["cost"] * tier.fish_per_hour
-            
-            self.logger.debug(f"Analyzing tier: Level {tier.level} with {tier.rod} at {tier.location}")
-            
-            # Simulate one hour of fishing
-            for _ in range(tier.fish_per_hour):
-                catch = self.simulate_catch(tier)
-                if catch:
-                    total_catches += 1
-                    total_value += catch.value
-                    rarity_counts[catch.rarity] += 1
-                
-            # Calculate statistics
-            gross_profit = total_value
-            net_profit = total_value - bait_cost
-            
+    def _compute_modifiers(
+        self, rod: str, bait: str, location: str, weather: str, time_of_day: str
+    ) -> Dict:
+        """Compute all catch-chance and rarity modifiers for a setup."""
+        rod_bonus = self.data["rods"][rod]["chance"]
+        bait_bonus = self.data["bait"][bait]["catch_bonus"]
+
+        weather_data = self.data["weather"][weather]
+        time_data = self.data["time"][time_of_day]
+
+        weather_applies = location in weather_data.get("affects_locations", [])
+
+        weather_bonus = 0.0
+        weather_rare_bonus = 0.0
+        if weather_applies:
+            weather_bonus = weather_data.get("catch_bonus", 0)
+            weather_bonus += weather_data.get("location_bonus", {}).get(location, 0)
+            weather_bonus += weather_data.get("time_multiplier", {}).get(time_of_day, 0)
+            weather_rare_bonus = weather_data.get("rare_bonus", 0)
+
+        time_bonus = time_data.get("catch_bonus", 0)
+        time_rare_bonus = time_data.get("rare_bonus", 0)
+
+        total_chance = rod_bonus + bait_bonus + weather_bonus + time_bonus
+
+        return {
+            "rod_bonus": rod_bonus,
+            "bait_bonus": bait_bonus,
+            "weather_bonus": weather_bonus,
+            "weather_rare_bonus": weather_rare_bonus,
+            "weather_applies": weather_applies,
+            "time_bonus": time_bonus,
+            "time_rare_bonus": time_rare_bonus,
+            "total_chance": total_chance,
+            "weather_data": weather_data,
+        }
+
+    def _build_fish_weights(self, location: str, mods: Dict) -> tuple:
+        """Build weighted fish selection pool. Returns (fish_names, weights)."""
+        location_mods = self.data["locations"][location]["fish_modifiers"]
+        weather_data = mods["weather_data"]
+        weather_applies = mods["weather_applies"]
+        weather_rare_bonus = mods["weather_rare_bonus"]
+        time_rare_bonus = mods["time_rare_bonus"]
+
+        fish_names = []
+        weights = []
+
+        for fish, fdata in self.data["fish"].items():
+            weight = fdata["chance"] * location_mods[fish]
+
+            if weather_applies and fdata["rarity"] in ("rare", "legendary"):
+                weight *= 1 + weather_rare_bonus + time_rare_bonus
+                specific = weather_data.get("specific_rarity_bonus", {}).get(fish, 0)
+                if specific:
+                    weight *= 1 + specific
+
+            fish_names.append(fish)
+            weights.append(weight)
+
+        return fish_names, weights
+
+    def _build_junk_weights(self) -> tuple:
+        """Build weighted junk selection pool."""
+        junk_names = []
+        weights = []
+        for junk, jdata in self.data["junk"].items():
+            junk_names.append(junk)
+            weights.append(jdata["chance"])
+        return junk_names, weights
+
+    def _simulate_single(
+        self, mods: Dict, fish_names: List, fish_weights: List,
+        junk_names: List, junk_weights: List, location: str
+    ) -> Dict:
+        """Simulate a single fishing attempt. Returns result dict or None."""
+        catch_roll = random.random()
+
+        if catch_roll < mods["total_chance"]:
+            # Successful fish catch
+            caught = random.choices(fish_names, weights=fish_weights, k=1)[0]
+            fdata = self.data["fish"][caught]
             result = {
-                "level": tier.level,
-                "rod": tier.rod,
-                "bait": tier.bait,
-                "location": tier.location,
-                "catches_per_hour": total_catches,
-                "bait_cost": bait_cost,
-                "gross_profit": gross_profit,
-                "net_profit": net_profit,
-                "rarity_breakdown": rarity_counts
+                "type": "fish",
+                "name": caught,
+                "value": fdata["value"],
+                "rarity": fdata["rarity"],
             }
-            
-            self.logger.debug(f"Analysis complete: {result}")
+
+            # Bonus catch from weather
+            if mods["weather_applies"]:
+                cq = mods["weather_data"].get("catch_quantity", 0)
+                if cq and random.random() < cq:
+                    bonus = random.choices(fish_names, weights=fish_weights, k=1)[0]
+                    bonus_data = self.data["fish"][bonus]
+                    result["bonus"] = {
+                        "name": bonus,
+                        "value": bonus_data["value"],
+                        "rarity": bonus_data["rarity"],
+                    }
             return result
-            
-        except Exception as e:
-            self.logger.error(f"Error in tier analysis: {e}")
-            return None
 
-    def analyze_all_tiers(self) -> List[Dict]:
-        """Analyze all progression tiers"""
-        try:
-            results = []
-            for tier in self.tiers:
-                result = self.analyze_tier(tier)
-                if result:
-                    results.append(result)
-            return results
-        except Exception as e:
-            self.logger.error(f"Error in full analysis: {e}")
-            return []
+        # Failed fish roll — 75% chance for junk
+        if random.random() < 0.75:
+            caught = random.choices(junk_names, weights=junk_weights, k=1)[0]
+            jdata = self.data["junk"][caught]
+            return {
+                "type": "junk",
+                "name": caught,
+                "value": jdata["value"],
+                "rarity": jdata["rarity"],
+            }
 
-    def analyze_custom_setup(self, rod: str, bait: str, location: str, 
-                           weather_types: Optional[List[str]] = None) -> Dict:
-        """Analyze a custom gear setup"""
-        try:
-            if not weather_types:
-                weather_types = ["Sunny", "Clear"]  # Default weather types
-                
-            custom_tier = GearTier(
-                level=1,  # Level doesn't affect simulation
-                rod=rod,
-                bait=bait,
-                location=location,
-                unlocked_weather=weather_types
+        return None  # nothing caught
+
+    # ------------------------------------------------------------------
+    # Full setup analysis — used by the simulation menu
+    # ------------------------------------------------------------------
+
+    def analyze_full_setup(
+        self,
+        rod: str,
+        bait: str,
+        location: str,
+        weather: str,
+        time_of_day: str,
+        duration_hours: int = 1,
+        catches_per_hour: int = 360,
+    ) -> Dict:
+        """Run a complete simulation with all variables configurable.
+
+        Returns a dict with rarity breakdown, financials, modifiers,
+        bonus catches, junk stats, and XP estimate.
+        """
+        mods = self._compute_modifiers(rod, bait, location, weather, time_of_day)
+        fish_names, fish_weights = self._build_fish_weights(location, mods)
+        junk_names, junk_weights = self._build_junk_weights()
+
+        total_attempts = duration_hours * catches_per_hour
+        bait_cost_per = self.data["bait"][bait]["cost"]
+
+        rarity_counts = {"common": 0, "uncommon": 0, "rare": 0, "legendary": 0}
+        gross_value = 0
+        bonus_catches = 0
+        junk_caught = 0
+        junk_value = 0
+        missed = 0
+        total_xp = 0
+
+        for _ in range(total_attempts):
+            result = self._simulate_single(
+                mods, fish_names, fish_weights, junk_names, junk_weights, location
             )
-            
-            return self.analyze_tier(custom_tier)
-            
-        except Exception as e:
-            self.logger.error(f"Error in custom setup analysis: {e}")
-            return None
+
+            if result is None:
+                missed += 1
+                continue
+
+            if result["type"] == "fish":
+                rarity_counts[result["rarity"]] += 1
+                gross_value += result["value"]
+                total_xp += RARITY_XP.get(result["rarity"], 0)
+
+                if "bonus" in result:
+                    bonus_catches += 1
+                    rarity_counts[result["bonus"]["rarity"]] += 1
+                    gross_value += result["bonus"]["value"]
+                    total_xp += RARITY_XP.get(result["bonus"]["rarity"], 0)
+
+            elif result["type"] == "junk":
+                junk_caught += 1
+                junk_value += result["value"]
+                total_xp += int(RARITY_XP.get(result["rarity"], 0) * JUNK_RARITY_XP_MODIFIER)
+
+        total_bait_cost = total_attempts * bait_cost_per
+        total_gross = gross_value + junk_value
+        net_profit = total_gross - total_bait_cost
+
+        return {
+            "rod": rod,
+            "bait": bait,
+            "location": location,
+            "weather": weather,
+            "time_of_day": time_of_day,
+            "duration_hours": duration_hours,
+            "catches_per_hour": catches_per_hour,
+            "rarity_breakdown": rarity_counts,
+            "bonus_catches": bonus_catches,
+            "junk_caught": junk_caught,
+            "junk_value": junk_value,
+            "missed": missed,
+            "gross_profit": total_gross,
+            "bait_cost": total_bait_cost,
+            "net_profit": net_profit,
+            "estimated_xp": total_xp,
+            "modifiers": {
+                "rod_bonus": mods["rod_bonus"],
+                "bait_bonus": mods["bait_bonus"],
+                "weather_bonus": mods["weather_bonus"],
+                "weather_rare_bonus": mods["weather_rare_bonus"],
+                "weather_applies": mods["weather_applies"],
+                "time_bonus": mods["time_bonus"],
+                "time_rare_bonus": mods["time_rare_bonus"],
+                "total_chance": mods["total_chance"],
+            },
+        }

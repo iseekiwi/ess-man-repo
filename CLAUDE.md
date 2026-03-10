@@ -34,6 +34,7 @@ Entry point: `__init__.py` calls `bot.add_cog(Fishing(bot))` loading the main `F
 - `shop.py` — `ShopView` and `PurchaseConfirmView` for buying rods, bait, and location access.
 - `inventory.py` — `InventoryView` for browsing and selling caught items.
 - `components.py` — shared UI components and `MessageManager` for ephemeral/temporary messages.
+- `simulate.py` — `SimulationMenuView` for the interactive profit simulation menu (owner-only). Uses 4 Select menus (rod, bait, location, weather) + 1 button row (time cycle, duration ±, run) to configure and run simulations via `ProfitSimulator`.
 
 ### Key Patterns
 
@@ -46,6 +47,7 @@ Entry point: `__init__.py` calls `bot.add_cog(Fishing(bot))` loading the main `F
 - **Singleton cleanup**: `TimeoutManager` and `LoggerManager` are singletons that must be reset in `cog_unload` to avoid stale state on cog reload.
 - **Redbot conventions**: Uses `redbot.core.Config` for persistence, `redbot.core.bank` for currency, `redbot.core.commands` for command decorators. Config identifier is `123456789`.
 - **Data refresh**: After writes, invalidate cache then read once — do not triple-read or verify-after-every-write.
+- **Simulation**: `ProfitSimulator.analyze_full_setup()` mirrors `_catch_fish` logic exactly. When catch logic changes, update the simulator to match. The `[p]simulate` command opens an interactive menu — it no longer uses subcommands.
 
 ## Basewars Cog (`basewars/`)
 

@@ -64,6 +64,7 @@ ess-man-repo/
 |   |   +-- menu.py                    # FishingMenuView (main menu + fishing minigame)
 |   |   +-- shop.py                    # ShopView, PurchaseConfirmView, BaitQuantityModal
 |   |   +-- inventory.py               # InventoryView (browse/sell caught items)
+|   |   +-- simulate.py               # SimulationMenuView (interactive profit simulation menu)
 |   |   +-- components.py              # ConfirmationButton, NavigationButton, MessageManager
 |   +-- utils/
 |       +-- __init__.py                # Empty
@@ -224,8 +225,7 @@ Checks if user meets level requirement from a requirements dict.
 | `[p]weathertest simulate <weather> [location] [trials]` | Owner | Simulate catches with specific weather (default 100 trials) |
 | `[p]weathertest info [weather]` | Owner | Show weather effect details (all or specific) |
 | `[p]weathertest set <weather>` | Owner | Manually set current weather |
-| `[p]simulate profits` | Owner | Run profit analysis across all progression tiers |
-| `[p]simulate setup <rod> <bait> <location>` | Owner | Simulate profits with custom gear setup |
+| `[p]simulate` | Owner | Open interactive simulation menu (configure rod, bait, location, weather, time, duration) |
 
 ### 4.3 `fishing/data/fishing_data.py` -- Game Constants and Schemas
 
@@ -675,7 +675,7 @@ Creates per-module loggers under the `fishing.{module_name}` namespace. Each log
 def get_logger(module_name: str) -> logging.Logger  # Module-level convenience function
 ```
 
-Loggers created (by module_name): `main`, `config`, `inventory_manager`, `level_manager`, `task_manager`, `tmanager`, `timeout_manager`, `profit_simulator`, `base.view`, `menu`, `menu.view`, `shop`, `shop.view`, `inventory`, `inventory.view`, `ui.components`, `setup`.
+Loggers created (by module_name): `main`, `config`, `inventory_manager`, `level_manager`, `task_manager`, `tmanager`, `timeout_manager`, `profit_simulator`, `base.view`, `menu`, `menu.view`, `shop`, `shop.view`, `inventory`, `inventory.view`, `simulate`, `simulate.view`, `ui.components`, `setup`.
 
 ### 4.10 `fishing/utils/profit_simulator.py` -- ProfitSimulator
 
@@ -684,20 +684,11 @@ class ProfitSimulator:
     def __init__(self, game_data: Dict)
 ```
 
-Used by admin simulation commands. Simulates fishing outcomes without modifying any state.
+Used by the interactive simulation menu (`SimulationMenuView`). Mirrors `_catch_fish` logic exactly — simulates fishing outcomes without modifying any state.
 
 #### Data Classes
 
 ```python
-@dataclass
-class GearTier:
-    level: int
-    rod: str
-    bait: str
-    location: str
-    unlocked_weather: List[str]
-    fish_per_hour: int = 360  # 6 catches per minute
-
 @dataclass
 class CatchResult:
     fish_name: str
@@ -705,35 +696,72 @@ class CatchResult:
     rarity: str
 ```
 
-#### Predefined Tiers
+#### XP Constants (mirrored from LevelManager)
 
-| Level | Rod | Bait | Location |
-|-------|-----|------|----------|
-| 1 | Basic Rod | Worm | Pond |
-| 5 | Intermediate Rod | Shrimp | River |
-| 8 | Intermediate Rod | Cricket | Lake |
-| 12 | Advanced Rod | Firefly | Ocean |
-| 15 | Expert Rod | Nightcrawler | Ocean |
-| 18 | Master Rod | Anchovy | Deep Sea |
+```python
+RARITY_XP = {"common": 15, "uncommon": 35, "rare": 100, "legendary": 250}
+JUNK_RARITY_XP_MODIFIER = 0.5
+```
 
 #### Public Methods
 
 ```python
-def simulate_catch(self, tier: GearTier) -> CatchResult
-def analyze_tier(self, tier: GearTier) -> Dict
-def analyze_all_tiers(self) -> List[Dict]
-def analyze_custom_setup(self, rod: str, bait: str, location: str,
-                         weather_types: Optional[List[str]] = None) -> Dict
+def analyze_full_setup(self, rod: str, bait: str, location: str, weather: str,
+                       time_of_day: str, duration_hours: int = 1,
+                       catches_per_hour: int = 360) -> Dict
 ```
 
-`analyze_tier()` returns:
+`analyze_full_setup()` returns:
 ```python
 {
-    "level": int, "rod": str, "bait": str, "location": str,
-    "catches_per_hour": int, "bait_cost": int,
-    "gross_profit": int, "net_profit": int,
-    "rarity_breakdown": {"common": int, "uncommon": int, "rare": int, "legendary": int}
+    "rod": str, "bait": str, "location": str, "weather": str, "time_of_day": str,
+    "duration_hours": int, "catches_per_hour": int,
+    "rarity_breakdown": {"common": int, "uncommon": int, "rare": int, "legendary": int},
+    "bonus_catches": int, "junk_caught": int, "junk_value": int, "missed": int,
+    "gross_profit": int, "bait_cost": int, "net_profit": int, "estimated_xp": int,
+    "modifiers": {
+        "rod_bonus": float, "bait_bonus": float, "weather_bonus": float,
+        "weather_rare_bonus": float, "weather_applies": bool,
+        "time_bonus": float, "time_rare_bonus": float, "total_chance": float
+    }
 }
+```
+
+#### Internal Methods
+
+```python
+def _compute_modifiers(self, rod, bait, location, weather, time_of_day) -> Dict
+def _build_fish_weights(self, location, mods) -> tuple  # (fish_names, weights)
+def _build_junk_weights(self) -> tuple  # (junk_names, weights)
+def _simulate_single(self, mods, fish_names, fish_weights, junk_names, junk_weights, location) -> Dict
+```
+
+### 4.12 `fishing/ui/simulate.py` -- SimulationMenuView
+
+```python
+class SimulationMenuView(BaseView):
+    def __init__(self, cog, ctx, timeout=300)
+```
+
+Interactive simulation menu for owners. Two display modes:
+
+**Config mode** (default): 4 Select menus (rows 0-3) + 1 button row (row 4)
+- Rod Select (5 options), Bait Select (6 options), Location Select (5 options), Weather Select (15 options)
+- Buttons: Time cycle (Dawn→Day→Dusk→Night), Duration -/+, Run Simulation
+
+**Results mode**: Displays simulation results with a "Back to Config" button.
+
+Uses `ProfitSimulator.analyze_full_setup()` to run the simulation. All state is held in instance variables (`selected_rod`, `selected_bait`, `selected_location`, `selected_weather`, `selected_time`, `duration_hours`, `results`).
+
+#### Key Methods
+
+```python
+async def setup(self) -> SimulationMenuView
+async def initialize_view(self) -> None
+async def generate_embed(self) -> discord.Embed
+async def handle_select(self, interaction) -> None
+async def handle_button(self, interaction) -> None
+async def run_simulation(self, interaction) -> None
 ```
 
 ### 4.11 `fishing/ui/base.py` -- BaseView and ConfirmView
@@ -1220,8 +1248,12 @@ fishing/__init__.py
         |     +-- fishing/ui/base.py
         |     +-- fishing/ui/menu.py [TYPE_CHECKING only + lazy import in handle_button]
         |-- fishing/ui/inventory.py (InventoryView)
+        |     +-- fishing/ui/base.py
+        |     +-- fishing/utils/timeout_manager.py
+        |-- fishing/ui/simulate.py (SimulationMenuView)
               +-- fishing/ui/base.py
-              +-- fishing/utils/timeout_manager.py
+              +-- fishing/utils/profit_simulator.py
+              +-- fishing/utils/logging_config.py
 ```
 
 **Circular dependency note**: `menu.py` imports `ShopView` at top level and `InventoryView` lazily. `shop.py` imports `FishingMenuView` under `TYPE_CHECKING` and lazily in `handle_button()` to avoid circular imports.
@@ -1230,9 +1262,9 @@ fishing/__init__.py
 
 ## 10. Known Architectural Decisions and Trade-offs
 
-### 10.1 Dual Leveling System Conflict
+### 10.1 ~~Dual Leveling System Conflict~~ (FIXED)
 
-`LevelManager` uses XP thresholds (up to level 20 at 52,500 XP). However, `_update_total_value()` in `main.py` also calculates level as `fish_caught // 50` and writes it to the same `"level"` field. These two systems conflict -- the fish-count formula runs on every catch and overwrites the XP-based level.
+Previously `_update_total_value()` calculated level as `fish_caught // 50`, conflicting with `LevelManager`. The fish-count formula has been removed. `LevelManager.award_xp` is now the sole authority on leveling.
 
 ### 10.2 No Bait Effectiveness in Catch Logic
 
@@ -1254,9 +1286,9 @@ These fields exist in `DEFAULT_USER_DATA` and `DEFAULT_GLOBAL_SETTINGS` but have
 
 `ConfigManager.get_user_data()` validates data on every call (even cache hits are pre-validated). This is defensive but means validation runs frequently. The cache stores already-validated data, so cache hits skip re-validation.
 
-### 10.7 Cache Invalidation After Write
+### 10.7 ~~Cache Invalidation After Write~~ (FIXED)
 
-`update_user_data()` invalidates cache then immediately re-reads to verify. This ensures consistency but doubles the I/O on every write.
+Previously `update_user_data()` re-read after every write to verify. This has been simplified to invalidate cache without re-reading — the next read will pull fresh data.
 
 ### 10.8 No Pagination
 
@@ -1329,10 +1361,17 @@ async def cleanup(self) -> None
 
 ### ProfitSimulator
 ```python
-def simulate_catch(self, tier: GearTier) -> CatchResult
-def analyze_tier(self, tier: GearTier) -> Dict
-def analyze_all_tiers(self) -> List[Dict]
-def analyze_custom_setup(self, rod: str, bait: str, location: str, weather_types: Optional[List[str]] = None) -> Dict
+def analyze_full_setup(self, rod, bait, location, weather, time_of_day, duration_hours=1, catches_per_hour=360) -> Dict
+```
+
+### SimulationMenuView
+```python
+async def setup(self) -> SimulationMenuView
+async def initialize_view(self) -> None
+async def generate_embed(self) -> discord.Embed
+async def handle_select(self, interaction) -> None
+async def handle_button(self, interaction) -> None
+async def run_simulation(self, interaction) -> None
 ```
 
 ### Fishing (Cog) -- Non-Command Methods

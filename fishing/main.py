@@ -8,17 +8,16 @@ import datetime
 from .ui.inventory import InventoryView
 from .ui.shop import ShopView, PurchaseConfirmView
 from .ui.menu import FishingMenuView
+from .ui.simulate import SimulationMenuView
 from .utils.inventory_manager import InventoryManager
 from .utils.task_manager import TaskManager
 from .utils.logging_config import get_logger
 from .utils.config_manager import ConfigManager, ConfigResult
 from .utils.level_manager import LevelManager
-from .utils.profit_simulator import ProfitSimulator
 from .utils.timeout_manager import TimeoutManager
 from .utils.logging_config import LoggerManager
 from redbot.core import commands, Config, bank
 from redbot.core.bot import Red
-from collections import Counter
 from .data.fishing_data import (
     FISH_TYPES,
     ROD_TYPES,
@@ -1132,159 +1131,17 @@ class Fishing(commands.Cog):
             self.logger.error(f"Error setting weather: {e}", exc_info=True)
             await ctx.send(f"An error occurred: {str(e)}")
 
-    @commands.group(name="simulate")
+    @commands.command(name="simulate")
     @commands.is_owner()
     async def simulate(self, ctx):
-        """Simulation commands for fishing analysis."""
-        if ctx.invoked_subcommand is None:
-            await ctx.send("Available commands: profits, setup")
-        
-    @simulate.command(name="profits")
-    async def simulate_profits(self, ctx):
-        """Simulate fishing profits across all progression tiers."""
+        """Open the interactive fishing simulation menu."""
         try:
-            # Create embed for results
-            embed = discord.Embed(
-                title="🎣 Fishing Profit Analysis",
-                description="Simulated profits for 1 hour of fishing at each tier",
-                color=discord.Color.blue()
-            )
-                
-            # Initialize simulator
-            simulator = ProfitSimulator(self.data)
-            results = simulator.analyze_all_tiers()
-                
-            for result in results:
-                field_name = f"Level {result['level']} - {result['location']}"
-                rarity_text = []
-                for rarity, count in result['rarity_breakdown'].items():
-                    percentage = (count / result['catches_per_hour']) * 100
-                    rarity_text.append(f"{rarity.title()}: {count} ({percentage:.1f}%)")
-                    
-                field_value = (
-                    f"**Setup**: {result['rod']} with {result['bait']}\n"
-                    f"**Catches**: {result['catches_per_hour']}/hour\n"
-                    f"**Rarity Breakdown**:\n" + "\n".join(rarity_text) + "\n"
-                    f"**Financial**:\n"
-                    f"• Bait Cost: {result['bait_cost']:,} coins\n"
-                    f"• Gross Profit: {result['gross_profit']:,} coins\n"
-                    f"• Net Profit: {result['net_profit']:,} coins\n"
-                    f"• Per Catch: {result['net_profit']/result['catches_per_hour']:.1f} coins"
-                )
-                    
-                embed.add_field(
-                    name=field_name,
-                    value=field_value,
-                    inline=False
-                )
-                
-            await ctx.send(embed=embed)
-                
+            view = await SimulationMenuView(self, ctx).setup()
+            embed = await view.generate_embed()
+            view.message = await ctx.send(embed=embed, view=view)
         except Exception as e:
-            self.logger.error(f"Error in profit simulation: {e}")
-            await ctx.send("An error occurred while running the simulation.")
-        
-    @simulate.command(name="setup")
-    async def simulate_setup(self, ctx, rod: str, bait: str, location: str):
-        """Simulate fishing profits with a specific setup."""
-        try:
-            # Validate inputs
-            if rod not in self.data["rods"]:
-                await ctx.send(f"Invalid rod. Available rods: {', '.join(self.data['rods'].keys())}")
-                return
-                    
-            if bait not in self.data["bait"]:
-                await ctx.send(f"Invalid bait. Available bait: {', '.join(self.data['bait'].keys())}")
-                return
-                    
-            if location not in self.data["locations"]:
-                await ctx.send(f"Invalid location. Available locations: {', '.join(self.data['locations'].keys())}")
-                return
-                
-            # Constants
-            ATTEMPTS_PER_HOUR = 360
-            SUCCESS_RATE = 0.80  # 80% of attempts result in catches
-            successful_catches = int(ATTEMPTS_PER_HOUR * SUCCESS_RATE)
-                
-            # Get equipment modifiers
-            rod_bonus = self.data["rods"][rod]["chance"]
-            bait_bonus = self.data["bait"][bait]["catch_bonus"]
-            location_mods = self.data["locations"][location]["fish_modifiers"]
-            weather_bonus = 0.05  # Base sunny weather bonus
-                
-            # Calculate catch distribution
-            catch_counts = {"common": 0, "uncommon": 0, "rare": 0, "legendary": 0}
-            total_value = 0
-                
-            for _ in range(successful_catches):
-                # Calculate weighted chances based on location modifiers
-                weights = []
-                fish_types = []
-                    
-                for fish_name, fish_data in self.data["fish"].items():
-                    base_chance = fish_data["chance"]
-                    loc_modifier = location_mods[fish_name]
-                    modified_chance = base_chance * loc_modifier * (1 + rod_bonus + bait_bonus + weather_bonus)
-                        
-                    weights.append(modified_chance)
-                    fish_types.append(fish_name)
-                    
-                # Normalize weights
-                weight_sum = sum(weights)
-                weights = [w/weight_sum for w in weights]
-                    
-                # Determine catch
-                caught_fish = random.choices(fish_types, weights=weights)[0]
-                fish_data = self.data["fish"][caught_fish]
-                    
-                catch_counts[fish_data["rarity"]] += 1
-                total_value += fish_data["value"]
-                
-            # Calculate costs and profits
-            bait_cost = successful_catches * self.data["bait"][bait]["cost"]
-            net_profit = total_value - bait_cost
-                
-            # Create embed for results
-            embed = discord.Embed(
-                title="🎣 Custom Setup Analysis",
-                description=f"Simulated profits for 1 hour of fishing",
-                color=discord.Color.blue()
-            )
-                
-            # Add catch statistics
-            rarity_text = []
-            total_catches = sum(catch_counts.values())
-            for rarity, count in catch_counts.items():
-                percentage = (count / total_catches * 100) if total_catches > 0 else 0
-                rarity_text.append(f"{rarity.title()}: {count} ({percentage:.1f}%)")
-                
-            embed.add_field(
-                name="Catch Statistics",
-                value=(
-                    f"**Setup**: {rod} with {bait}\n"
-                    f"**Location**: {location}\n"
-                    f"**Catches**: {successful_catches}/hour\n"
-                    f"**Rarity Breakdown**:\n" + "\n".join(rarity_text)
-                ),
-                inline=False
-            )
-                
-            embed.add_field(
-                name="Financial Breakdown",
-                value=(
-                    f"• Bait Cost: {bait_cost:,} coins\n"
-                    f"• Gross Profit: {total_value:,} coins\n"
-                    f"• Net Profit: {net_profit:,} coins\n"
-                    f"• Per Catch: {net_profit/successful_catches:.1f} coins"
-                ),
-                inline=False
-            )
-                
-            await ctx.send(embed=embed)
-                
-        except Exception as e:
-            self.logger.error(f"Error in setup simulation: {e}")
-            await ctx.send("An error occurred while running the simulation.")
+            self.logger.error(f"Error opening simulation menu: {e}", exc_info=True)
+            await ctx.send("An error occurred while opening the simulation menu.")
 
 def setup(bot: Red):
     """Add the cog to the bot."""
