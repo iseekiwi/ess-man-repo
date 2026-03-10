@@ -405,15 +405,33 @@ class ShopView(BaseView):
                     stock = current_stock.get(bait_name, 0)
                     requirements = bait_data.get("requirements", {})
                     level_req = requirements.get("level", 1) if requirements else 1
-                    
+
                     if level_req > user_level:
                         status = f"🔒 Requires Level {level_req}"
                     else:
                         status = "📦 Stock: `{}`".format(stock) if stock > 0 else "❌ Out of stock!"
-                    
+
+                    # Stats line
+                    stats = f"📊 Catch Bonus: `+{bait_data['catch_bonus']*100:.0f}%`"
+                    if bait_data.get("preferred_by"):
+                        stats += f" | Preferred by: {', '.join(bait_data['preferred_by'])}"
+
+                    # Location effectiveness
+                    eff = bait_data.get("effectiveness", {})
+                    if eff:
+                        eff_parts = []
+                        for loc, mult in eff.items():
+                            if mult > 1.0:
+                                eff_parts.append(f"{loc} `{mult}x`")
+                            elif mult < 1.0:
+                                eff_parts.append(f"~~{loc}~~ `{mult}x`")
+                        if eff_parts:
+                            stats += f"\n🗺️ {', '.join(eff_parts)}"
+
                     bait_entry = (
                         f"**{bait_name}** - {bait_data['cost']} {currency_name}\n"
                         f"{bait_data['description']}\n"
+                        f"{stats}\n"
                         f"{status}\n"
                     )
                     bait_list.append(bait_entry)
@@ -428,20 +446,21 @@ class ShopView(BaseView):
                 for rod_name, rod_data in self.cog.data["rods"].items():
                     if rod_name == "Basic Rod":
                         continue
-                    
+
                     owned = rod_name in self.user_data.get("purchased_rods", {})
                     status = "✅ Owned" if owned else f"💰 *Cost*: {rod_data['cost']} {currency_name}"
-                    
+
                     requirements = rod_data.get("requirements")
                     req_text = ""
                     if requirements:
                         req_text = f"\n*Requires*: Level {requirements['level']}"
-                    else:
-                        req_text = ""
-                    
+
+                    stats = f"📊 Catch Bonus: `+{rod_data['chance']*100:.0f}%`"
+
                     rod_entry = (
                         f"**{rod_name}**\n"
                         f"{rod_data['description']}\n"
+                        f"{stats}\n"
                         f"{status}{req_text}\n"
                     )
                     rod_list.append(rod_entry)
