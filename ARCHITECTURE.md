@@ -791,10 +791,6 @@ async def delete_after_delay(self, message, delay: int = 2) -> None
 
 # Session management
 def _release_session(self) -> None      # Remove from cog._active_sessions if this view owns slot
-
-# Embed utilities
-@staticmethod
-def pad_embed(embed, min_lines=16)      # Pad short embeds with zero-width spaces for consistent UI height
 ```
 
 #### `ConfirmView(BaseView)`
@@ -1407,8 +1403,6 @@ async def cleanup(self) -> None
 async def on_error(self, interaction, error, item) -> None
 async def update_message(self, **kwargs) -> None
 def _release_session(self) -> None
-@staticmethod
-def pad_embed(embed, min_lines=16) -> None
 ```
 
 ### FishingMenuView

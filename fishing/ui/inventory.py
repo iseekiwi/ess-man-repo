@@ -158,7 +158,6 @@ class InventoryView(BaseView):
                         f"Balance: {balance} {currency_name}"
                     )
             
-            self.pad_embed(embed)
             return embed
 
         except Exception as e:

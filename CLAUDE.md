@@ -29,7 +29,7 @@ Entry point: `__init__.py` calls `bot.add_cog(Fishing(bot))` loading the main `F
 - `logging_config` — centralized logger factory via `get_logger(name)`. All modules log to a single `fishing.log` file. Singleton reset on cog unload.
 
 **UI layer** (`ui/`):
-- `base.py` — `BaseView` extends `discord.ui.View` with timeout management, interaction auth checks (only command author can interact), cleanup, `delete_after_delay`, and `pad_embed()` (pads short embeds with zero-width spaces to maintain consistent UI height). Also has `ConfirmView`.
+- `base.py` — `BaseView` extends `discord.ui.View` with timeout management, interaction auth checks (only command author can interact), cleanup, and `delete_after_delay`. Also has `ConfirmView`.
 - `menu.py` — `FishingMenuView`, the main interactive menu with fishing, inventory, shop, and profile pages. Contains the core fishing minigame logic (button-based catch mechanic using `asyncio.Event` for timeout). Includes a "Stop Fishing" button to cleanly end sessions.
 - `shop.py` — `ShopView` and `PurchaseConfirmView` for buying rods, bait, and location access.
 - `inventory.py` — `InventoryView` for browsing and selling caught items.
@@ -46,7 +46,6 @@ Entry point: `__init__.py` calls `bot.add_cog(Fishing(bot))` loading the main `F
 - **Leveling**: `LevelManager.award_xp` is the sole authority — do not set level in `_update_total_value` or elsewhere.
 - **Singleton cleanup**: `TimeoutManager` and `LoggerManager` are singletons that must be reset in `cog_unload` to avoid stale state on cog reload.
 - **Active session guard**: `Fishing._active_sessions` (dict of user_id -> view) prevents users from opening multiple fishing menus. `BaseView._release_session()` frees the slot on cleanup/timeout using identity check (`is self`) so child→parent view transitions don't accidentally release sessions. When creating new menu views during navigation, always use `cog.create_menu()` which updates the session reference.
-- **Embed padding**: All views call `self.pad_embed(embed)` before returning embeds. This pads short embeds (fishing actions, catch results) with zero-width spaces to match the height of larger embeds (main menu), preventing Discord chat from jumping. The `pad_embed` static method lives on `BaseView`.
 - **Redbot conventions**: Uses `redbot.core.Config` for persistence, `redbot.core.bank` for currency, `redbot.core.commands` for command decorators. Config identifier is `123456789`.
 - **Data refresh**: After writes, invalidate cache then read once — do not triple-read or verify-after-every-write.
 - **Simulation**: `ProfitSimulator.analyze_full_setup()` mirrors `_catch_fish` logic exactly. When catch logic changes, update the simulator to match. The `[p]simulate` command opens an interactive menu — it no longer uses subcommands. The simulator assumes perfect player input (no button-press misses). "Nothing caught" in results is pure RNG (25% of failed fish rolls produce nothing, matching the 75% junk fallback in `_catch_fish`).

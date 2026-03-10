@@ -446,7 +446,6 @@ class FishingMenuView(BaseView):
                         inline=False
                     )
             
-            self.pad_embed(embed)
             return embed
 
         except Exception as e:
@@ -465,7 +464,6 @@ class FishingMenuView(BaseView):
                     description="You packed up your fishing gear. See you next time!",
                     color=discord.Color.greyple()
                 )
-                self.pad_embed(embed)
                 self.clear_items()
                 for item in self.children:
                     item.disabled = True
@@ -595,7 +593,7 @@ class FishingMenuView(BaseView):
                 description="Casting line...",
                 color=discord.Color.blue()
             )
-            self.pad_embed(fishing_embed)
+
 
             # Since interaction was already responded to, use message edit directly
             if self.message:
@@ -623,7 +621,7 @@ class FishingMenuView(BaseView):
                 description=f"Quick! Click `{self.correct_action}` to catch the fish!",
                 color=discord.Color.blue()
             )
-            self.pad_embed(fishing_embed)
+
             await self.message.edit(embed=fishing_embed, view=self)
     
             # Wait for catch attempt or timeout
@@ -643,7 +641,7 @@ class FishingMenuView(BaseView):
                     description="The fish got away!\n\nReturning to menu...",
                     color=discord.Color.red()
                 )
-                self.pad_embed(fishing_embed)
+    
                 await self.message.edit(embed=fishing_embed)
                 await asyncio.sleep(2)
     
@@ -825,7 +823,7 @@ class FishingMenuView(BaseView):
                     color=discord.Color.red()
                 )
 
-            self.pad_embed(fishing_embed)
+
             await self.message.edit(embed=fishing_embed)
             await asyncio.sleep(4)  # Brief pause to show result
             
