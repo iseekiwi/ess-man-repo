@@ -832,16 +832,22 @@ The main interactive menu. Manages multiple "pages": `"main"`, `"location"`, `"w
 
 #### Fishing Minigame Flow (`do_fishing()` + `handle_catch_attempt()`)
 
-1. User clicks "Fish" button
-2. Menu buttons are cleared; "Casting line..." embed shown
-3. `asyncio.sleep(random.uniform(2, 5))` -- variable wait
-4. 5 buttons appear with random action words (catch, grab, snag, hook, reel)
-5. One is randomly designated as `self.correct_action`
-6. Player has 5 seconds to click the correct button
-7. **On timeout**: Bait consumed, "Too Slow!" message, return to menu
-8. **On wrong button**: Bait consumed, "Wrong Move!" message, return to menu
-9. **On correct button**: Bait consumed, `_catch_fish()` called, XP awarded, result shown for 4s, return to menu
+`do_fishing` runs a **continuous loop** that keeps casting until the player stops or is forced out:
 
+1. User clicks "Fish" button -> `do_fishing()` starts the loop
+2. **Casting phase**: "Casting line..." embed with Stop Fishing button, wait `random(2, 5)` seconds
+3. **Minigame phase**: 5 buttons (catch, grab, snag, hook, reel), one is `self.correct_action`, 5s timeout
+4. **Result phase**: Show result embed for 3s, then loop back to step 2
+
+**Loop exits** (returns to main menu):
+- **Timeout**: No button pressed during minigame -> bait consumed, "Too Slow!", return to menu
+- **Stop Fishing**: Player clicks Stop during casting phase -> "Session Ended", return to menu
+- **Inventory full**: Detected after each catch -> "Inventory Full!", return to menu
+- **Out of bait**: Detected after each catch -> "Out of Bait!", return to menu
+
+On correct button: Bait consumed, `_catch_fish()` called, XP awarded, result stored in `_catch_result_embed`.
+On wrong button: Bait consumed, "Wrong Move!" shown, loop continues.
+On nothing caught (RNG): "Nothing!" shown, loop continues.
 Bait is always consumed on any attempt or timeout.
 
 #### Key Methods
@@ -852,8 +858,10 @@ async def initialize_view(self) -> None          # Build buttons for current pag
 async def generate_embed(self) -> discord.Embed  # Build embed for current page
 async def handle_button(self, interaction) -> None
 async def handle_location_select(self, interaction) -> None
-async def do_fishing(self, interaction) -> None
-async def handle_catch_attempt(self, interaction) -> None
+async def do_fishing(self, interaction) -> None   # Continuous fishing loop
+async def handle_catch_attempt(self, interaction) -> None  # Sets _catch_result_embed
+async def _handle_stop_fishing(self, interaction) -> None  # Signals stop during casting
+async def _return_to_menu(self, interaction) -> None       # Resets state, shows main menu
 async def consume_bait(self, interaction) -> None
 async def update_view(self) -> None
 async def start(self) -> FishingMenuView         # Send initial message
@@ -976,42 +984,31 @@ User clicks "Fish" button
 FishingMenuView.handle_button("fish")
   |-> Set fishing_in_progress = True
   |-> interaction.response.defer()
-  |-> Clear menu buttons
   |-> do_fishing(interaction)
        |-> Check equipped_bait (abort if None)
-       |-> Show "Casting line..." embed
-       |-> sleep(random 2-5 seconds)
-       |-> Pick correct_action from [catch,grab,snag,hook,reel]
-       |-> Show 5 action buttons
-       |-> sleep(5.0) -- timeout window
+       |-> Check inventory_capacity (abort if full)
        |
-       +-> [If no button pressed in 5s]
-       |     |-> Consume bait
-       |     |-> Show "Too Slow!" embed
-       |     |-> Return to main menu
-       |
-       +-> [User clicks a button -> handle_catch_attempt()]
-             |-> Set catch_attempted = True
-             |-> Disable all buttons
-             |-> Consume bait (always)
-             |
-             +-> [If wrong button]
-             |     |-> Show "Wrong Move!" embed
-             |     |-> Return to main menu
-             |
-             +-> [If correct button]
-                   |-> _catch_fish(user, data, bait, location, weather, time)
-                   |     |-> Calculate total_chance
-                   |     |-> Roll random
-                   |     |-> Success: weighted fish selection -> add to inventory
-                   |     |-> Failure: 75% chance -> weighted junk selection -> add to inventory
-                   |     +-> Return {name, value, xp_gained, type, ?bonus_catch}
-                   |
-                   |-> _update_total_value(user, value, item_type)
-                   |-> LevelManager.award_xp(user_id, xp_gained)
-                   |-> ConfigManager.refresh_cache(user_id)
-                   |-> Show catch result embed (4s)
-                   +-> Return to main menu
+       |-> [LOOP START]
+       |     |-> Show "Casting line..." + Stop Fishing button
+       |     |-> Wait random(2-5s) or stop button
+       |     |
+       |     +-> [Stop pressed] -> "Session Ended" -> return to menu
+       |     |
+       |     |-> Show 5 action buttons (no stop button)
+       |     |-> Wait 5s for button press
+       |     |
+       |     +-> [Timeout: no press] -> consume bait -> "Too Slow!" -> return to menu
+       |     |
+       |     +-> [Button pressed -> handle_catch_attempt()]
+       |           |-> Disable buttons, consume bait
+       |           |-> Correct: _catch_fish() -> award XP -> store result embed
+       |           |-> Wrong: store "Wrong Move!" embed
+       |           |
+       |     |-> Show result embed (3s)
+       |     |-> Refresh user data
+       |     |-> Check bait (empty? -> "Out of Bait!" -> return to menu)
+       |     |-> Check inventory (full? -> "Inventory Full!" -> return to menu)
+       |     +-> [LOOP BACK TO START]
 ```
 
 ### 5.3 Purchase Flow (Bait)

@@ -30,7 +30,7 @@ Entry point: `__init__.py` calls `bot.add_cog(Fishing(bot))` loading the main `F
 
 **UI layer** (`ui/`):
 - `base.py` — `BaseView` extends `discord.ui.View` with timeout management, interaction auth checks (only command author can interact), cleanup, and `delete_after_delay`. Also has `ConfirmView`.
-- `menu.py` — `FishingMenuView`, the main interactive menu with fishing, inventory, shop, and profile pages. Contains the core fishing minigame logic (button-based catch mechanic using `asyncio.Event` for timeout). Includes a "Stop Fishing" button to cleanly end sessions.
+- `menu.py` — `FishingMenuView`, the main interactive menu with fishing, inventory, shop, and profile pages. Contains the core fishing minigame as a continuous loop (`do_fishing`): cast → minigame → result → cast again. The loop exits on: timeout (no button press), Stop Fishing button (shown during casting phase only), inventory full, or out of bait. A "Stop Fishing" button on the main menu ends the entire session.
 - `shop.py` — `ShopView` and `PurchaseConfirmView` for buying rods, bait, and location access.
 - `inventory.py` — `InventoryView` for browsing and selling caught items.
 - `components.py` — shared UI components and `MessageManager` for ephemeral/temporary messages.
