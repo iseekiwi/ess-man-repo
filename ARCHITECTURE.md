@@ -12,7 +12,7 @@ This repository (`ess-man-repo`) is a **Red-DiscordBot cog repository** by `isee
 
 - A button-driven interactive menu system (discord.py Views)
 - An economy system integrated with Red-DiscordBot's bank
-- A leveling/XP progression system (20 levels)
+- A leveling/XP progression system (99 levels)
 - Inventory management for fish, bait, and rods
 - A shop with daily restocking bait and purchasable rods
 - A weather system that rotates hourly and affects catch rates
@@ -534,30 +534,23 @@ class LevelManager:
     def __init__(self, config_manager: ConfigManager)
 ```
 
-#### XP Thresholds (20 levels)
+#### XP Thresholds (99 levels)
 
-| Level | Total XP Required | Delta from Previous |
-|-------|-------------------|---------------------|
-| 1 | 0 | -- |
-| 2 | 100 | 100 |
-| 3 | 400 | 300 |
-| 4 | 1,000 | 600 |
-| 5 | 1,900 | 900 |
-| 6 | 3,100 | 1,200 |
-| 7 | 4,600 | 1,500 |
-| 8 | 6,400 | 1,800 |
-| 9 | 8,500 | 2,100 |
-| 10 | 11,000 | 2,500 |
-| 11 | 13,800 | 2,800 |
-| 12 | 16,900 | 3,100 |
-| 13 | 20,300 | 3,400 |
-| 14 | 24,000 | 3,700 |
-| 15 | 28,000 | 4,000 |
-| 16 | 32,300 | 4,300 |
-| 17 | 36,900 | 4,600 |
-| 18 | 41,800 | 4,900 |
-| 19 | 47,000 | 5,200 |
-| 20 | 52,500 | 5,500 |
+Gap between levels grows by ~350 XP per level, with acceleration after level 50 (+100/level) and level 75 (+150/level). Full table in `level_manager.py`. Key milestones:
+
+| Level | Total XP Required |
+|-------|-------------------|
+| 1 | 0 |
+| 10 | 11,000 |
+| 20 | 52,500 |
+| 30 | 126,750 |
+| 40 | 236,000 |
+| 50 | 380,250 |
+| 60 | 565,000 |
+| 70 | 794,750 |
+| 80 | 1,071,750 |
+| 90 | 1,407,250 |
+| 99 | 1,760,500 |
 
 #### Rarity XP Rewards
 
@@ -1185,7 +1178,7 @@ Final selection via `random.choices(fish_types, weights=weights)`.
 
 Two parallel level systems exist (architectural note):
 
-1. **XP-based** (`LevelManager`): 20 levels, XP from catches based on rarity. Used for `get_level_progress()` display and `award_xp()`.
+1. **XP-based** (`LevelManager`): 99 levels (level 100 reserved for future cape item), XP from catches based on rarity. Used for `get_level_progress()` display and `award_xp()`.
 2. **Fish-count-based** (`_update_total_value`): `level = max(1, fish_caught // 50)`. Overwrites level on every catch.
 
 This means the XP-based level from `LevelManager.award_xp()` may be overwritten by the fish-count formula in `_update_total_value()`. Both write to the same `"level"` field. This is a known inconsistency.
