@@ -181,6 +181,14 @@ class ProfitSimulator:
         fish_names, fish_weights = self._build_fish_weights(location, mods)
         junk_names, junk_weights = self._build_junk_weights()
 
+        # Compute expected rarity distribution from normalized weights
+        expected_rarity = {"common": 0.0, "uncommon": 0.0, "rare": 0.0, "legendary": 0.0}
+        total_weight = sum(fish_weights)
+        if total_weight > 0:
+            for name, weight in zip(fish_names, fish_weights):
+                rarity = self.data["fish"][name]["rarity"]
+                expected_rarity[rarity] += (weight / total_weight) * 100
+
         total_attempts = duration_hours * catches_per_hour
         bait_cost_per = self.data["bait"][bait]["cost"]
 
@@ -231,6 +239,7 @@ class ProfitSimulator:
             "duration_hours": duration_hours,
             "catches_per_hour": catches_per_hour,
             "rarity_breakdown": rarity_counts,
+            "expected_rarity": expected_rarity,
             "bonus_catches": bonus_catches,
             "junk_caught": junk_caught,
             "junk_value": junk_value,

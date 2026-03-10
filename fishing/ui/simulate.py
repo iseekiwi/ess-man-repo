@@ -333,17 +333,21 @@ class SimulationMenuView(BaseView):
             inline=False
         )
 
-        # Rarity breakdown with distribution percentages
+        # Rarity distribution: expected vs actual
+        expected = r.get("expected_rarity", {})
         rarity_lines = []
         for rarity, count in r["rarity_breakdown"].items():
-            pct_of_fish = (count / total_fish * 100) if total_fish > 0 else 0
+            actual_pct = (count / total_fish * 100) if total_fish > 0 else 0
+            expect_pct = expected.get(rarity, 0)
+            diff = actual_pct - expect_pct
+            diff_str = f"{diff:+.1f}%" if diff != 0 else "0.0%"
             per_hour = count / r["duration_hours"] if r["duration_hours"] else 0
             rarity_lines.append(
-                f"{rarity.title()}: **{count:,}** ({pct_of_fish:.1f}%) "
-                f"| ~{per_hour:.0f}/hr"
+                f"{rarity.title()}: **{count:,}** (~{per_hour:.0f}/hr)\n"
+                f"  Expected: `{expect_pct:.1f}%` | Actual: `{actual_pct:.1f}%` | Diff: `{diff_str}`"
             )
         embed.add_field(
-            name="Rarity Distribution",
+            name="Rarity Distribution (Expected vs Actual)",
             value="\n".join(rarity_lines),
             inline=False
         )
