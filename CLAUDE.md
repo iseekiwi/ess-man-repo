@@ -24,7 +24,7 @@ Entry point: `__init__.py` calls `bot.add_cog(Fishing(bot))` loading the main `F
 - `ConfigManager` — wraps Red's `Config` API with caching (`_cache` dict), validation, and a transaction context manager (`config_transaction`). All data access goes through `ConfigResult` wrappers (success/data/error pattern). User data is validated and repaired on every read.
 - `InventoryManager` — handles adding/removing fish, bait, rods, and materials. Uses ConfigManager transactions.
 - `LevelManager` — **sole authority on leveling**. XP-threshold system with 99 levels (level 100 reserved for future cape item). Awards XP on catch based on fish rarity. Do not calculate levels elsewhere.
-- `TaskManager` — background asyncio tasks for hourly weather rotation and daily bait stock resets.
+- `TaskManager` — background asyncio tasks for weather rotation (duration varies per weather type via `duration_hours`, defaults to 1 hour) and daily bait stock resets.
 - `TimeoutManager` — singleton that manages Discord UI view timeouts with parent/child view hierarchies using weak references. Reset on cog unload.
 - `logging_config` — centralized logger factory via `get_logger(name)`. All modules log to a single `fishing.log` file. Singleton reset on cog unload.
 

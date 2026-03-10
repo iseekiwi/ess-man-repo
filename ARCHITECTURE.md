@@ -2,7 +2,7 @@
 
 > **Purpose**: This document is designed for AI agent consumption. It provides a comprehensive, structured reference of the entire Fishing cog codebase. All file paths, method signatures, data schemas, and inter-module relationships are documented for efficient parsing and code navigation.
 
-> **Last updated**: 2026-03-09
+> **Last updated**: 2026-03-10
 
 ---
 
@@ -158,7 +158,7 @@ Core catch calculation. Returns a dict with keys:
 - `"value"`: int -- coin value
 - `"xp_gained"`: int -- XP reward
 - `"type"`: `"fish"` or `"junk"`
-- `"bonus_catch"`: Optional[dict] -- if weather grants bonus catch (`{"name": str, "value": int}`)
+- `"bonus_catch"`: Optional[dict] -- if weather grants bonus catch (`{"name": str, "value": int, "xp_gained": int}`)
 
 **Catch logic flow**:
 1. Sum modifiers: rod chance + bait bonus + weather bonus (if location affected) + time bonus
@@ -631,7 +631,7 @@ Manages two background `asyncio.Task` instances:
 
 #### Tasks
 
-1. **`_weather_task`**: Every 3600 seconds (1 hour), randomly selects a weather type from `data["weather"]` keys and updates via `config.update_global_setting("current_weather", weather)`.
+1. **`_weather_task`**: Reads the current weather's `duration_hours` field (defaults to 1 hour), sleeps for that duration, then randomly selects a new weather type from `data["weather"]` keys and updates via `config.update_global_setting("current_weather", weather)`. This allows weather types like "School" to have custom durations.
 
 2. **`_stock_task`**: Calculates seconds until next midnight, sleeps until then, resets bait stock to `daily_stock` values from `data["bait"]` via `config.update_global_setting("bait_stock", new_stock)`.
 
@@ -1231,7 +1231,7 @@ This means the XP-based level from `LevelManager.award_xp()` may be overwritten 
   - Optional `time_multiplier` (additional bonus during specific times of day)
   - Optional `catch_quantity` (% chance for bonus catch of a second fish)
   - Optional `specific_rarity_bonus` (extra multiplier for specific rarities)
-  - Optional `duration_hours` (not actively used in rotation logic)
+  - Optional `duration_hours` (controls how long this weather lasts before rotation; defaults to 1 hour)
 
 ### 8.6 Time of Day
 

@@ -50,19 +50,28 @@ class TaskManager:
         self.logger.info("Task manager stopped")
         
     async def _weather_task(self):
-        """Weather change task with enhanced error handling"""
+        """Weather change task with duration_hours support"""
         while self._running:
             try:
-                await asyncio.sleep(3600)
+                # Check current weather's duration (default 1 hour)
+                current_result = await self.config.get_global_setting("current_weather")
+                current_weather = current_result.data if current_result.success else "Sunny"
+                weather_data = self.data["weather"].get(current_weather, {})
+                duration_hours = weather_data.get("duration_hours", 1)
+                sleep_seconds = duration_hours * 3600
+
+                self.logger.debug(f"Weather '{current_weather}' duration: {duration_hours}h ({sleep_seconds}s)")
+                await asyncio.sleep(sleep_seconds)
+
                 weather = random.choice(list(self.data["weather"].keys()))
                 await self.config.update_global_setting("current_weather", weather)
                 self.last_weather_change = datetime.datetime.now()
-                self.logger.debug(f"Weather changed to {weather}")
-                
+                self.logger.info(f"Weather changed to {weather}")
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                self.logger.error(f"Error in weather task: {e}")
+                self.logger.error(f"Error in weather task: {e}", exc_info=True)
                 await asyncio.sleep(60)
                 
     async def _stock_task(self):

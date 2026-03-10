@@ -339,10 +339,18 @@ class Fishing(commands.Cog):
                                 await self._add_to_inventory(user, bonus_catch)
                                 self.logger.debug(f"Bonus fish caught: {bonus_catch}")
 
+                                # Award XP for bonus fish
+                                bonus_xp = self.level_manager.calculate_xp_reward(
+                                    bonus_fish_data["rarity"],
+                                    location_mods[bonus_catch]
+                                )
+                                result["xp_gained"] += bonus_xp
+
                                 # Add bonus catch info to result
                                 result["bonus_catch"] = {
                                     "name": bonus_catch,
-                                    "value": bonus_fish_data["value"]
+                                    "value": bonus_fish_data["value"],
+                                    "xp_gained": bonus_xp
                                 }
                     
                     return result

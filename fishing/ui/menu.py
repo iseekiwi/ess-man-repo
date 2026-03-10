@@ -395,10 +395,11 @@ class FishingMenuView(BaseView):
                 # Calculate time until next weather change
                 now = datetime.datetime.now()
                 last_change = self.cog.bg_task_manager.last_weather_change
+                duration_hours = weather_data.get("duration_hours", 1)
                 if last_change is None:
                     time_remaining = "Unknown"
                 else:
-                    next_change = last_change + datetime.timedelta(hours=1)
+                    next_change = last_change + datetime.timedelta(hours=duration_hours)
                     remaining = next_change - now
                     if remaining.total_seconds() <= 0:
                         time_remaining = "Soon"
