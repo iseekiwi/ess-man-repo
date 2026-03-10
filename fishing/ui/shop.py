@@ -464,9 +464,7 @@ class ShopView(BaseView):
             custom_id = interaction.data["custom_id"]
             
             if custom_id == "menu":
-                # Import here to avoid circular import
-                from .menu import FishingMenuView
-                menu_view = await FishingMenuView(self.cog, self.ctx, self.user_data).setup()
+                menu_view = await self.cog.create_menu(self.ctx, self.user_data)
                 embed = await menu_view.generate_embed()
                 await interaction.response.edit_message(embed=embed, view=menu_view)
                 menu_view.message = await interaction.original_response()

@@ -75,7 +75,7 @@ class BaseView(View):
             )
             await self.cleanup()
             await self.timeout_manager.remove_view(self)
-            
+
             # Disable all components
             for item in self.children:
                 item.disabled = True
@@ -84,9 +84,10 @@ class BaseView(View):
                     await self.message.edit(view=self)
                 except discord.NotFound:
                     pass
-                    
+
         except Exception as e:
             self.logger.error(f"Error in timeout handler: {e}")
+            self._release_session()  # ensure session is freed even if cleanup failed
 
     async def cleanup(self):
         """Clean up view resources and handle timeout hierarchy"""
@@ -94,23 +95,38 @@ class BaseView(View):
             self.logger.debug(f"Cleaning up view for {self.ctx.author.name}")
             for item in self.children:
                 item.disabled = True
-                
+
             # Update message if it exists
             if self.message:
                 try:
                     await self.message.edit(view=self)
                     # Remove from timeout manager
                     await self.timeout_manager.remove_view(self)
-                    
+
                     # Signal parent view if this was a child view
                     if hasattr(self, 'parent_menu_view'):
                         await self.timeout_manager.resume_parent_view(self)
                 except discord.NotFound:
                     pass
-                    
+
+            # Release active session if this view owns one
+            self._release_session()
+
             self.logger.debug(f"View cleanup completed for {self.ctx.author.name}")
         except Exception as e:
             self.logger.error(f"Error in cleanup: {e}")
+
+    def _release_session(self):
+        """Remove this view from the cog's active sessions if it owns the slot."""
+        try:
+            sessions = getattr(self.cog, '_active_sessions', None)
+            if sessions is not None:
+                user_id = self.ctx.author.id
+                if sessions.get(user_id) is self:
+                    sessions.pop(user_id, None)
+                    self.logger.debug(f"Released active session for {self.ctx.author.name}")
+        except Exception as e:
+            self.logger.error(f"Error releasing session: {e}")
 
     async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item):
         """Global error handler for view interactions"""

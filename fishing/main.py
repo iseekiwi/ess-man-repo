@@ -61,6 +61,9 @@ class Fishing(commands.Cog):
         # Initialize background tasks
         self.bg_task_manager = TaskManager(bot, self.config_manager, self.data)
 
+        # Track active fishing sessions per user (user_id -> view)
+        self._active_sessions = {}
+
     def get_time_of_day(self) -> str:
         """Get the current time of day for fishing effects"""
         hour = datetime.datetime.now().hour
@@ -77,6 +80,8 @@ class Fishing(commands.Cog):
         """Create and setup a new menu view"""
         from .ui.menu import FishingMenuView
         menu_view = await FishingMenuView(self, ctx, user_data).setup()
+        # Update active session to point to the new view
+        self._active_sessions[ctx.author.id] = menu_view
         return menu_view
     
     async def _ensure_user_data(self, user) -> dict:
@@ -164,22 +169,36 @@ class Fishing(commands.Cog):
         """Open the fishing menu interface"""
         try:
             self.logger.debug(f"Opening fishing menu for {ctx.author.name}")
-            
+
+            # Check for existing active session
+            user_id = ctx.author.id
+            existing = self._active_sessions.get(user_id)
+            if existing is not None:
+                await ctx.send(
+                    "You already have a fishing menu open! "
+                    "Please close it before starting a new one.",
+                    delete_after=5
+                )
+                return
+
             # Ensure user data is properly initialized
             user_data = await self._ensure_user_data(ctx.author)
             if not user_data:
                 await ctx.send("❌ Error initializing user data. Please try again.")
                 return
-            
+
             # Create and start the menu view
             try:
                 view = await FishingMenuView(self, ctx, user_data).setup()
+                self._active_sessions[user_id] = view
                 result = await view.start()
                 if not result:
                     self.logger.error(f"Failed to start menu view for {ctx.author.name}")
+                    self._active_sessions.pop(user_id, None)
                     return
             except Exception as e:
                 self.logger.error(f"Error creating menu view: {e}", exc_info=True)
+                self._active_sessions.pop(user_id, None)
                 await ctx.send("❌ Error displaying menu. Please try again.")
                 return
                 
