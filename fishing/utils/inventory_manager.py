@@ -46,7 +46,8 @@ class InventoryManager:
         type_mapping = {
             "fish": "fish",
             "bait": "bait",
-            "rod": "rods"
+            "rod": "rods",
+            "material": "materials"
         }
         
         if item_type not in type_mapping:
@@ -139,7 +140,24 @@ class InventoryManager:
                         if user_data.get("rod") == item_name:
                             updates["rod"] = "Basic Rod"
                     updates["purchased_rods"] = purchased_rods
-                
+
+                elif item_type == "material":
+                    materials = user_data.get("materials", {}).copy()
+                    current_amount = materials.get(item_name, 0)
+
+                    if operation == "add":
+                        new_amount = current_amount + amount
+                    else:  # remove
+                        if current_amount < amount:
+                            return False, "Not enough materials to remove"
+                        new_amount = current_amount - amount
+
+                    if new_amount <= 0:
+                        materials.pop(item_name, None)
+                    else:
+                        materials[item_name] = new_amount
+                    updates["materials"] = materials
+
                 # Store updates in transaction
                 transaction[f"user_{user_id}"] = updates
 
@@ -174,6 +192,9 @@ class InventoryManager:
             if item_type == "inventory":
                 if item_name not in self.data["fish"] and item_name not in self.data["junk"]:
                     return False, f"Invalid item: {item_name}"
+            elif item_type == "material":
+                if item_name not in self.data.get("materials", {}):
+                    return False, f"Invalid material: {item_name}"
             else:
                 valid, msg = await self._verify_item_validity(item_type, item_name)
                 if not valid:
@@ -208,7 +229,13 @@ class InventoryManager:
                     purchased_rods = user_data.get("purchased_rods", {"Basic Rod": True}).copy()
                     purchased_rods[item_name] = True
                     updates["purchased_rods"] = purchased_rods
-                
+
+                elif item_type == "material":
+                    materials = user_data.get("materials", {}).copy()
+                    current_amount = materials.get(item_name, 0)
+                    materials[item_name] = current_amount + amount
+                    updates["materials"] = materials
+
                 # Store updates in transaction
                 transaction[f"user_{user_id}"] = updates
                 self.logger.debug(f"Updates being applied: {updates}")

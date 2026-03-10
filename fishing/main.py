@@ -27,6 +27,7 @@ from .data.fishing_data import (
     WEATHER_TYPES,
     TIME_EFFECTS,
     JUNK_TYPES,
+    MATERIAL_TYPES,
 )
 
 class Fishing(commands.Cog):
@@ -54,6 +55,7 @@ class Fishing(commands.Cog):
             "time": TIME_EFFECTS,
             "junk": JUNK_TYPES,
             "gear": GEAR_TYPES,
+            "materials": MATERIAL_TYPES,
         }
         
         # Initialize inventory manager
@@ -591,6 +593,40 @@ class Fishing(commands.Cog):
         except Exception as e:
             self.logger.error(f"Error checking balance: {e}", exc_info=True)
             return False
+
+    def check_material_cost(self, user_data: dict, material_cost: dict) -> tuple[bool, str]:
+        """Check if user has required materials for a purchase.
+
+        Returns:
+            Tuple[bool, str]: (has_materials, error_message)
+        """
+        user_materials = user_data.get("materials", {})
+        missing = []
+        for mat_name, required in material_cost.items():
+            owned = user_materials.get(mat_name, 0)
+            if owned < required:
+                mat_info = MATERIAL_TYPES.get(mat_name, {})
+                emoji = mat_info.get("emoji", "")
+                missing.append(f"{emoji} {mat_name} ({owned}/{required})")
+        if missing:
+            return False, f"Missing materials: {', '.join(missing)}"
+        return True, ""
+
+    async def consume_materials(self, user_id: int, material_cost: dict) -> tuple[bool, str]:
+        """Consume required materials from user inventory.
+
+        Returns:
+            Tuple[bool, str]: (success, error_message)
+        """
+        try:
+            for mat_name, amount in material_cost.items():
+                success, msg = await self.inventory.remove_item(user_id, "material", mat_name, amount)
+                if not success:
+                    return False, f"Failed to consume {mat_name}: {msg}"
+            return True, ""
+        except Exception as e:
+            self.logger.error(f"Error consuming materials: {e}", exc_info=True)
+            return False, f"Error consuming materials: {e}"
 
     async def _equip_rod(self, user: discord.Member, rod_name: str) -> tuple[bool, str]:
         """Helper method to equip a fishing rod"""

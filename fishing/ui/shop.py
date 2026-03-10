@@ -9,7 +9,7 @@ from discord.ui import Button, Select
 from redbot.core import bank
 from .base import BaseView
 from ..utils.logging_config import get_logger
-from ..data.fishing_data import GEAR_TYPES
+from ..data.fishing_data import GEAR_TYPES, MATERIAL_TYPES
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .menu import FishingMenuView
@@ -369,6 +369,9 @@ class ShopView(BaseView):
                             if "inventory_capacity" in effects:
                                 bonus = effects["inventory_capacity"] - 5
                                 desc += f" | +{bonus} slots ({effects['inventory_capacity']} total)"
+                            if gear_data.get("material_cost"):
+                                mat_names = ", ".join(gear_data["material_cost"].keys())
+                                desc += f" | Needs: {mat_names}"
                             options.append(discord.SelectOption(
                                 label=gear_name,
                                 value=gear_name,
@@ -531,12 +534,28 @@ class ShopView(BaseView):
                         bonus = effects["inventory_capacity"] - 5
                         effect_text = f"📊 +{bonus} slots ({effects['inventory_capacity']} total)"
 
-                    categories_on_page[category].append(
-                        f"**{gear_name}**\n"
-                        f"{gear_data['description']}\n"
-                        f"{effect_text}\n"
-                        f"{status}"
-                    )
+                    # Material requirements display
+                    mat_text = ""
+                    mat_cost = gear_data.get("material_cost")
+                    if mat_cost and not owned:
+                        user_materials = self.user_data.get("materials", {})
+                        mat_parts = []
+                        for mat_name, qty in mat_cost.items():
+                            mat_info = MATERIAL_TYPES.get(mat_name, {})
+                            emoji = mat_info.get("emoji", "")
+                            owned_qty = user_materials.get(mat_name, 0)
+                            check = "✅" if owned_qty >= qty else "❌"
+                            mat_parts.append(f"{check} {emoji} {mat_name} ({owned_qty}/{qty})")
+                        mat_text = f"🧱 {', '.join(mat_parts)}"
+
+                    entry_lines = [f"**{gear_name}**", gear_data['description']]
+                    if effect_text:
+                        entry_lines.append(effect_text)
+                    if mat_text:
+                        entry_lines.append(mat_text)
+                    entry_lines.append(status)
+
+                    categories_on_page[category].append("\n".join(entry_lines))
 
                 for category, lines in categories_on_page.items():
                     icon = category_icons.get(category, "📦")
@@ -715,9 +734,31 @@ class ShopView(BaseView):
                 )
                 return
 
+            # Check material requirements
+            material_cost = gear_data.get("material_cost")
+            if material_cost:
+                has_mats, mat_msg = self.cog.check_material_cost(self.user_data, material_cost)
+                if not has_mats:
+                    await interaction.response.send_message(
+                        f"❌ {mat_msg}",
+                        ephemeral=True,
+                        delete_after=5
+                    )
+                    return
+
+            # Build confirmation message with material info
+            confirm_text = f"Confirm purchase of **{gear_name}** for {cost} coins?"
+            if material_cost:
+                mat_parts = []
+                for mat_name, qty in material_cost.items():
+                    mat_info = MATERIAL_TYPES.get(mat_name, {})
+                    emoji = mat_info.get("emoji", "")
+                    mat_parts.append(f"{emoji} {qty}x {mat_name}")
+                confirm_text += f"\nMaterials consumed: {', '.join(mat_parts)}"
+
             confirm_view = PurchaseConfirmView(self.cog, self.ctx, gear_name, 1, cost)
             await interaction.response.send_message(
-                f"Confirm purchase of **{gear_name}** for {cost} coins?",
+                confirm_text,
                 view=confirm_view,
                 ephemeral=True
             )
@@ -761,6 +802,13 @@ class ShopView(BaseView):
         """Process a gear purchase"""
         try:
             cost = gear_data["cost"]
+            material_cost = gear_data.get("material_cost")
+
+            # Consume materials first (if required)
+            if material_cost:
+                success, msg = await self.cog.consume_materials(user.id, material_cost)
+                if not success:
+                    return False, f"❌ {msg}"
 
             try:
                 await bank.withdraw_credits(user, cost)
@@ -768,16 +816,29 @@ class ShopView(BaseView):
                 self.logger.error(f"Error withdrawing credits for gear: {e}")
                 return False, f"❌ Failed to process payment: {e}"
 
-            async with self.cog.config_manager.config_transaction(user.id) as user_data:
-                purchased_gear = user_data.get("purchased_gear", [])
-                purchased_gear.append(gear_name)
-                user_data["purchased_gear"] = purchased_gear
+            # Update user data: add gear + apply effects
+            result = await self.cog.config_manager.get_user_data(user.id)
+            if not result.success:
+                return False, "❌ Failed to get user data."
 
-                effects = gear_data.get("effect", {})
-                if "inventory_capacity" in effects:
-                    user_data["inventory_capacity"] = effects["inventory_capacity"]
+            user_data = result.data
+            purchased_gear = user_data.get("purchased_gear", [])
+            purchased_gear.append(gear_name)
+
+            updates = {"purchased_gear": purchased_gear}
+            fields = ["purchased_gear"]
 
             effects = gear_data.get("effect", {})
+            if "inventory_capacity" in effects:
+                updates["inventory_capacity"] = effects["inventory_capacity"]
+                fields.append("inventory_capacity")
+
+            update_result = await self.cog.config_manager.update_user_data(
+                user.id, updates, fields=fields
+            )
+            if not update_result.success:
+                return False, "❌ Failed to save purchase."
+
             if "inventory_capacity" in effects:
                 return True, f"✅ Purchased **{gear_name}**! Inventory capacity is now **{effects['inventory_capacity']}**."
             return True, f"✅ Purchased **{gear_name}**! {gear_data['description']}"

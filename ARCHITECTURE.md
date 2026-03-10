@@ -216,6 +216,16 @@ async def check_requirements(self, user_data: dict, requirements: dict) -> tuple
 ```
 Checks if user meets level requirement from a requirements dict.
 
+```python
+def check_material_cost(self, user_data: dict, material_cost: dict) -> tuple[bool, str]
+```
+Checks if user has required materials. Returns `(True, "")` or `(False, "Missing materials: ...")`.
+
+```python
+async def consume_materials(self, user_id: int, material_cost: dict) -> tuple[bool, str]
+```
+Removes required materials from user inventory via `InventoryManager.remove_item()`.
+
 #### Bot Commands
 
 | Command | Access | Description |
@@ -337,6 +347,18 @@ class TimeData(TypedDict):
 
 **`WEATHER_TYPES`** (15 entries): Sunny, Rainy, Stormy, Foggy, Windy, Clear, Overcast, Heat Wave, Full Moon, Migration, Drought, Red Tide, Spring Flood, Aurora, School. Each has `catch_bonus`, `rare_bonus`, `affects_locations`, and optional `location_bonus`, `time_multiplier`, `catch_quantity`, `specific_rarity_bonus`, `duration_hours`.
 
+**`MATERIAL_TYPES`** (5 entries): Rare drop materials used as crafting requirements for gear upgrades.
+
+| Name | Rarity | Emoji | Used By |
+|------|--------|-------|---------|
+| Iron Hinge | uncommon | 🔩 | Medium Chest |
+| Steel Hinge | rare | ⚙️ | Large Chest |
+| Magic Scale | rare | ✨ | Almost Bottomless Bucket |
+| Magic Fish | legendary | 🐠 | Nearly Bottomless Bucket |
+| Void Scale | legendary | 🕳️ | Void Satchel of Hell |
+
+Any purchasable item can have an optional `material_cost: Dict[str, int]` field. Materials are stored in `user_data["materials"]` as `Dict[str, int]`. The system is universal — not limited to gear.
+
 **`TIME_EFFECTS`** (4 entries): Dawn (+15% catch, +5% rare), Day (0%), Dusk (+15% catch, +5% rare), Night (-10% catch, +20% rare).
 
 #### Default Data Schemas
@@ -354,10 +376,11 @@ class TimeData(TypedDict):
     "current_location": "Pond",  # str - current fishing location
     "fish_caught": 0,            # int - lifetime fish count
     "junk_caught": 0,            # int - lifetime junk count
-    "level": 1,                  # int - current level (1-20)
+    "level": 1,                  # int - current level (1-99)
     "experience": 0,             # int - total XP
     "inventory_capacity": 5,     # int - max fish+junk slots (upgradeable via gear)
     "purchased_gear": [],        # list - names of purchased gear items
+    "materials": {},             # Dict[str, int] - material_name -> quantity (rare drops for gear upgrades)
     "settings": {
         "notifications": True,   # Not implemented
         "auto_sell": False       # Not implemented
@@ -502,6 +525,7 @@ Adds items. `item_type` can be:
 - `"inventory"` -- adds to the inventory list (fish or junk names); validates against both `data["fish"]` and `data["junk"]`
 - `"bait"` -- adds to the bait dict, incrementing quantity
 - `"rod"` -- adds to purchased_rods dict
+- `"material"` -- adds to the materials dict, incrementing quantity; validates against `data["materials"]`
 
 Uses `config_transaction()` and verifies the write.
 
@@ -1395,6 +1419,8 @@ async def _equip_rod(self, user, rod_name) -> tuple[bool, str]
 async def _equip_bait(self, user, bait_name) -> tuple[bool, str]
 async def sell_fish(self, ctx) -> tuple[bool, int, str]
 async def check_requirements(self, user_data, requirements) -> tuple[bool, str]
+def check_material_cost(self, user_data, material_cost) -> tuple[bool, str]
+async def consume_materials(self, user_id, material_cost) -> tuple[bool, str]
 ```
 
 ### BaseView

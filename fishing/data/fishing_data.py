@@ -23,6 +23,11 @@ class BaitData(TypedDict):
     effectiveness: Dict[str, float]
     requirements: Union[None, Dict[str, int]]
 
+class MaterialData(TypedDict):
+    description: str
+    rarity: Literal["common", "uncommon", "rare", "legendary"]
+    emoji: str
+
 class LocationData(TypedDict):
     description: str
     fish_modifiers: Dict[str, float]
@@ -462,6 +467,35 @@ TIME_EFFECTS: Dict[str, TimeData] = {
     }
 }
 
+# Material types — rare drops used as crafting requirements for gear upgrades
+MATERIAL_TYPES = {
+    "Iron Hinge": {
+        "description": "A sturdy iron hinge, salvaged from the depths.",
+        "rarity": "uncommon",
+        "emoji": "🔩",
+    },
+    "Steel Hinge": {
+        "description": "A reinforced steel hinge forged with care.",
+        "rarity": "rare",
+        "emoji": "⚙️",
+    },
+    "Magic Scale": {
+        "description": "A shimmering scale pulsing with arcane energy.",
+        "rarity": "rare",
+        "emoji": "✨",
+    },
+    "Magic Fish": {
+        "description": "A tiny enchanted fish that glows faintly.",
+        "rarity": "legendary",
+        "emoji": "🐠",
+    },
+    "Void Scale": {
+        "description": "A scale from something that should not exist.",
+        "rarity": "legendary",
+        "emoji": "🕳️",
+    },
+}
+
 DEFAULT_INVENTORY_CAPACITY = 5
 
 # Gear types - organized by category
@@ -520,6 +554,7 @@ GEAR_TYPES = {
             "description": "A proper storage chest with brass fittings.",
             "effect": {"inventory_capacity": 27},
             "requirements": {"level": 47},
+            "material_cost": {"Iron Hinge": 1},
         },
         "Fishing Barrel": {
             "cost": 10000,
@@ -532,6 +567,7 @@ GEAR_TYPES = {
             "description": "A heavy chest that takes two hands to carry.",
             "effect": {"inventory_capacity": 43},
             "requirements": {"level": 73},
+            "material_cost": {"Steel Hinge": 1},
         },
         "Magic Fanny Pack": {
             "cost": 25000,
@@ -544,6 +580,7 @@ GEAR_TYPES = {
             "description": "You can't quite see the bottom. Almost.",
             "effect": {"inventory_capacity": 70},
             "requirements": {"level": 85},
+            "material_cost": {"Magic Scale": 1},
         },
         "Magic Satchel": {
             "cost": 60000,
@@ -556,12 +593,14 @@ GEAR_TYPES = {
             "description": "Seriously, where does it all go?",
             "effect": {"inventory_capacity": 100},
             "requirements": {"level": 99},
+            "material_cost": {"Magic Fish": 1},
         },
         "Void Satchel of Hell": {
             "cost": 150000,
             "description": "Forged in the abyss. Holds everything. Smells faintly of brimstone.",
             "effect": {"inventory_capacity": 200},
             "requirements": {"level": 100},
+            "material_cost": {"Void Scale": 1},
         },
     },
     "Gear": {},
@@ -584,6 +623,7 @@ DEFAULT_USER_DATA = {
     "experience": 0,
     "inventory_capacity": DEFAULT_INVENTORY_CAPACITY,
     "purchased_gear": [],
+    "materials": {},
     "settings": {
         "notifications": True,
         "auto_sell": False

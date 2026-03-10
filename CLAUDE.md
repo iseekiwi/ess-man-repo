@@ -15,14 +15,14 @@ The cog is installed into a Red-DiscordBot instance via `[p]cog install` and loa
 Entry point: `__init__.py` calls `bot.add_cog(Fishing(bot))` loading the main `Fishing` class from `main.py`.
 
 **Data layer** (`data/fishing_data.py`):
-- All game constants: `FISH_TYPES`, `JUNK_TYPES`, `ROD_TYPES`, `BAIT_TYPES`, `GEAR_TYPES`, `LOCATIONS`, `WEATHER_TYPES`, `TIME_EFFECTS`
+- All game constants: `FISH_TYPES`, `JUNK_TYPES`, `ROD_TYPES`, `BAIT_TYPES`, `GEAR_TYPES`, `MATERIAL_TYPES`, `LOCATIONS`, `WEATHER_TYPES`, `TIME_EFFECTS`
 - `DEFAULT_USER_DATA` and `DEFAULT_GLOBAL_SETTINGS` — canonical schema for per-user and global config
 - Uses TypedDict classes for type hints on data structures
 - Items have a rarity system (common/uncommon/rare/legendary) with probability-based catch chances
 
 **Utils layer** (`utils/`):
 - `ConfigManager` — wraps Red's `Config` API with caching (`_cache` dict), validation, and a transaction context manager (`config_transaction`). All data access goes through `ConfigResult` wrappers (success/data/error pattern). User data is validated and repaired on every read.
-- `InventoryManager` — handles adding/removing fish, bait, and rods. Uses ConfigManager transactions.
+- `InventoryManager` — handles adding/removing fish, bait, rods, and materials. Uses ConfigManager transactions.
 - `LevelManager` — **sole authority on leveling**. XP-threshold system with 99 levels (level 100 reserved for future cape item). Awards XP on catch based on fish rarity. Do not calculate levels elsewhere.
 - `TaskManager` — background asyncio tasks for hourly weather rotation and daily bait stock resets.
 - `TimeoutManager` — singleton that manages Discord UI view timeouts with parent/child view hierarchies using weak references. Reset on cog unload.
@@ -49,6 +49,7 @@ Entry point: `__init__.py` calls `bot.add_cog(Fishing(bot))` loading the main `F
 - **Redbot conventions**: Uses `redbot.core.Config` for persistence, `redbot.core.bank` for currency, `redbot.core.commands` for command decorators. Config identifier is `123456789`.
 - **Inventory capacity**: Fish/junk inventory is capped at `inventory_capacity` (default 5, upgradeable via gear purchases). When full, fishing is blocked — the player must sell items first. The check happens in `do_fishing` before casting. Gear items in the "Inventory" category (Fish Basket I–IV) add slots.
 - **Gear system**: `GEAR_TYPES` in `fishing_data.py` defines purchasable gear across 3 categories: Inventory, Gear, and Tools. Inventory items (16 tiers, Fanny Pack through Void Satchel of Hell) each SET total capacity (not additive) — buying a higher tier replaces the previous tier's bonus. Purchased gear is tracked in `user_data["purchased_gear"]` (list of names). Effects are applied at purchase time. Level requirements gate availability (levels span 1–99, with 100 for special items).
+- **Materials system**: `MATERIAL_TYPES` defines rare drop materials (Iron Hinge, Steel Hinge, Magic Scale, Magic Fish, Void Scale). Any purchasable item can have an optional `material_cost: Dict[str, int]` field requiring materials to purchase. Materials are stored in `user_data["materials"]` as `Dict[str, int]`. `Fishing.check_material_cost()` validates ownership; `Fishing.consume_materials()` removes them via `InventoryManager`. Currently 5 gear items require materials. The system is universal — rods, bait, or future item types can use `material_cost` too.
 - **Data refresh**: After writes, invalidate cache then read once — do not triple-read or verify-after-every-write.
 - **Bait effectiveness**: `_catch_fish` multiplies `catch_bonus` by the bait's location-specific `effectiveness` value (defaults to 1.0). This makes bait choice location-dependent — baits are profitable at intended locations but break-even/loss elsewhere. Fish values: Common=10, Uncommon=25, Rare=65, Legendary=200.
 - **Simulation**: `ProfitSimulator.analyze_full_setup()` mirrors `_catch_fish` logic exactly. When catch logic changes, update the simulator to match. The `[p]simulate` command opens an interactive menu — it no longer uses subcommands. The simulator assumes perfect player input (no button-press misses). "Nothing caught" in results is pure RNG (25% of failed fish rolls produce nothing, matching the 75% junk fallback in `_catch_fish`).

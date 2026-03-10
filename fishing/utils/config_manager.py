@@ -210,6 +210,17 @@ class ConfigManager:
                 purchased_gear = []
             validated["purchased_gear"] = purchased_gear
 
+            # Validate materials dictionary
+            if not isinstance(data.get("materials", {}), dict):
+                self.logger.warning("Invalid materials format, resetting to default")
+                validated["materials"] = {}
+            else:
+                validated["materials"] = {
+                    str(k): int(v)
+                    for k, v in data.get("materials", {}).items()
+                    if isinstance(v, (int, float)) and v > 0
+                }
+
             # Validate string fields with defaults
             validated["rod"] = str(data.get("rod", "Basic Rod"))
             validated["current_location"] = str(data.get("current_location", "Pond"))
