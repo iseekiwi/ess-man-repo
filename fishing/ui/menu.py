@@ -28,6 +28,7 @@ class FishingMenuView(BaseView):
         self.stored_buttons = []
         self.correct_action = None
         self._catch_event = asyncio.Event()
+        self._catch_processed = asyncio.Event()
         self._stop_fishing_event = asyncio.Event()
         
     async def setup(self):
@@ -684,6 +685,7 @@ class FishingMenuView(BaseView):
 
                 # Wait for catch attempt or timeout
                 self._catch_event.clear()
+                self._catch_processed.clear()
                 try:
                     await asyncio.wait_for(self._catch_event.wait(), timeout=5.0)
                 except asyncio.TimeoutError:
@@ -704,11 +706,13 @@ class FishingMenuView(BaseView):
                     await self._return_to_menu(interaction)
                     return
 
-                # The catch result is handled by handle_catch_attempt which
-                # sets self._catch_result. If fishing should stop (bait ran
-                # out, inventory full, error), it sets fishing_in_progress=False.
-                # Show the result briefly, then loop continues.
+                # Wait for handle_catch_attempt to finish processing
+                try:
+                    await asyncio.wait_for(self._catch_processed.wait(), timeout=10.0)
+                except asyncio.TimeoutError:
+                    self.logger.error("Catch processing timed out")
 
+                # Show the result embed
                 if hasattr(self, '_catch_result_embed') and self._catch_result_embed:
                     self.clear_items()
                     await self.message.edit(embed=self._catch_result_embed, view=self)
@@ -914,7 +918,9 @@ class FishingMenuView(BaseView):
                 color=discord.Color.red()
             )
             self.fishing_in_progress = False
-    
+        finally:
+            self._catch_processed.set()
+
     async def handle_location_select(self, interaction: discord.Interaction):
         """Handle location selection button interactions"""
         try:
