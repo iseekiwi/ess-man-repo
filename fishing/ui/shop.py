@@ -481,7 +481,8 @@ class ShopView(BaseView):
 
             elif self.current_page == "bait":
                 embed.title = "🪱 Bait Shop"
-                bait_list = []
+                normal_list = []
+                specialist_list = []
                 user_level = self.user_data.get("level", 1)
 
                 for bait_name, bait_data in self.cog.data["bait"].items():
@@ -516,9 +517,18 @@ class ShopView(BaseView):
                         f"{stats}\n"
                         f"{status}\n"
                     )
-                    bait_list.append(bait_entry)
 
-                embed.description = "\n".join(bait_list) if bait_list else "No bait available!"
+                    if bait_data.get("preferred_by"):
+                        specialist_list.append(bait_entry)
+                    else:
+                        normal_list.append(bait_entry)
+
+                sections = []
+                if normal_list:
+                    sections.append("**── Normal ──**\n" + "\n".join(normal_list))
+                if specialist_list:
+                    sections.append("**── Specialized ──**\n" + "\n".join(specialist_list))
+                embed.description = "\n".join(sections) if sections else "No bait available!"
 
             elif self.current_page == "gear":
                 purchased_gear = self.user_data.get("purchased_gear", [])
