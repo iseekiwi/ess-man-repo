@@ -165,6 +165,7 @@ BAIT_TYPES = {
         "preferred_by": [],
         "effectiveness": {
             "Pond": 1.2,
+            "Shallow Creek": 1.1,
             "River": 0.8,
             "Lake": 1.0
         },
@@ -179,7 +180,9 @@ BAIT_TYPES = {
         "preferred_by": [],
         "effectiveness": {
             "Pond": 1.4,
+            "Shallow Creek": 1.3,
             "River": 1.2,
+            "Marshlands": 1.1,
             "Lake": 1.3,
             "Ocean": 0.7
         },
@@ -196,8 +199,11 @@ BAIT_TYPES = {
         "preferred_by": [],
         "effectiveness": {
             "Pond": 1.2,
+            "Shallow Creek": 1.0,
             "River": 1.2,
+            "Marshlands": 1.1,
             "Lake": 1.2,
+            "Coral Reef": 1.0,
             "Ocean": 1.0,
             "Deep Sea": 1.0
         },
@@ -214,9 +220,13 @@ BAIT_TYPES = {
         "preferred_by": [],
         "effectiveness": {
             "Pond": 0.5,
+            "Shallow Creek": 0.4,
             "River": 0.6,
+            "Marshlands": 0.5,
             "Lake": 0.8,
+            "Coral Reef": 1.4,
             "Ocean": 1.6,
+            "Abyssal Trench": 1.5,
             "Deep Sea": 1.5
         },
         "requirements": {
@@ -232,9 +242,13 @@ BAIT_TYPES = {
         "preferred_by": [],
         "effectiveness": {
             "Pond": 1.3,
+            "Shallow Creek": 1.3,
             "River": 1.3,
+            "Marshlands": 1.3,
             "Lake": 1.3,
+            "Coral Reef": 1.3,
             "Ocean": 1.3,
+            "Abyssal Trench": 1.3,
             "Deep Sea": 1.3
         },
         "requirements": {
@@ -252,7 +266,9 @@ BAIT_TYPES = {
         "preference_bonus": 2.0,
         "effectiveness": {
             "Pond": 1.3,
+            "Shallow Creek": 1.5,
             "River": 1.1,
+            "Marshlands": 0.8,
             "Lake": 1.0,
             "Ocean": 0.8
         },
@@ -270,8 +286,11 @@ BAIT_TYPES = {
         "preference_bonus": 2.0,
         "effectiveness": {
             "Pond": 1.0,
+            "Shallow Creek": 0.8,
             "River": 1.4,
+            "Marshlands": 1.5,
             "Lake": 1.5,
+            "Coral Reef": 0.9,
             "Ocean": 1.0
         },
         "requirements": {
@@ -289,8 +308,11 @@ BAIT_TYPES = {
         "effectiveness": {
             "Pond": 0.6,
             "River": 0.8,
+            "Marshlands": 0.7,
             "Lake": 1.2,
+            "Coral Reef": 1.5,
             "Ocean": 1.5,
+            "Abyssal Trench": 1.2,
             "Deep Sea": 1.4
         },
         "requirements": {
@@ -308,8 +330,11 @@ BAIT_TYPES = {
         "effectiveness": {
             "Pond": 0.7,
             "River": 0.8,
+            "Marshlands": 0.6,
             "Lake": 1.2,
+            "Coral Reef": 1.1,
             "Ocean": 1.4,
+            "Abyssal Trench": 1.8,
             "Deep Sea": 1.8
         },
         "requirements": {
@@ -319,6 +344,7 @@ BAIT_TYPES = {
 }
 
 LOCATIONS = {
+    # --- General locations: balanced modifiers, progressively better ---
     "Pond": {
         "description": "A peaceful freshwater pond.",
         "fish_modifiers": {
@@ -334,54 +360,107 @@ LOCATIONS = {
         "description": "Fast-flowing waters with active fish.",
         "fish_modifiers": {
             "Common Fish": 1.0,
-            "Uncommon Fish": 1.2,
-            "Rare Fish": 0.9,
-            "Legendary Fish": 0.6
+            "Uncommon Fish": 1.1,
+            "Rare Fish": 0.8,
+            "Legendary Fish": 0.5
         },
         "weather_effects": True,
         "requirements": {
-            "level": 5
+            "level": 10
         }
     },
     "Lake": {
         "description": "Deep, calm waters with diverse species.",
         "fish_modifiers": {
-            "Common Fish": 0.8,
+            "Common Fish": 0.9,
             "Uncommon Fish": 1.1,
-            "Rare Fish": 1.2,
-            "Legendary Fish": 0.8
+            "Rare Fish": 1.0,
+            "Legendary Fish": 0.7
         },
         "weather_effects": True,
         "requirements": {
-            "level": 8
+            "level": 25
         }
     },
     "Ocean": {
         "description": "Vast open waters with diverse fish.",
         "fish_modifiers": {
-            "Common Fish": 0.6,
+            "Common Fish": 0.8,
             "Uncommon Fish": 1.0,
-            "Rare Fish": 1.4,
-            "Legendary Fish": 1.2
+            "Rare Fish": 1.1,
+            "Legendary Fish": 0.9
+        },
+        "weather_effects": True,
+        "requirements": {
+            "level": 45
+        }
+    },
+    "Deep Sea": {
+        "description": "Mysterious deep waters — the best all-around fishing spot.",
+        "fish_modifiers": {
+            "Common Fish": 0.7,
+            "Uncommon Fish": 1.0,
+            "Rare Fish": 1.2,
+            "Legendary Fish": 1.1
+        },
+        "weather_effects": True,
+        "requirements": {
+            "level": 60
+        }
+    },
+    # --- Specialist locations: heavily favor one rarity, penalize others ---
+    "Shallow Creek": {
+        "description": "A quiet, shallow creek teeming with common fish.",
+        "fish_modifiers": {
+            "Common Fish": 1.8,
+            "Uncommon Fish": 0.6,
+            "Rare Fish": 0.3,
+            "Legendary Fish": 0.1
+        },
+        "weather_effects": True,
+        "requirements": {
+            "level": 3
+        }
+    },
+    "Marshlands": {
+        "description": "Murky wetlands where uncommon species thrive.",
+        "fish_modifiers": {
+            "Common Fish": 0.7,
+            "Uncommon Fish": 1.8,
+            "Rare Fish": 0.5,
+            "Legendary Fish": 0.2
         },
         "weather_effects": True,
         "requirements": {
             "level": 12
         }
     },
-    "Deep Sea": {
-        "description": "Mysterious deep waters with rare catches.",
+    "Coral Reef": {
+        "description": "Vibrant reef waters hiding rare and exotic fish.",
         "fish_modifiers": {
-            "Common Fish": 0.4,
-            "Uncommon Fish": 0.8,
-            "Rare Fish": 1.6,
+            "Common Fish": 0.5,
+            "Uncommon Fish": 0.7,
+            "Rare Fish": 1.8,
+            "Legendary Fish": 0.4
+        },
+        "weather_effects": True,
+        "requirements": {
+            "level": 30
+        }
+    },
+    "Abyssal Trench": {
+        "description": "The deepest waters where legendary creatures lurk.",
+        "fish_modifiers": {
+            "Common Fish": 0.3,
+            "Uncommon Fish": 0.5,
+            "Rare Fish": 0.8,
             "Legendary Fish": 2.0
         },
         "weather_effects": True,
         "requirements": {
-            "level": 18
+            "level": 55
         }
-    }
+    },
 }
 
 # Weather effects on fishing
@@ -389,59 +468,60 @@ WEATHER_TYPES = {
     "Sunny": {
         "catch_bonus": 0.1,
         "description": "Perfect weather for fishing!",
-        "affects_locations": ["Pond", "River", "Lake", "Ocean"],
+        "affects_locations": ["Pond", "Shallow Creek", "River", "Marshlands", "Lake", "Ocean"],
         "rare_bonus": 0.0
     },
     "Rainy": {
         "catch_bonus": 0.2,
         "description": "Fish are more active in the rain.",
-        "affects_locations": ["Pond", "River", "Lake", "Ocean", "Deep Sea"],
+        "affects_locations": ["Pond", "Shallow Creek", "River", "Marshlands", "Lake", "Coral Reef", "Ocean", "Abyssal Trench", "Deep Sea"],
         "rare_bonus": 0.1
     },
     "Stormy": {
         "catch_bonus": -0.15,
         "description": "Dangerous conditions, but rare fish are about!",
-        "affects_locations": ["Ocean", "Deep Sea"],
+        "affects_locations": ["Ocean", "Coral Reef", "Abyssal Trench", "Deep Sea"],
         "rare_bonus": 0.25
     },
     "Foggy": {
         "catch_bonus": 0.05,
         "description": "Mysterious conditions that bring unique opportunities.",
-        "affects_locations": ["Pond", "Lake", "Deep Sea"],
+        "affects_locations": ["Pond", "Marshlands", "Lake", "Abyssal Trench", "Deep Sea"],
         "rare_bonus": 0.15
     },
     "Windy": {
         "catch_bonus": -0.05,
         "description": "Strong winds make fishing challenging but rewarding.",
-        "affects_locations": ["River", "Ocean", "Deep Sea"],
+        "affects_locations": ["River", "Ocean", "Coral Reef", "Abyssal Trench", "Deep Sea"],
         "rare_bonus": 0.2
     },
     "Clear": {
         "catch_bonus": 0.15,
         "description": "Crystal clear waters improve visibility.",
-        "affects_locations": ["Pond", "River", "Lake"],
+        "affects_locations": ["Pond", "Shallow Creek", "River", "Lake", "Coral Reef"],
         "rare_bonus": -0.05
     },
     "Overcast": {
         "catch_bonus": 0.1,
         "description": "Dim conditions make fish less cautious.",
-        "affects_locations": ["Pond", "River", "Lake", "Ocean"],
+        "affects_locations": ["Pond", "Shallow Creek", "River", "Marshlands", "Lake", "Ocean"],
         "rare_bonus": 0.1
     },
     "Heat Wave": {
         "catch_bonus": -0.1,
         "description": "Extreme heat makes fish sluggish but they gather in deeper waters.",
-        "affects_locations": ["Lake", "Deep Sea"],
+        "affects_locations": ["Lake", "Abyssal Trench", "Deep Sea"],
         "rare_bonus": 0.2,
         "location_bonus": {
             "Deep Sea": 0.3,
+            "Abyssal Trench": 0.25,
             "Lake": 0.15
         }
     },
     "Full Moon": {
         "catch_bonus": 0.2,
         "description": "Moonlight brings out nocturnal species.",
-        "affects_locations": ["Ocean", "Deep Sea", "Lake"],
+        "affects_locations": ["Ocean", "Abyssal Trench", "Deep Sea", "Lake", "Marshlands"],
         "rare_bonus": 0.15,
         "time_multiplier": {
             "Night": 0.3  # Additional bonus at night
@@ -450,14 +530,14 @@ WEATHER_TYPES = {
     "Migration": {
         "catch_bonus": 0.25,
         "description": "Schools of fish are migrating through the area!",
-        "affects_locations": ["River", "Ocean"],
+        "affects_locations": ["River", "Marshlands", "Ocean", "Coral Reef"],
         "rare_bonus": 0.1,
         "catch_quantity": 0.2  # 20% chance to catch additional fish
     },
     "Drought": {
         "catch_bonus": -0.2,
         "description": "Low water levels concentrate fish but make them cautious.",
-        "affects_locations": ["Pond", "River"],
+        "affects_locations": ["Pond", "Shallow Creek", "River", "Marshlands"],
         "rare_bonus": 0.3,
         "specific_rarity_bonus": {
             "Legendary Fish": 0.4  # Extra bonus for legendary fish
@@ -466,7 +546,7 @@ WEATHER_TYPES = {
     "Red Tide": {
         "catch_bonus": -0.15,
         "description": "Algal bloom brings unusual deep-sea creatures to the surface.",
-        "affects_locations": ["Ocean", "Deep Sea"],
+        "affects_locations": ["Ocean", "Coral Reef", "Abyssal Trench", "Deep Sea"],
         "rare_bonus": 0.35,
         "specific_rarity_bonus": {
             "Rare Fish": 0.2,
@@ -476,16 +556,17 @@ WEATHER_TYPES = {
     "Spring Flood": {
         "catch_bonus": 0.1,
         "description": "High waters bring fish upstream and increase activity.",
-        "affects_locations": ["River", "Lake"],
+        "affects_locations": ["River", "Shallow Creek", "Marshlands", "Lake"],
         "rare_bonus": 0.15,
         "location_bonus": {
-            "River": 0.25
+            "River": 0.25,
+            "Marshlands": 0.15
         }
     },
     "Aurora": {
         "catch_bonus": 0.15,
         "description": "The mystical lights seem to affect fish behavior.",
-        "affects_locations": ["Lake", "Deep Sea"],
+        "affects_locations": ["Lake", "Abyssal Trench", "Deep Sea"],
         "rare_bonus": 0.2,
         "time_multiplier": {
             "Night": 0.25,
@@ -495,7 +576,7 @@ WEATHER_TYPES = {
     "School": {
         "catch_bonus": 0.3,
         "description": "A large school of fish is passing through!",
-        "affects_locations": ["Ocean", "Deep Sea", "River"],
+        "affects_locations": ["Ocean", "Coral Reef", "Deep Sea", "River"],
         "rare_bonus": 0.0,
         "duration_hours": 1,  # Special short duration weather
         "catch_quantity": 0.3  # 30% chance to catch additional fish

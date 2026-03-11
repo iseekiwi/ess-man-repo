@@ -358,6 +358,10 @@ class FishingMenuView(BaseView):
                     color=discord.Color.blue()
                 )
 
+                specialist_names = {"Shallow Creek", "Marshlands", "Coral Reef", "Abyssal Trench"}
+                normal_locations = []
+                specialist_locations = []
+
                 for loc_name, loc_data in self.cog.data["locations"].items():
                     requirements = loc_data.get("requirements", {})
                     is_locked = False
@@ -377,15 +381,37 @@ class FishingMenuView(BaseView):
                     if requirements:
                         req_text = f"\n**Requirements**\n• Level {requirements.get('level', 1)}"
 
-                    embed.add_field(
-                        name=f"{loc_name} ({status})",
-                        value=(
-                            f"{loc_data['description']}\n\n"
-                            f"**Location Effects**\n{chr(10).join(modifier_text)}"
-                            f"{req_text}"
-                        ),
-                        inline=False
-                    )
+                    field_data = (loc_name, status, loc_data, modifier_text, req_text)
+                    if loc_name in specialist_names:
+                        specialist_locations.append(field_data)
+                    else:
+                        normal_locations.append(field_data)
+
+                if normal_locations:
+                    embed.add_field(name="── Normal ──", value="\u200b", inline=False)
+                    for loc_name, status, loc_data, modifier_text, req_text in normal_locations:
+                        embed.add_field(
+                            name=f"{loc_name} ({status})",
+                            value=(
+                                f"{loc_data['description']}\n\n"
+                                f"**Location Effects**\n{chr(10).join(modifier_text)}"
+                                f"{req_text}"
+                            ),
+                            inline=False
+                        )
+
+                if specialist_locations:
+                    embed.add_field(name="── Specialized ──", value="\u200b", inline=False)
+                    for loc_name, status, loc_data, modifier_text, req_text in specialist_locations:
+                        embed.add_field(
+                            name=f"{loc_name} ({status})",
+                            value=(
+                                f"{loc_data['description']}\n\n"
+                                f"**Location Effects**\n{chr(10).join(modifier_text)}"
+                                f"{req_text}"
+                            ),
+                            inline=False
+                        )
 
             elif self.current_page == "weather":
                 weather_result = await self.cog.config_manager.get_global_setting("current_weather")

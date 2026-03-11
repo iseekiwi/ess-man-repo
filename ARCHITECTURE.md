@@ -334,26 +334,33 @@ class TimeData(TypedDict):
 | Expert Rod | +24% | 750 | 400 | 15 |
 | Master Rod | +32% | 1000 | 500 | 20 |
 
-**`BAIT_TYPES`** (6 entries):
+**`BAIT_TYPES`** (9 entries — 5 generalist + 4 specialist):
 
-| Name | Catch Bonus | Cost | Daily Stock | Level Req |
-|------|-------------|------|-------------|-----------|
-| Worm | +12% | 1 | 1000 | None |
-| Shrimp | +20% | 2 | 500 | 5 |
-| Cricket | +28% | 4 | 250 | 10 |
-| Firefly | +32% | 6 | 150 | 12 |
-| Nightcrawler | +35% | 8 | 100 | 15 |
-| Anchovy | +42% | 10 | 80 | 18 |
+| Name | Type | Catch Bonus | Cost | Daily Stock | Level Req | Specialist |
+|------|------|-------------|------|-------------|-----------|------------|
+| Worm | Normal | +12% | 1 | 1000 | None | — |
+| Cricket | Normal | +22% | 6 | 400 | 15 | — |
+| Nightcrawler | Normal | +30% | 15 | 250 | 30 | — |
+| Anchovy | Normal | +36% | 30 | 150 | 50 | — |
+| Leech | Normal | +42% | 45 | 100 | 65 | — |
+| Shrimp | Specialist | +14% | 3 | 600 | 8 | Common 2.0x |
+| Firefly | Specialist | +20% | 10 | 300 | 20 | Uncommon 2.0x |
+| Squid | Specialist | +26% | 22 | 200 | 40 | Rare 2.0x |
+| Glowworm | Specialist | +32% | 40 | 80 | 75 | Legendary 2.5x |
 
-**`LOCATIONS`** (5 entries):
+**`LOCATIONS`** (9 entries — 5 general + 4 specialist):
 
-| Name | Level Req | Common Mod | Uncommon Mod | Rare Mod | Legendary Mod |
-|------|-----------|------------|--------------|----------|---------------|
-| Pond | None | 1.2 | 0.9 | 0.7 | 0.4 |
-| River | 5 | 1.0 | 1.2 | 0.9 | 0.6 |
-| Lake | 8 | 0.8 | 1.1 | 1.2 | 0.8 |
-| Ocean | 12 | 0.6 | 1.0 | 1.4 | 1.2 |
-| Deep Sea | 18 | 0.4 | 0.8 | 1.6 | 2.0 |
+| Name | Type | Level Req | Common Mod | Uncommon Mod | Rare Mod | Legendary Mod |
+|------|------|-----------|------------|--------------|----------|---------------|
+| Pond | Normal | None | 1.2 | 0.9 | 0.7 | 0.4 |
+| River | Normal | 10 | 1.0 | 1.1 | 0.8 | 0.5 |
+| Lake | Normal | 25 | 0.9 | 1.1 | 1.0 | 0.7 |
+| Ocean | Normal | 45 | 0.8 | 1.0 | 1.1 | 0.9 |
+| Deep Sea | Normal | 60 | 0.7 | 1.0 | 1.2 | 1.1 |
+| Shallow Creek | Specialist | 3 | 1.8 | 0.6 | 0.3 | 0.1 |
+| Marshlands | Specialist | 12 | 0.7 | 1.8 | 0.5 | 0.2 |
+| Coral Reef | Specialist | 30 | 0.5 | 0.7 | 1.8 | 0.4 |
+| Abyssal Trench | Specialist | 55 | 0.3 | 0.5 | 0.8 | 2.0 |
 
 **`WEATHER_TYPES`** (15 entries): Sunny, Rainy, Stormy, Foggy, Windy, Clear, Overcast, Heat Wave, Full Moon, Migration, Drought, Red Tide, Spring Flood, Aurora, School. Each has `catch_bonus`, `rare_bonus`, `affects_locations`, and optional `location_bonus`, `time_multiplier`, `catch_quantity`, `specific_rarity_bonus`, `duration_hours`.
 
@@ -1258,9 +1265,12 @@ Based on system clock (server local time):
 
 ### 8.7 Location Progression
 
-Locations unlock by level. Higher-level locations shift fish distribution toward rarer catches:
-- Pond (start): Heavily favors common fish
-- Deep Sea (level 18): 2.0x legendary modifier, 0.4x common modifier
+9 locations split into general (balanced) and specialist (one rarity favored, others penalized). General locations unlock progressively (Pond Lv1 → Deep Sea Lv60). Specialist locations unlock before their matching specialist bait to create a two-stage power spike:
+
+- Shallow Creek (Lv3, Common 1.8x) → Shrimp bait (Lv8)
+- Marshlands (Lv12, Uncommon 1.8x) → Firefly bait (Lv20)
+- Coral Reef (Lv30, Rare 1.8x) → Squid bait (Lv40)
+- Abyssal Trench (Lv55, Legendary 2.0x) → Glowworm bait (Lv75)
 
 ---
 
