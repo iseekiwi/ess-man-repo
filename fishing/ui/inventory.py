@@ -1,8 +1,6 @@
 # ui/inventory.py
 
 import discord
-import asyncio
-import logging
 from collections import Counter
 from redbot.core import bank
 from typing import Dict

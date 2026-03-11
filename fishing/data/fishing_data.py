@@ -9,7 +9,6 @@ class FishData(TypedDict):
 class RodData(TypedDict):
     chance: float
     cost: int
-    durability: int
     description: str
     requirements: Union[None, Dict[str, int]]
 
@@ -112,14 +111,14 @@ ROD_TYPES = {
     "Basic Rod": {
         "chance": 0.0,
         "cost": 0,
-        "durability": 100,
+
         "description": "A simple fishing rod. Gets the job done.",
         "requirements": None
     },
     "Intermediate Rod": {
         "chance": 0.08,
         "cost": 250,
-        "durability": 200,
+
         "description": "Better quality rod with improved catch rates.",
         "requirements": {
             "level": 7
@@ -128,7 +127,7 @@ ROD_TYPES = {
     "Advanced Rod": {
         "chance": 0.16,
         "cost": 500,
-        "durability": 300,
+
         "description": "Professional grade rod with excellent catch rates.",
         "requirements": {
             "level": 18
@@ -137,7 +136,7 @@ ROD_TYPES = {
     "Expert Rod": {
         "chance": 0.24,
         "cost": 750,
-        "durability": 400,
+
         "description": "Masterfully crafted rod for serious anglers.",
         "requirements": {
             "level": 32
@@ -146,7 +145,7 @@ ROD_TYPES = {
     "Master Rod": {
         "chance": 0.32,
         "cost": 1000,
-        "durability": 500,
+
         "description": "Legendary rod with exceptional catch rates.",
         "requirements": {
             "level": 50
@@ -761,7 +760,6 @@ DEFAULT_USER_DATA = {
     "inventory": [],
     "rod": "Basic Rod",
     "total_value": 0,
-    "daily_quest": None,
     "bait": {},
     "purchased_rods": {"Basic Rod": True},
     "equipped_bait": None,
@@ -773,10 +771,6 @@ DEFAULT_USER_DATA = {
     "inventory_capacity": DEFAULT_INVENTORY_CAPACITY,
     "purchased_gear": [],
     "materials": {},
-    "settings": {
-        "notifications": True,
-        "auto_sell": False
-    }
 }
 
 # Default global settings
@@ -787,8 +781,4 @@ DEFAULT_GLOBAL_SETTINGS = {
     },
     "current_weather": "Sunny",
     "active_events": [],
-    "settings": {
-        "daily_reset_hour": 0,
-        "weather_change_interval": 3600
-    }
 }

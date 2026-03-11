@@ -1,7 +1,6 @@
 # ui/menu.py
 
 import discord
-import logging
 import asyncio
 import random
 import datetime

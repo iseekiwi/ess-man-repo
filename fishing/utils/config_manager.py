@@ -231,18 +231,6 @@ class ConfigManager:
             validated["current_location"] = str(data.get("current_location", "Pond"))
             validated["equipped_bait"] = data.get("equipped_bait")
             
-            # Validate settings
-            settings = data.get("settings", {})
-                    
-            if not isinstance(settings, dict):
-                self.logger.warning("Invalid settings format, resetting to default")
-                validated["settings"] = DEFAULT_USER_DATA["settings"].copy()
-            else:
-                validated["settings"] = {
-                    "notifications": bool(settings.get("notifications", True)),
-                    "auto_sell": bool(settings.get("auto_sell", False))
-                }
-                
             # Validate equipped bait exists in inventory
             if validated["equipped_bait"] and validated["equipped_bait"] not in validated["bait"]:
                 self.logger.warning("Equipped bait not in inventory, resetting")

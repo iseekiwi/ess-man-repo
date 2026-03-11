@@ -1,7 +1,6 @@
 # ui/base.py
 
 import discord
-import logging
 import asyncio
 from discord.ext import commands
 from discord.ui import View, Button

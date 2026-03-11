@@ -1,8 +1,6 @@
 # ui/shop.py
 
 import discord
-import logging
-import asyncio
 import math
 from typing import Dict, Optional, List
 from discord.ui import Button, Select

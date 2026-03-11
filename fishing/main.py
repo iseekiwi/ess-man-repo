@@ -2,7 +2,6 @@
 
 import discord
 import asyncio
-import os
 import random
 import datetime
 from .ui.inventory import InventoryView

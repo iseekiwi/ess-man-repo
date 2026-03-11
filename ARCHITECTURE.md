@@ -266,7 +266,6 @@ class FishData(TypedDict):
 class RodData(TypedDict):
     chance: float          # Catch bonus (0.0 to 0.32)
     cost: int
-    durability: int        # Not currently used in gameplay
     description: str
     requirements: Union[None, Dict[str, int]]  # {"level": int}
 
@@ -326,13 +325,13 @@ class TimeData(TypedDict):
 
 **`ROD_TYPES`** (5 entries):
 
-| Name | Catch Bonus | Cost | Durability | Level Req |
-|------|-------------|------|------------|-----------|
-| Basic Rod | +0% | 0 | 100 | None |
-| Intermediate Rod | +8% | 250 | 200 | 7 |
-| Advanced Rod | +16% | 500 | 300 | 18 |
-| Expert Rod | +24% | 750 | 400 | 32 |
-| Master Rod | +32% | 1000 | 500 | 50 |
+| Name | Catch Bonus | Cost | Level Req |
+|------|-------------|------|-----------|
+| Basic Rod | +0% | 0 | None |
+| Intermediate Rod | +8% | 250 | 7 |
+| Advanced Rod | +16% | 500 | 18 |
+| Expert Rod | +24% | 750 | 32 |
+| Master Rod | +32% | 1000 | 50 |
 
 **`BAIT_TYPES`** (9 entries — 5 generalist + 4 specialist):
 
@@ -386,7 +385,6 @@ Any purchasable item can have an optional `material_cost: Dict[str, int]` field.
     "inventory": [],             # List[str] - fish/junk type names
     "rod": "Basic Rod",          # str - currently equipped rod
     "total_value": 0,            # int - lifetime earnings tracker
-    "daily_quest": None,         # Not implemented
     "bait": {},                  # Dict[str, int] - bait_name -> quantity
     "purchased_rods": {"Basic Rod": True},  # Dict[str, bool]
     "equipped_bait": None,       # Optional[str] - equipped bait name
@@ -398,10 +396,6 @@ Any purchasable item can have an optional `material_cost: Dict[str, int]` field.
     "inventory_capacity": 5,     # int - max fish+junk slots (upgradeable via gear)
     "purchased_gear": [],        # list - names of purchased gear items
     "materials": {},             # Dict[str, int] - material_name -> quantity (rare drops for gear upgrades)
-    "settings": {
-        "notifications": True,   # Not implemented
-        "auto_sell": False       # Not implemented
-    }
 }
 ```
 
@@ -409,19 +403,10 @@ Any purchasable item can have an optional `material_cost: Dict[str, int]` field.
 ```python
 {
     "bait_stock": {              # Dict[str, int] - bait_name -> available stock
-        "Worm": 1000,
-        "Shrimp": 500,
-        "Cricket": 250,
-        "Firefly": 150,
-        "Nightcrawler": 100,
-        "Anchovy": 80
+        # Generated from BAIT_TYPES daily_stock values (9 baits)
     },
     "current_weather": "Sunny",  # str - active weather type
     "active_events": [],         # Not implemented
-    "settings": {
-        "daily_reset_hour": 0,   # Not actively used (midnight hardcoded)
-        "weather_change_interval": 3600  # Not actively used (3600s hardcoded)
-    }
 }
 ```
 
@@ -1329,13 +1314,13 @@ Previously `_update_total_value()` calculated level as `fish_caught // 50`, conf
 
 **FIXED**: Bait `effectiveness` multipliers are now wired into `_catch_fish()` in `main.py`. The `catch_bonus` is multiplied by the location-specific effectiveness value (defaults to 1.0 if not defined). The `ProfitSimulator` mirrors this logic. The simulation UI displays effectiveness in both config and results embeds. Fish values were rebalanced (Common: 10, Uncommon: 25, Rare: 65, Legendary: 200) to ensure baits are profitable at their intended locations while remaining break-even or a loss at unintended ones.
 
-### 10.3 Rod Durability Not Implemented
+### 10.3 ~~Rod Durability Not Implemented~~ REMOVED
 
-`ROD_TYPES` defines `durability` values (100-500) but no durability tracking or degradation logic exists.
+Durability field was removed from `RodData` and all rod definitions.
 
-### 10.4 daily_quest, notifications, auto_sell, active_events Not Implemented
+### 10.4 ~~daily_quest, notifications, auto_sell Not Implemented~~ REMOVED
 
-These fields exist in `DEFAULT_USER_DATA` and `DEFAULT_GLOBAL_SETTINGS` but have no associated logic.
+These unused fields were removed from `DEFAULT_USER_DATA` and `DEFAULT_GLOBAL_SETTINGS`. `daily_reset_hour` and `weather_change_interval` global settings were also removed.
 
 ### 10.5 weather_effects Flag Unused
 
