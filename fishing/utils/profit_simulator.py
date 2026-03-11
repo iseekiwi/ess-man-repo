@@ -4,6 +4,7 @@ import random
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 from ..utils.logging_config import get_logger
+from ..data.fishing_data import level_catch_bonus, CONSUMABLE_TOOL_TYPES
 
 # XP values per rarity (mirrored from LevelManager to avoid circular import)
 RARITY_XP = {
@@ -39,9 +40,11 @@ class ProfitSimulator:
     # ------------------------------------------------------------------
 
     def _compute_modifiers(
-        self, rod: str, bait: str, location: str, weather: str, time_of_day: str
+        self, rod: str, bait: str, location: str, weather: str, time_of_day: str,
+        level: int = 1,
     ) -> Dict:
         """Compute all catch-chance and rarity modifiers for a setup."""
+        lvl_bonus = level_catch_bonus(level)
         rod_bonus = self.data["rods"][rod]["chance"]
         bait_base = self.data["bait"][bait]["catch_bonus"]
         bait_effectiveness = self.data["bait"][bait].get("effectiveness", {}).get(location, 1.0)
@@ -63,9 +66,10 @@ class ProfitSimulator:
         time_bonus = time_data.get("catch_bonus", 0)
         time_rare_bonus = time_data.get("rare_bonus", 0)
 
-        total_chance = rod_bonus + bait_bonus + weather_bonus + time_bonus
+        total_chance = max(0.0, min(1.0, lvl_bonus + rod_bonus + bait_bonus + weather_bonus + time_bonus))
 
         return {
+            "level_bonus": lvl_bonus,
             "rod_bonus": rod_bonus,
             "bait_bonus": bait_bonus,
             "bait_effectiveness": bait_effectiveness,
@@ -171,6 +175,30 @@ class ProfitSimulator:
     # Full setup analysis — used by the simulation menu
     # ------------------------------------------------------------------
 
+    def _simulate_tool_drops(self, fish_rarity: str, tools: List[str]) -> tuple:
+        """Simulate tool consumption and material drops for one fish catch.
+
+        Returns (tool_consumption dict, material_drops dict).
+        """
+        consumed = {}
+        drops = {}
+        for tool_name in tools:
+            tool_data = CONSUMABLE_TOOL_TYPES.get(tool_name)
+            if not tool_data:
+                continue
+            if fish_rarity not in tool_data["triggers_on"]:
+                continue
+            consumed[tool_name] = consumed.get(tool_name, 0) + 1
+            for mat_name, rate in tool_data["drops"].items():
+                if random.random() < rate:
+                    drops[mat_name] = drops.get(mat_name, 0) + 1
+            special = tool_data.get("special_drops")
+            if special and fish_rarity in special:
+                for mat_name, rate in special[fish_rarity].items():
+                    if random.random() < rate:
+                        drops[mat_name] = drops.get(mat_name, 0) + 1
+        return consumed, drops
+
     def analyze_full_setup(
         self,
         rod: str,
@@ -180,13 +208,15 @@ class ProfitSimulator:
         time_of_day: str,
         duration_hours: int = 1,
         catches_per_hour: int = 360,
+        level: int = 1,
+        tools: Optional[List[str]] = None,
     ) -> Dict:
         """Run a complete simulation with all variables configurable.
 
         Returns a dict with rarity breakdown, financials, modifiers,
         bonus catches, junk stats, and XP estimate.
         """
-        mods = self._compute_modifiers(rod, bait, location, weather, time_of_day)
+        mods = self._compute_modifiers(rod, bait, location, weather, time_of_day, level=level)
         fish_names, fish_weights = self._build_fish_weights(location, bait, mods)
         junk_names, junk_weights = self._build_junk_weights()
 
@@ -208,6 +238,9 @@ class ProfitSimulator:
         junk_value = 0
         nothing_caught = 0  # RNG "nothing" (failed fish + failed junk roll)
         total_xp = 0
+        tool_consumption = {}
+        material_drops = {}
+        active_tools = tools or []
 
         for _ in range(total_attempts):
             result = self._simulate_single(
@@ -223,11 +256,26 @@ class ProfitSimulator:
                 gross_value += result["value"]
                 total_xp += RARITY_XP.get(result["rarity"], 0)
 
+                # Simulate tool drops on fish catches
+                if active_tools:
+                    consumed, drops = self._simulate_tool_drops(result["rarity"], active_tools)
+                    for t, c in consumed.items():
+                        tool_consumption[t] = tool_consumption.get(t, 0) + c
+                    for m, c in drops.items():
+                        material_drops[m] = material_drops.get(m, 0) + c
+
                 if "bonus" in result:
                     bonus_catches += 1
                     rarity_counts[result["bonus"]["rarity"]] += 1
                     gross_value += result["bonus"]["value"]
                     total_xp += RARITY_XP.get(result["bonus"]["rarity"], 0)
+
+                    if active_tools:
+                        consumed, drops = self._simulate_tool_drops(result["bonus"]["rarity"], active_tools)
+                        for t, c in consumed.items():
+                            tool_consumption[t] = tool_consumption.get(t, 0) + c
+                        for m, c in drops.items():
+                            material_drops[m] = material_drops.get(m, 0) + c
 
             elif result["type"] == "junk":
                 junk_caught += 1
@@ -236,8 +284,11 @@ class ProfitSimulator:
 
         # Bait is consumed on every attempt, including misses
         total_bait_cost = total_attempts * bait_cost_per
+        total_tool_cost = sum(
+            CONSUMABLE_TOOL_TYPES[t]["cost"] * c for t, c in tool_consumption.items()
+        )
         total_gross = gross_value + junk_value
-        net_profit = total_gross - total_bait_cost
+        net_profit = total_gross - total_bait_cost - total_tool_cost
 
         return {
             "rod": rod,
@@ -255,9 +306,13 @@ class ProfitSimulator:
             "nothing_caught": nothing_caught,
             "gross_profit": total_gross,
             "bait_cost": total_bait_cost,
+            "tool_cost": total_tool_cost,
+            "tool_consumption": tool_consumption,
+            "material_drops": material_drops,
             "net_profit": net_profit,
             "estimated_xp": total_xp,
             "modifiers": {
+                "level_bonus": mods["level_bonus"],
                 "rod_bonus": mods["rod_bonus"],
                 "bait_bonus": mods["bait_bonus"],
                 "bait_effectiveness": mods["bait_effectiveness"],

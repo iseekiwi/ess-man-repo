@@ -47,7 +47,8 @@ class InventoryManager:
             "fish": "fish",
             "bait": "bait",
             "rod": "rods",
-            "material": "materials"
+            "material": "materials",
+            "tool": "consumable_tools",
         }
         
         if item_type not in type_mapping:
@@ -158,6 +159,23 @@ class InventoryManager:
                         materials[item_name] = new_amount
                     updates["materials"] = materials
 
+                elif item_type == "tool":
+                    tools = user_data.get("tools", {}).copy()
+                    current_amount = tools.get(item_name, 0)
+
+                    if operation == "add":
+                        new_amount = current_amount + amount
+                    else:  # remove
+                        if current_amount < amount:
+                            return False, "Not enough tools to remove"
+                        new_amount = current_amount - amount
+
+                    if new_amount <= 0:
+                        tools.pop(item_name, None)
+                    else:
+                        tools[item_name] = new_amount
+                    updates["tools"] = tools
+
                 # Store updates in transaction
                 transaction[f"user_{user_id}"] = updates
 
@@ -195,6 +213,9 @@ class InventoryManager:
             elif item_type == "material":
                 if item_name not in self.data.get("materials", {}):
                     return False, f"Invalid material: {item_name}"
+            elif item_type == "tool":
+                if item_name not in self.data.get("consumable_tools", {}):
+                    return False, f"Invalid tool: {item_name}"
             else:
                 valid, msg = await self._verify_item_validity(item_type, item_name)
                 if not valid:
@@ -235,6 +256,12 @@ class InventoryManager:
                     current_amount = materials.get(item_name, 0)
                     materials[item_name] = current_amount + amount
                     updates["materials"] = materials
+
+                elif item_type == "tool":
+                    tools = user_data.get("tools", {}).copy()
+                    current_amount = tools.get(item_name, 0)
+                    tools[item_name] = current_amount + amount
+                    updates["tools"] = tools
 
                 # Store updates in transaction
                 transaction[f"user_{user_id}"] = updates

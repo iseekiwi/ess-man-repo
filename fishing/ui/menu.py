@@ -9,6 +9,7 @@ from typing import Dict, Optional
 from discord.ui import Button, Select
 from .base import BaseView
 from ..utils.logging_config import get_logger
+from ..data.fishing_data import MATERIAL_TYPES
 from .shop import ShopView
 
 logger = get_logger('menu')
@@ -247,16 +248,19 @@ class FishingMenuView(BaseView):
                 )
     
                 # Add catch chance calculation
+                from ..data.fishing_data import level_catch_bonus
                 current_rod = self.user_data['rod']
                 equipped_bait = self.user_data.get('equipped_bait')
                 location = self.user_data['current_location']
-    
+                player_level = self.user_data.get('level', 1)
+
                 # Get current weather
                 weather_result = await self.cog.config_manager.get_global_setting("current_weather")
                 current_weather = weather_result.data if weather_result.success else "Sunny"
                 weather_data = self.cog.data["weather"][current_weather]
-                
+
                 # Calculate base chances
+                lvl_bonus = level_catch_bonus(player_level)
                 base_chance = self.cog.data["rods"][current_rod]["chance"]
                 if equipped_bait:
                     bait_base = self.cog.data["bait"][equipped_bait]["catch_bonus"]
@@ -264,7 +268,7 @@ class FishingMenuView(BaseView):
                     bait_bonus = bait_base * bait_effectiveness
                 else:
                     bait_bonus = 0
-                
+
                 # Only apply weather bonuses if location is affected
                 weather_bonus = 0
                 if location in weather_data.get("affects_locations", []):
@@ -273,24 +277,25 @@ class FishingMenuView(BaseView):
                     weather_bonus += location_bonus
                     time_multiplier = weather_data.get("time_multiplier", {}).get(self.get_time_of_day(), 0)
                     weather_bonus += time_multiplier
-                    
+
                 time_bonus = self.cog.data["time"][self.get_time_of_day()].get("catch_bonus", 0)
-                
-                total_chance = (base_chance + bait_bonus + weather_bonus + time_bonus) * 100
-                
+
+                total_chance = max(0.0, min(1.0, lvl_bonus + base_chance + bait_bonus + weather_bonus + time_bonus)) * 100
+
                 # Add catch chance breakdown
                 chance_breakdown = [
                     f"📊 Total Chance: `{total_chance:.1f}%`\n",
+                    f"└─ Level Bonus: `{lvl_bonus*100:+.1f}%`\n",
                     f"└─ Rod Bonus: `{base_chance*100:+.1f}%`\n",
                     f"└─ Bait Bonus: `{bait_bonus*100:+.1f}%`\n"
                 ]
-                
+
                 # Only show weather bonus if location is affected
                 if location in weather_data.get("affects_locations", []):
                     chance_breakdown.append(f"└─ Weather Bonus: `{weather_bonus*100:+.1f}%`\n")
                 else:
                     chance_breakdown.append("└─ Weather Bonus: `+0.0%` (Location not affected)\n")
-                    
+
                 chance_breakdown.append(f"└─ Time Bonus: `{time_bonus*100:+.1f}%`")
                 
                 embed.add_field(
@@ -974,11 +979,22 @@ class FishingMenuView(BaseView):
                         f"Gained {xp_gained} XP!"
                     ]
 
+                    # Display tool drops (only successful ones)
+                    if "tool_drops" in catch:
+                        drop_lines = []
+                        for drop in catch["tool_drops"]:
+                            if drop["success"]:
+                                mat_info = MATERIAL_TYPES.get(drop["material"], {})
+                                emoji = mat_info.get("emoji", "")
+                                drop_lines.append(f"{emoji} **{drop['material']}** found! ({drop['tool']})")
+                        if drop_lines:
+                            description.append("\n".join(drop_lines))
+
                     if "level_up" in catch:
                         level_up = catch["level_up"]
                         description.append(
                             f"\n🎉 **LEVEL UP!** 🎉\n"
-                            f"Level {level_up['old_level']} → {level_up['new_level']}"
+                            f"Level {level_up['old_level']} -> {level_up['new_level']}"
                         )
                     elif progress:
                         description.append(

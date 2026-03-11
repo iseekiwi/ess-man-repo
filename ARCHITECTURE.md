@@ -161,7 +161,7 @@ Core catch calculation. Returns a dict with keys:
 - `"bonus_catch"`: Optional[dict] -- if weather grants bonus catch (`{"name": str, "value": int, "xp_gained": int}`)
 
 **Catch logic flow**:
-1. Sum modifiers: rod chance + bait bonus + weather bonus (if location affected) + time bonus
+1. Sum modifiers: level bonus + rod chance + bait bonus + weather bonus (if location affected) + time bonus, clamped to [0, 1]
 2. Roll `random.random()` against total chance
 3. On success: weighted random selection from `FISH_TYPES` using location modifiers and rare bonuses; may roll bonus catch from weather `catch_quantity`
 4. On failure: 75% chance to roll from `JUNK_TYPES` instead; junk gives 50% XP modifier
@@ -309,43 +309,43 @@ class TimeData(TypedDict):
 
 | Name | Rarity | Value | Base Chance | Variants (5 each) |
 |------|--------|-------|-------------|-----|
-| Common Fish | common | 3 | 0.70 | Bluegill, Bass, Perch, Carp, Catfish |
-| Uncommon Fish | uncommon | 8 | 0.20 | Salmon, Trout, Pike, Walleye, Tuna |
-| Rare Fish | rare | 20 | 0.08 | Swordfish, Marlin, Sturgeon, Mahi-mahi, Barracuda |
-| Legendary Fish | legendary | 60 | 0.02 | Golden Koi, Giant Tuna, Megalodon, Rainbow Trout, Ancient Sturgeon |
+| Common Fish | common | 5 | 0.70 | Bluegill, Bass, Perch, Carp, Catfish |
+| Uncommon Fish | uncommon | 9 | 0.20 | Salmon, Trout, Pike, Walleye, Tuna |
+| Rare Fish | rare | 16 | 0.08 | Swordfish, Marlin, Sturgeon, Mahi-mahi, Barracuda |
+| Legendary Fish | legendary | 35 | 0.02 | Golden Koi, Giant Tuna, Megalodon, Rainbow Trout, Ancient Sturgeon |
 
 **`JUNK_TYPES`** (4 entries):
 
 | Name | Rarity | Value | Base Chance | Variants (5 each) |
 |------|--------|-------|-------------|-----|
-| Common Junk | common | 1 | 0.70 | Old Boot, Tin Can, Seaweed, Broken Bottle, Plastic Bag |
-| Uncommon Junk | uncommon | 2 | 0.15 | Rusty Chain, Waterlogged Book, etc. |
-| Rare Junk | rare | 5 | 0.10 | Ancient Pottery, Ship's Compass, etc. |
-| Legendary Junk | legendary | 15 | 0.05 | Sunken Treasure, Ancient Artifact, etc. |
+| Common Junk | common | 0 | 0.70 | Old Boot, Tin Can, Seaweed, Broken Bottle, Plastic Bag |
+| Uncommon Junk | uncommon | 1 | 0.15 | Rusty Chain, Waterlogged Book, etc. |
+| Rare Junk | rare | 2 | 0.10 | Ancient Pottery, Ship's Compass, etc. |
+| Legendary Junk | legendary | 5 | 0.05 | Sunken Treasure, Ancient Artifact, etc. |
 
 **`ROD_TYPES`** (5 entries):
 
 | Name | Catch Bonus | Cost | Level Req |
 |------|-------------|------|-----------|
 | Basic Rod | +0% | 0 | None |
-| Intermediate Rod | +8% | 250 | 7 |
-| Advanced Rod | +16% | 500 | 18 |
-| Expert Rod | +24% | 750 | 32 |
-| Master Rod | +32% | 1000 | 50 |
+| Intermediate Rod | +2% | 50 | 7 |
+| Advanced Rod | +4% | 150 | 18 |
+| Expert Rod | +8% | 350 | 32 |
+| Master Rod | +15% | 600 | 50 |
 
 **`BAIT_TYPES`** (9 entries — 5 generalist + 4 specialist):
 
 | Name | Type | Catch Bonus | Cost | Daily Stock | Level Req | Specialist |
 |------|------|-------------|------|-------------|-----------|------------|
-| Worm | Normal | +12% | 1 | 1000 | None | — |
-| Cricket | Normal | +22% | 6 | 400 | 15 | — |
-| Nightcrawler | Normal | +30% | 15 | 250 | 30 | — |
-| Anchovy | Normal | +36% | 30 | 150 | 50 | — |
-| Leech | Normal | +42% | 45 | 100 | 65 | — |
-| Shrimp | Specialist | +14% | 3 | 600 | 8 | Common 2.0x |
-| Firefly | Specialist | +20% | 10 | 300 | 20 | Uncommon 2.0x |
-| Squid | Specialist | +26% | 22 | 200 | 40 | Rare 2.0x |
-| Glowworm | Specialist | +32% | 40 | 80 | 75 | Legendary 2.5x |
+| Worm | Generalist | +3% | 0 | 1000 | None | — |
+| Cricket | Generalist | +5% | 0 | 400 | 15 | — |
+| Nightcrawler | Generalist | +9% | 0 | 250 | 30 | — |
+| Anchovy | Generalist | +20% | 1 | 150 | 50 | — |
+| Leech | Generalist | +26% | 1 | 100 | 65 | — |
+| Shrimp | Specialist | +4% | 1 | 600 | 8 | Common 2.0x |
+| Firefly | Specialist | +5% | 1 | 300 | 20 | Uncommon 2.0x |
+| Squid | Specialist | +8% | 1 | 200 | 40 | Rare 2.0x |
+| Glowworm | Specialist | +14% | 1 | 80 | 75 | Legendary 2.0x |
 
 **`LOCATIONS`** (9 entries — 5 general + 4 specialist):
 
@@ -359,7 +359,7 @@ class TimeData(TypedDict):
 | Shallow Creek | Specialist | 3 | 1.8 | 0.6 | 0.3 | 0.1 |
 | Marshlands | Specialist | 12 | 0.7 | 1.8 | 0.5 | 0.2 |
 | Coral Reef | Specialist | 30 | 0.5 | 0.7 | 1.8 | 0.4 |
-| Abyssal Trench | Specialist | 55 | 0.3 | 0.5 | 0.8 | 2.0 |
+| Abyssal Trench | Specialist | 55 | 0.5 | 0.7 | 0.9 | 1.5 |
 
 **`WEATHER_TYPES`** (15 entries): Sunny, Rainy, Stormy, Foggy, Windy, Clear, Overcast, Heat Wave, Full Moon, Migration, Drought, Red Tide, Spring Flood, Aurora, School. Each has `catch_bonus`, `rare_bonus`, `affects_locations`, and optional `location_bonus`, `time_multiplier`, `catch_quantity`, `specific_rarity_bonus`, `duration_hours`.
 
@@ -1186,12 +1186,13 @@ See `DEFAULT_GLOBAL_SETTINGS` in Section 4.3.
 ### 8.1 Catch Chance Calculation
 
 ```
-total_chance = rod_bonus + bait_bonus + weather_bonus + time_bonus
+total_chance = clamp(0, 1, level_bonus + rod_bonus + bait_bonus + weather_bonus + time_bonus)
 ```
 
 Where:
-- `rod_bonus` = `ROD_TYPES[equipped_rod]["chance"]` (0.0 to 0.32)
-- `bait_bonus` = `BAIT_TYPES[equipped_bait]["catch_bonus"]` (0.12 to 0.42)
+- `level_bonus` = `level_catch_bonus(level)` — curved: `0.35 * ((level-1)/98)^0.7` (0% at Lv1, 35% at Lv99). Defined in `fishing_data.py`.
+- `rod_bonus` = `ROD_TYPES[equipped_rod]["chance"]` (0.0 to 0.15)
+- `bait_bonus` = `BAIT_TYPES[equipped_bait]["catch_bonus"] * effectiveness[location]` (base 0.03 to 0.26, modified by per-location effectiveness)
 - `weather_bonus` = `WEATHER_TYPES[weather]["catch_bonus"]` + `location_bonus[location]` + `time_multiplier[time_of_day]` (only if location is in `affects_locations`)
 - `time_bonus` = `TIME_EFFECTS[time_of_day]["catch_bonus"]` (-0.1 to +0.15)
 
@@ -1212,23 +1213,19 @@ For each fish_type:
 ```
 Final selection via `random.choices(fish_types, weights=weights)`.
 
-**Specialist baits** have a `preferred_by` list (fish type names) and a `preference_bonus` multiplier. When the equipped bait is a specialist, fish in its `preferred_by` list get their selection weight multiplied by `preference_bonus` (e.g., 2.0x or 2.5x). This shifts the rarity distribution toward the specialist's target. There are 4 specialists: Shrimp (Common, 2.0x), Firefly (Uncommon, 2.0x), Squid (Rare, 2.0x), Glowworm (Legendary, 2.5x). Generalist baits have empty `preferred_by` lists and no preference bonus.
+**Specialist baits** have a `preferred_by` list (fish type names) and a `preference_bonus` multiplier. When the equipped bait is a specialist, fish in its `preferred_by` list get their selection weight multiplied by `preference_bonus` (2.0x for all specialists). This shifts the rarity distribution toward the specialist's target. There are 4 specialists: Shrimp (Common, 2.0x), Firefly (Uncommon, 2.0x), Squid (Rare, 2.0x), Glowworm (Legendary, 2.0x). Generalist baits have empty `preferred_by` lists and no preference bonus.
 
 ### 8.3 Leveling System
 
-Two parallel level systems exist (architectural note):
-
-1. **XP-based** (`LevelManager`): 99 levels (level 100 reserved for future cape item), XP from catches based on rarity. Used for `get_level_progress()` display and `award_xp()`.
-2. **Fish-count-based** (`_update_total_value`): `level = max(1, fish_caught // 50)`. Overwrites level on every catch.
-
-This means the XP-based level from `LevelManager.award_xp()` may be overwritten by the fish-count formula in `_update_total_value()`. Both write to the same `"level"` field. This is a known inconsistency.
+**XP-based** (`LevelManager`): 99 levels (level 100 reserved for future cape item), XP from catches based on rarity. `LevelManager.award_xp()` is the sole authority on leveling. Level directly affects catch chance via `level_catch_bonus()` (curved 0-35%).
 
 ### 8.4 Economy Flow
 
 - **Earning**: Sell fish/junk via `sell_fish()` (clears entire inventory, deposits total value)
-- **Spending**: Buy bait (per-unit cost, variable quantity) or rods (one-time cost)
+- **Spending**: Buy bait (per-unit cost: generalist free/$1, specialist $1) or rods (one-time cost)
 - **Bait stock**: Global shared stock, daily reset at midnight, finite per day
 - **Currency**: Uses Red-DiscordBot's bank system (`bank.deposit_credits`, `bank.withdraw_credits`, `bank.get_balance`)
+- **Economy targets**: ~$240/hr floor (Lv1), ~$2400/hr ceiling (Lv99), ~75% catch rate at Lv99
 
 ### 8.5 Weather System
 
@@ -1312,7 +1309,7 @@ Previously `_update_total_value()` calculated level as `fish_caught // 50`, conf
 
 ### 10.2 ~~No Bait Effectiveness in Catch Logic~~ FIXED
 
-**FIXED**: Bait `effectiveness` multipliers are now wired into `_catch_fish()` in `main.py`. The `catch_bonus` is multiplied by the location-specific effectiveness value (defaults to 1.0 if not defined). The `ProfitSimulator` mirrors this logic. The simulation UI displays effectiveness in both config and results embeds. Fish values were rebalanced (Common: 10, Uncommon: 25, Rare: 65, Legendary: 200) to ensure baits are profitable at their intended locations while remaining break-even or a loss at unintended ones.
+**FIXED**: Bait `effectiveness` multipliers are now wired into `_catch_fish()` in `main.py`. The `catch_bonus` is multiplied by the location-specific effectiveness value (defaults to 1.0 if not defined). The `ProfitSimulator` mirrors this logic. The simulation UI displays effectiveness in both config and results embeds. Fish values: Common=1, Uncommon=3, Rare=12, Legendary=45. All bait costs are 0 (free) — progression comes from catch bonus scaling. Rod chances: Basic=0%, Intermediate=5%, Advanced=12%, Expert=22%, Master=35%. Economy targets: ~100/hr at Lv1, ~1000-1500/hr at Lv99 generalist, ~3000+ at Lv99 specialist.
 
 ### 10.3 ~~Rod Durability Not Implemented~~ REMOVED
 

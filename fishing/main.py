@@ -27,6 +27,8 @@ from .data.fishing_data import (
     TIME_EFFECTS,
     JUNK_TYPES,
     MATERIAL_TYPES,
+    CONSUMABLE_TOOL_TYPES,
+    level_catch_bonus,
 )
 
 class Fishing(commands.Cog):
@@ -55,6 +57,7 @@ class Fishing(commands.Cog):
             "junk": JUNK_TYPES,
             "gear": GEAR_TYPES,
             "materials": MATERIAL_TYPES,
+            "consumable_tools": CONSUMABLE_TOOL_TYPES,
         }
         
         # Initialize inventory manager
@@ -231,6 +234,8 @@ class Fishing(commands.Cog):
                 )
                 
                 # Calculate catch chance
+                player_level = user_data.get("level", 1)
+                level_bonus = level_catch_bonus(player_level)
                 base_chance = self.data["rods"][user_data["rod"]]["chance"]
                 bait_base = self.data["bait"][bait_type]["catch_bonus"]
                 bait_effectiveness = self.data["bait"][bait_type].get("effectiveness", {}).get(location, 1.0)
@@ -241,17 +246,18 @@ class Fishing(commands.Cog):
                     # Apply location-specific weather bonus if exists
                     location_bonus = weather_data.get("location_bonus", {}).get(location, 0)
                     weather_bonus += location_bonus
-                    
+
                     # Apply time-based weather multiplier if exists
                     time_multiplier = weather_data.get("time_multiplier", {}).get(time_of_day, 0)
                     weather_bonus += time_multiplier
-                    
+
                 time_bonus = self.data["time"][time_of_day].get("catch_bonus", 0)
-                
-                total_chance = base_chance + bait_bonus + weather_bonus + time_bonus
-                
+
+                total_chance = max(0.0, min(1.0, level_bonus + base_chance + bait_bonus + weather_bonus + time_bonus))
+
                 self.logger.debug(
                     f"Catch chance breakdown:\n"
+                    f"Level Bonus: {level_bonus}\n"
                     f"Base (Rod): {base_chance}\n"
                     f"Bait Bonus: {bait_bonus}\n"
                     f"Weather Bonus: {weather_bonus}\n"
@@ -330,7 +336,12 @@ class Fishing(commands.Cog):
                         "xp_gained": xp_reward,
                         "type": "fish"
                     }
-                    
+
+                    # Process consumable tool drops
+                    tool_results = await self._process_tool_drops(user, user_data, fish_data["rarity"])
+                    if tool_results:
+                        result["tool_drops"] = tool_results
+
                     # Check for additional catches from weather effect only if location is affected
                     if location in weather_data.get("affects_locations", []):
                         catch_quantity_bonus = weather_data.get("catch_quantity", 0)
@@ -434,6 +445,87 @@ class Fishing(commands.Cog):
             return success
         self.logger.warning(f"Invalid item attempted to add to inventory: {item_name}")
         return False
+
+    async def _process_tool_drops(self, user: discord.Member, user_data: dict, caught_rarity: str) -> list:
+        """Process consumable tool triggers after a fish catch.
+
+        For each tool the user owns, if the caught fish's rarity triggers
+        this tool: consume one tool, roll for material drops.
+        Multiple tools trigger independently on the same catch.
+        Arcane Scraper: one consumption, rolls base drops + special_drops on matching rarity.
+
+        Returns list of dicts: [{"tool": name, "material": name, "success": bool}, ...]
+        """
+        results = []
+        user_tools = user_data.get("tools", {})
+        if not user_tools:
+            return results
+
+        for tool_name, tool_data in CONSUMABLE_TOOL_TYPES.items():
+            if user_tools.get(tool_name, 0) <= 0:
+                continue
+            if caught_rarity not in tool_data["triggers_on"]:
+                continue
+
+            # Consume one tool
+            success, _ = await self.inventory.remove_item(user.id, "tool", tool_name, 1)
+            if not success:
+                continue
+
+            # Roll base drops
+            for mat_name, drop_rate in tool_data["drops"].items():
+                rolled = random.random() < drop_rate
+                if rolled:
+                    await self.inventory.add_item(user.id, "material", mat_name, 1)
+                results.append({"tool": tool_name, "material": mat_name, "success": rolled})
+
+            # Roll special drops (e.g., Arcane Scraper legendary -> Magic Fish)
+            special = tool_data.get("special_drops")
+            if special and caught_rarity in special:
+                for mat_name, drop_rate in special[caught_rarity].items():
+                    rolled = random.random() < drop_rate
+                    if rolled:
+                        await self.inventory.add_item(user.id, "material", mat_name, 1)
+                    results.append({"tool": tool_name, "material": mat_name, "success": rolled})
+
+        return results
+
+    async def _handle_tool_purchase(self, user, tool_name: str, quantity: int, user_data: dict) -> tuple[bool, str]:
+        """Handle consumable tool purchase."""
+        try:
+            if tool_name not in CONSUMABLE_TOOL_TYPES:
+                return False, "Invalid tool type!"
+
+            tool_data = CONSUMABLE_TOOL_TYPES[tool_name]
+            total_cost = tool_data["cost"] * quantity
+
+            # Check level requirement
+            req_level = (tool_data.get("requirements") or {}).get("level", 1)
+            if user_data.get("level", 1) < req_level:
+                return False, f"You need to be level {req_level} to buy this tool!"
+
+            # Check balance
+            if not await self._can_afford(user, total_cost):
+                return False, f"You don't have enough coins! Cost: {total_cost}"
+
+            # Add tools to inventory
+            success, msg = await self.inventory.add_item(user.id, "tool", tool_name, quantity)
+            if not success:
+                return False, "Error updating inventory."
+
+            # Process payment
+            try:
+                await bank.withdraw_credits(user, total_cost)
+            except Exception as e:
+                await self.inventory.remove_item(user.id, "tool", tool_name, quantity)
+                self.logger.error(f"Payment failed for tool purchase: {e}")
+                return False, "Error processing payment."
+
+            return True, f"Purchased {quantity}x {tool_name} for {total_cost} coins!"
+
+        except Exception as e:
+            self.logger.error(f"Error in tool purchase: {e}", exc_info=True)
+            return False, "An error occurred while processing your purchase."
 
     async def is_inventory_full(self, user_id: int) -> bool:
         """Check if a user's inventory is at capacity."""

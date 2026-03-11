@@ -7,7 +7,7 @@ from discord.ui import Button, Select
 from redbot.core import bank
 from .base import BaseView
 from ..utils.logging_config import get_logger
-from ..data.fishing_data import GEAR_TYPES, MATERIAL_TYPES
+from ..data.fishing_data import GEAR_TYPES, MATERIAL_TYPES, CONSUMABLE_TOOL_TYPES
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .menu import FishingMenuView
@@ -99,6 +99,95 @@ class BaitQuantityModal(discord.ui.Modal):
 
         except Exception as e:
             self.shop_view.logger.error(f"Error in quantity modal: {e}", exc_info=True)
+            await interaction.response.send_message(
+                "An error occurred while processing your purchase. Please try again.",
+                ephemeral=True,
+                delete_after=2
+            )
+
+
+class ToolQuantityModal(discord.ui.Modal):
+    def __init__(self, shop_view, tool_name: str):
+        super().__init__(title=f"Purchase {tool_name}")
+        self.shop_view = shop_view
+        self.tool_name = tool_name
+
+        self.quantity_input = discord.ui.TextInput(
+            label="How many would you like to purchase?",
+            placeholder="Enter a number...",
+            min_length=1,
+            max_length=4,
+            required=True
+        )
+        self.add_item(self.quantity_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            try:
+                quantity = int(self.quantity_input.value)
+                if quantity <= 0:
+                    raise ValueError("Quantity must be positive")
+            except ValueError:
+                await interaction.response.send_message(
+                    "Please enter a valid positive number!",
+                    ephemeral=True,
+                    delete_after=2
+                )
+                return
+
+            tool_data = CONSUMABLE_TOOL_TYPES[self.tool_name]
+            total_cost = tool_data["cost"] * quantity
+
+            if not await self.shop_view.cog._can_afford(interaction.user, total_cost):
+                await interaction.response.send_message(
+                    f"You don't have enough coins! This purchase costs {total_cost} coins.",
+                    ephemeral=True,
+                    delete_after=2
+                )
+                return
+
+            confirm_view = PurchaseConfirmView(
+                self.shop_view.cog,
+                self.shop_view.ctx,
+                self.tool_name,
+                quantity,
+                tool_data["cost"]
+            )
+
+            await interaction.response.send_message(
+                f"Confirm purchase of {quantity}x {self.tool_name} for {total_cost} coins?",
+                view=confirm_view,
+                ephemeral=True
+            )
+
+            confirm_view.message = await interaction.original_response()
+            await confirm_view.wait()
+
+            if confirm_view.value:
+                success, msg = await self.shop_view.cog._handle_tool_purchase(
+                    interaction.user,
+                    self.tool_name,
+                    quantity,
+                    self.shop_view.user_data
+                )
+
+                if success:
+                    await self.shop_view.cog.config_manager.invalidate_cache(f"user_{interaction.user.id}")
+                    fresh_data = await self.shop_view.cog.config_manager.get_user_data(interaction.user.id)
+                    if fresh_data.success:
+                        self.shop_view.user_data = fresh_data.data
+
+                        if hasattr(self.shop_view, 'parent_menu_view'):
+                            self.shop_view.parent_menu_view.user_data = fresh_data.data
+
+                        await self.shop_view.initialize_view()
+                        await self.shop_view.update_view()
+
+                result_msg = await interaction.followup.send(msg, ephemeral=True, wait=True)
+                self.shop_view.cog.bot.loop.create_task(self.shop_view.delete_after_delay(result_msg))
+
+        except Exception as e:
+            self.shop_view.logger.error(f"Error in tool quantity modal: {e}", exc_info=True)
             await interaction.response.send_message(
                 "An error occurred while processing your purchase. Please try again.",
                 ephemeral=True,
@@ -220,7 +309,6 @@ class ShopView(BaseView):
     CATEGORY_PAGE_MAP = {
         "gear": "Inventory",
         "outfits": "Outfits",
-        "tools": "Tools",
     }
     CATEGORY_ICONS = {
         "Inventory": "🎒",
@@ -475,6 +563,30 @@ class ShopView(BaseView):
                         next_btn.callback = self.handle_button
                         self.add_item(next_btn)
 
+                elif self.current_page == "consumable_tools":
+                    self.logger.debug("Setting up consumable tools page")
+                    user_level = self.user_data.get("level", 1)
+                    options = []
+                    for tool_name, tool_data in CONSUMABLE_TOOL_TYPES.items():
+                        req_level = (tool_data.get("requirements") or {}).get("level", 1)
+                        if user_level >= req_level:
+                            owned = self.user_data.get("tools", {}).get(tool_name, 0)
+                            desc = f"{tool_data['cost']} coins | Owned: {owned}"
+                            options.append(discord.SelectOption(
+                                label=tool_name,
+                                value=tool_name,
+                                description=desc[:100],
+                            ))
+
+                    if options:
+                        tool_select = Select(
+                            placeholder="Select tool to purchase...",
+                            options=options,
+                            custom_id="tool_select"
+                        )
+                        tool_select.callback = self.handle_tool_select
+                        self.add_item(tool_select)
+
             self.logger.debug("View initialization completed successfully")
 
         except Exception as e:
@@ -673,6 +785,44 @@ class ShopView(BaseView):
 
                 embed.description = "\n".join(rod_list) if rod_list else "No rods available!"
 
+            elif self.current_page == "consumable_tools":
+                embed.title = "🔧 Consumable Tools"
+                user_level = self.user_data.get("level", 1)
+                user_tools = self.user_data.get("tools", {})
+                tool_list = []
+
+                for tool_name, tool_data in CONSUMABLE_TOOL_TYPES.items():
+                    req_level = (tool_data.get("requirements") or {}).get("level", 1)
+                    owned = user_tools.get(tool_name, 0)
+
+                    if req_level > user_level:
+                        status = f"🔒 Requires Level {req_level}"
+                    else:
+                        status = f"💰 Cost: {tool_data['cost']} {currency_name} each"
+
+                    # Build drop info
+                    drop_parts = []
+                    for mat_name, rate in tool_data["drops"].items():
+                        drop_parts.append(f"{mat_name} (1/{int(1/rate)})")
+                    special = tool_data.get("special_drops")
+                    if special:
+                        for rarity, drops in special.items():
+                            for mat_name, rate in drops.items():
+                                drop_parts.append(f"{mat_name} on {rarity} (1/{int(1/rate)})")
+
+                    triggers = ", ".join(tool_data["triggers_on"])
+
+                    tool_entry = (
+                        f"**{tool_name}** — Owned: {owned}\n"
+                        f"{tool_data['description']}\n"
+                        f"🎯 Triggers on: {triggers} catches\n"
+                        f"📊 Drops: {', '.join(drop_parts)}\n"
+                        f"{status}\n"
+                    )
+                    tool_list.append(tool_entry)
+
+                embed.description = "\n".join(tool_list) if tool_list else "No tools available!"
+
             embed.set_footer(text=f"Your balance: {self.current_balance} {currency_name}")
             return embed
 
@@ -706,6 +856,8 @@ class ShopView(BaseView):
                 self.current_page = "bait"
             elif custom_id == "rods":
                 self.current_page = "rods"
+            elif custom_id == "tools":
+                self.current_page = "consumable_tools"
             elif custom_id in self.CATEGORY_PAGE_MAP:
                 self.current_page = "gear"
                 self.gear_category = self.CATEGORY_PAGE_MAP[custom_id]
@@ -884,6 +1036,21 @@ class ShopView(BaseView):
 
         except Exception as e:
             self.logger.error(f"Error in handle_gear_select: {e}", exc_info=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "An error occurred. Please try again.",
+                    ephemeral=True,
+                    delete_after=2
+                )
+
+    async def handle_tool_select(self, interaction: discord.Interaction):
+        """Handle consumable tool dropdown selection — opens quantity modal."""
+        try:
+            tool_name = interaction.data["values"][0]
+            modal = ToolQuantityModal(self, tool_name)
+            await interaction.response.send_modal(modal)
+        except Exception as e:
+            self.logger.error(f"Error in handle_tool_select: {e}", exc_info=True)
             if not interaction.response.is_done():
                 await interaction.response.send_message(
                     "An error occurred. Please try again.",

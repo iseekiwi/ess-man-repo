@@ -226,6 +226,17 @@ class ConfigManager:
                     if isinstance(v, (int, float)) and v > 0
                 }
 
+            # Validate tools dictionary
+            if not isinstance(data.get("tools", {}), dict):
+                self.logger.warning("Invalid tools format, resetting to default")
+                validated["tools"] = {}
+            else:
+                validated["tools"] = {
+                    str(k): int(v)
+                    for k, v in data.get("tools", {}).items()
+                    if isinstance(v, (int, float)) and v > 0
+                }
+
             # Validate string fields with defaults
             validated["rod"] = str(data.get("rod", "Basic Rod"))
             validated["current_location"] = str(data.get("current_location", "Pond"))

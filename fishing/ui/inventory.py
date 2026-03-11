@@ -7,7 +7,7 @@ from typing import Dict
 from discord.ui import Button, View, Select
 from .base import BaseView, ConfirmView
 from ..utils.logging_config import get_logger
-from ..data.fishing_data import MATERIAL_TYPES
+from ..data.fishing_data import MATERIAL_TYPES, CONSUMABLE_TOOL_TYPES
 
 
 logger = get_logger('inventory')
@@ -182,6 +182,27 @@ class InventoryView(BaseView):
                     embed.description = "\n\n".join(mat_text)
                 embed.set_footer(text=f"Balance: {balance} {currency_name}")
 
+            elif self.current_page == "tools":
+                embed = discord.Embed(
+                    title="🔧 Your Consumable Tools",
+                    color=discord.Color.blue()
+                )
+                user_tools = self.user_data.get("tools", {})
+                if not user_tools:
+                    embed.description = "No tools owned!\nBuy consumable tools from the shop to find materials while fishing."
+                else:
+                    tool_text = []
+                    for tool_name, quantity in user_tools.items():
+                        tool_info = CONSUMABLE_TOOL_TYPES.get(tool_name, {})
+                        triggers = ", ".join(tool_info.get("triggers_on", []))
+                        tool_text.append(
+                            f"🔧 **{tool_name}** x{quantity}\n"
+                            f"{tool_info.get('description', '')}\n"
+                            f"Triggers on: {triggers} catches"
+                        )
+                    embed.description = "\n\n".join(tool_text)
+                embed.set_footer(text=f"Balance: {balance} {currency_name}")
+
             return embed
 
         except Exception as e:
@@ -217,6 +238,7 @@ class InventoryView(BaseView):
                     ("🪱 View Bait", "bait", discord.ButtonStyle.blurple),
                     ("🐟 View Inventory", "fish", discord.ButtonStyle.blurple),
                     ("🧱 Materials", "materials", discord.ButtonStyle.blurple),
+                    ("🔧 Tools", "tools", discord.ButtonStyle.blurple),
                     ("↩️ Back to Menu", "menu", discord.ButtonStyle.grey)
                 ]
 
@@ -356,7 +378,7 @@ class InventoryView(BaseView):
                 message = await interaction.followup.send(msg, ephemeral=True, wait=True)
                 self.cog.bot.loop.create_task(self.delete_after_delay(message))
                 
-            elif custom_id in ["rods", "bait", "fish", "materials"]:
+            elif custom_id in ["rods", "bait", "fish", "materials", "tools"]:
                 self.current_page = custom_id
                 await interaction.response.defer()
                 await self.update_view()

@@ -29,6 +29,14 @@ class MaterialData(TypedDict):
     emoji: str
     value: int
 
+class ConsumableToolData(TypedDict):
+    cost: int
+    description: str
+    requirements: Union[None, Dict[str, int]]
+    triggers_on: List[str]
+    drops: Dict[str, float]
+    special_drops: Optional[Dict[str, Dict[str, float]]]
+
 class LocationData(TypedDict):
     description: str
     fish_modifiers: Dict[str, float]
@@ -56,25 +64,25 @@ class TimeData(TypedDict):
 FISH_TYPES = {
     "Common Fish": {
         "rarity": "common",
-        "value": 10,
+        "value": 5,
         "chance": 0.70,
         "variants": ["Bluegill", "Bass", "Perch", "Carp", "Catfish"]
     },
     "Uncommon Fish": {
         "rarity": "uncommon",
-        "value": 25,
+        "value": 9,
         "chance": 0.20,
         "variants": ["Salmon", "Trout", "Pike", "Walleye", "Tuna"]
     },
     "Rare Fish": {
         "rarity": "rare",
-        "value": 65,
+        "value": 16,
         "chance": 0.08,
         "variants": ["Swordfish", "Marlin", "Sturgeon", "Mahi-mahi", "Barracuda"]
     },
     "Legendary Fish": {
         "rarity": "legendary",
-        "value": 200,
+        "value": 35,
         "chance": 0.02,
         "variants": ["Golden Koi", "Giant Tuna", "Megalodon", "Rainbow Trout", "Ancient Sturgeon"]
     }
@@ -83,25 +91,25 @@ FISH_TYPES = {
 JUNK_TYPES = {
     "Common Junk": {
         "rarity": "common",
-        "value": 1,
+        "value": 0,
         "chance": 0.70,
         "variants": ["Old Boot", "Tin Can", "Seaweed", "Broken Bottle", "Plastic Bag"]
     },
     "Uncommon Junk": {
         "rarity": "uncommon",
-        "value": 2,
+        "value": 1,
         "chance": 0.15,
         "variants": ["Rusty Chain", "Waterlogged Book", "Old Fishing Line", "Broken Fishing Rod", "Tattered Net"]
     },
     "Rare Junk": {
         "rarity": "rare",
-        "value": 5,
+        "value": 2,
         "chance": 0.10,
         "variants": ["Ancient Pottery", "Ship's Compass", "Lost Jewelry", "Antique Bottle", "Weather-Worn Map"]
     },
     "Legendary Junk": {
         "rarity": "legendary",
-        "value": 15,
+        "value": 5,
         "chance": 0.05,
         "variants": ["Sunken Treasure", "Ancient Artifact", "Lost Technology", "Time Capsule", "Mysterious Device"]
     }
@@ -116,8 +124,8 @@ ROD_TYPES = {
         "requirements": None
     },
     "Intermediate Rod": {
-        "chance": 0.08,
-        "cost": 250,
+        "chance": 0.02,
+        "cost": 50,
 
         "description": "Better quality rod with improved catch rates.",
         "requirements": {
@@ -125,8 +133,8 @@ ROD_TYPES = {
         }
     },
     "Advanced Rod": {
-        "chance": 0.16,
-        "cost": 500,
+        "chance": 0.04,
+        "cost": 150,
 
         "description": "Professional grade rod with excellent catch rates.",
         "requirements": {
@@ -134,8 +142,8 @@ ROD_TYPES = {
         }
     },
     "Expert Rod": {
-        "chance": 0.24,
-        "cost": 750,
+        "chance": 0.08,
+        "cost": 350,
 
         "description": "Masterfully crafted rod for serious anglers.",
         "requirements": {
@@ -143,8 +151,8 @@ ROD_TYPES = {
         }
     },
     "Master Rod": {
-        "chance": 0.32,
-        "cost": 1000,
+        "chance": 0.15,
+        "cost": 600,
 
         "description": "Legendary rod with exceptional catch rates.",
         "requirements": {
@@ -157,8 +165,8 @@ BAIT_TYPES = {
     # --- Generalist baits: higher catch bonus, no rarity preference ---
     "Worm": {
         "value": 1,
-        "catch_bonus": 0.12,
-        "cost": 1,
+        "catch_bonus": 0.03,
+        "cost": 0,
         "description": "Basic bait that gets the job done.",
         "daily_stock": 1000,
         "preferred_by": [],
@@ -172,8 +180,8 @@ BAIT_TYPES = {
     },
     "Cricket": {
         "value": 4,
-        "catch_bonus": 0.22,
-        "cost": 6,
+        "catch_bonus": 0.05,
+        "cost": 0,
         "description": "Reliable bait favored by freshwater anglers.",
         "daily_stock": 400,
         "preferred_by": [],
@@ -191,8 +199,8 @@ BAIT_TYPES = {
     },
     "Nightcrawler": {
         "value": 6,
-        "catch_bonus": 0.30,
-        "cost": 15,
+        "catch_bonus": 0.09,
+        "cost": 0,
         "description": "A fat worm that works well anywhere.",
         "daily_stock": 250,
         "preferred_by": [],
@@ -212,8 +220,8 @@ BAIT_TYPES = {
     },
     "Anchovy": {
         "value": 10,
-        "catch_bonus": 0.36,
-        "cost": 30,
+        "catch_bonus": 0.20,
+        "cost": 1,
         "description": "Small fish bait that excels in deep waters.",
         "daily_stock": 150,
         "preferred_by": [],
@@ -234,8 +242,8 @@ BAIT_TYPES = {
     },
     "Leech": {
         "value": 12,
-        "catch_bonus": 0.42,
-        "cost": 45,
+        "catch_bonus": 0.26,
+        "cost": 1,
         "description": "Premium bait that works in any waters.",
         "daily_stock": 100,
         "preferred_by": [],
@@ -257,8 +265,8 @@ BAIT_TYPES = {
     # --- Specialist baits: lower catch bonus, but boost targeted rarity weight ---
     "Shrimp": {
         "value": 2,
-        "catch_bonus": 0.14,
-        "cost": 3,
+        "catch_bonus": 0.04,
+        "cost": 1,
         "description": "Common fish can't resist fresh shrimp.",
         "daily_stock": 600,
         "preferred_by": ["Common Fish"],
@@ -277,8 +285,8 @@ BAIT_TYPES = {
     },
     "Firefly": {
         "value": 5,
-        "catch_bonus": 0.20,
-        "cost": 10,
+        "catch_bonus": 0.05,
+        "cost": 1,
         "description": "Glowing bait that lures uncommon species from hiding.",
         "daily_stock": 300,
         "preferred_by": ["Uncommon Fish"],
@@ -298,8 +306,8 @@ BAIT_TYPES = {
     },
     "Squid": {
         "value": 8,
-        "catch_bonus": 0.26,
-        "cost": 22,
+        "catch_bonus": 0.08,
+        "cost": 1,
         "description": "Squid strips that rare fish find irresistible.",
         "daily_stock": 200,
         "preferred_by": ["Rare Fish"],
@@ -320,12 +328,12 @@ BAIT_TYPES = {
     },
     "Glowworm": {
         "value": 15,
-        "catch_bonus": 0.32,
-        "cost": 40,
+        "catch_bonus": 0.14,
+        "cost": 1,
         "description": "Bioluminescent bait that calls to legendary fish.",
         "daily_stock": 80,
         "preferred_by": ["Legendary Fish"],
-        "preference_bonus": 2.5,
+        "preference_bonus": 2.0,
         "effectiveness": {
             "Pond": 0.7,
             "River": 0.8,
@@ -450,10 +458,10 @@ LOCATIONS = {
     "Abyssal Trench": {
         "description": "The deepest waters where legendary creatures lurk.",
         "fish_modifiers": {
-            "Common Fish": 0.3,
-            "Uncommon Fish": 0.5,
-            "Rare Fish": 0.8,
-            "Legendary Fish": 2.0
+            "Common Fish": 0.5,
+            "Uncommon Fish": 0.7,
+            "Rare Fish": 0.9,
+            "Legendary Fish": 1.5
         },
         "weather_effects": True,
         "requirements": {
@@ -461,6 +469,16 @@ LOCATIONS = {
         }
     },
 }
+
+# Level bonus curve: 0% at Lv1, 35% at Lv99 (power 0.7)
+LEVEL_BONUS_MAX = 0.35
+LEVEL_BONUS_POWER = 0.7
+
+def level_catch_bonus(level: int) -> float:
+    """Curved level bonus for catch chance."""
+    if level <= 1:
+        return 0.0
+    return LEVEL_BONUS_MAX * ((level - 1) / 98) ** LEVEL_BONUS_POWER
 
 # Weather effects on fishing
 WEATHER_TYPES = {
@@ -616,31 +634,31 @@ MATERIAL_TYPES = {
         "description": "A sturdy iron hinge, salvaged from the depths.",
         "rarity": "uncommon",
         "emoji": "🔩",
-        "value": 15,
+        "value": 2,
     },
     "Steel Hinge": {
         "description": "A reinforced steel hinge forged with care.",
         "rarity": "rare",
         "emoji": "⚙️",
-        "value": 50,
+        "value": 5,
     },
     "Magic Scale": {
         "description": "A shimmering scale pulsing with arcane energy.",
         "rarity": "rare",
         "emoji": "✨",
-        "value": 50,
+        "value": 5,
     },
     "Magic Fish": {
         "description": "A tiny enchanted fish that glows faintly.",
         "rarity": "legendary",
         "emoji": "🐠",
-        "value": 150,
+        "value": 15,
     },
     "Void Scale": {
         "description": "A scale from something that should not exist.",
         "rarity": "legendary",
         "emoji": "🕳️",
-        "value": 150,
+        "value": 15,
     },
 }
 
@@ -650,101 +668,101 @@ DEFAULT_INVENTORY_CAPACITY = 5
 GEAR_TYPES = {
     "Inventory": {
         "Fanny Pack": {
-            "cost": 25,
+            "cost": 75,
             "description": "A small pouch that clips to your belt.",
             "effect": {"inventory_capacity": 6},
             "requirements": {"level": 3},
         },
         "Satchel": {
-            "cost": 75,
+            "cost": 100,
             "description": "A leather bag slung over the shoulder.",
             "effect": {"inventory_capacity": 8},
             "requirements": {"level": 5},
         },
         "Basket": {
-            "cost": 200,
+            "cost": 175,
             "description": "A woven basket for carrying your catch.",
             "effect": {"inventory_capacity": 10},
             "requirements": {"level": 8},
         },
         "Bucket": {
-            "cost": 400,
+            "cost": 250,
             "description": "A sturdy bucket that holds a decent haul.",
             "effect": {"inventory_capacity": 12},
             "requirements": {"level": 12},
         },
         "Crate": {
-            "cost": 750,
+            "cost": 500,
             "description": "A wooden crate with plenty of room.",
             "effect": {"inventory_capacity": 15},
             "requirements": {"level": 20},
         },
         "Creel": {
-            "cost": 1500,
+            "cost": 1000,
             "description": "A traditional fishing creel built for serious anglers.",
             "effect": {"inventory_capacity": 19},
             "requirements": {"level": 30},
         },
         "Large Crate": {
-            "cost": 2500,
+            "cost": 1750,
             "description": "An oversized crate reinforced with iron bands.",
             "effect": {"inventory_capacity": 21},
             "requirements": {"level": 35},
         },
         "Small Chest": {
-            "cost": 4000,
+            "cost": 2500,
             "description": "A compact chest with a secure latch.",
             "effect": {"inventory_capacity": 24},
             "requirements": {"level": 40},
         },
         "Medium Chest": {
-            "cost": 6000,
+            "cost": 3500,
             "description": "A proper storage chest with brass fittings.",
             "effect": {"inventory_capacity": 27},
             "requirements": {"level": 47},
             "material_cost": {"Iron Hinge": 1},
         },
         "Fishing Barrel": {
-            "cost": 10000,
+            "cost": 8000,
             "description": "A massive barrel that holds an impressive catch.",
             "effect": {"inventory_capacity": 37},
             "requirements": {"level": 65},
         },
         "Large Chest": {
-            "cost": 16000,
+            "cost": 12000,
             "description": "A heavy chest that takes two hands to carry.",
             "effect": {"inventory_capacity": 43},
             "requirements": {"level": 73},
             "material_cost": {"Steel Hinge": 1},
         },
         "Magic Fanny Pack": {
-            "cost": 25000,
+            "cost": 18000,
             "description": "A tiny pack enchanted to hold far more than it should.",
             "effect": {"inventory_capacity": 50},
             "requirements": {"level": 80},
         },
         "Almost Bottomless Bucket": {
-            "cost": 40000,
+            "cost": 22000,
             "description": "You can't quite see the bottom. Almost.",
             "effect": {"inventory_capacity": 70},
             "requirements": {"level": 85},
             "material_cost": {"Magic Scale": 1},
         },
         "Magic Satchel": {
-            "cost": 60000,
+            "cost": 28000,
             "description": "Woven with arcane thread — it defies physics.",
             "effect": {"inventory_capacity": 80},
             "requirements": {"level": 90},
         },
         "Nearly Bottomless Bucket": {
-            "cost": 85000,
+            "cost": 35000,
             "description": "Seriously, where does it all go?",
             "effect": {"inventory_capacity": 100},
             "requirements": {"level": 99},
             "material_cost": {"Magic Fish": 1},
         },
         "Void Satchel of Hell": {
-            "cost": 150000,
+            "cost": 50000,
             "description": "Forged in the abyss. Holds everything. Smells faintly of brimstone.",
             "effect": {"inventory_capacity": 200},
             "requirements": {"level": 100},
@@ -753,6 +771,44 @@ GEAR_TYPES = {
     },
     "Outfits": {},
     "Tools": {},
+}
+
+# Consumable tools — consumed per eligible catch, roll for material drops
+CONSUMABLE_TOOL_TYPES: Dict[str, ConsumableToolData] = {
+    "Salvage Magnet": {
+        "cost": 27,
+        "description": "A magnetic tool that extracts iron hinges from uncommon+ catches.",
+        "requirements": {"level": 35},
+        "triggers_on": ["uncommon", "rare", "legendary"],
+        "drops": {"Iron Hinge": 1 / 329},
+        "special_drops": None,
+    },
+    "Tempered Magnet": {
+        "cost": 58,
+        "description": "A reinforced magnet that pulls steel hinges from rare+ catches.",
+        "requirements": {"level": 55},
+        "triggers_on": ["rare", "legendary"],
+        "drops": {"Steel Hinge": 1 / 414},
+        "special_drops": None,
+    },
+    "Arcane Scraper": {
+        "cost": 52,
+        "description": "A magic-infused scraper. Finds magic scales from rare+ catches, and magic fish from legendary catches.",
+        "requirements": {"level": 70},
+        "triggers_on": ["rare", "legendary"],
+        "drops": {"Magic Scale": 1 / 533},
+        "special_drops": {
+            "legendary": {"Magic Fish": 1 / 393},
+        },
+    },
+    "Void Lure": {
+        "cost": 282,
+        "description": "An abyssal lure that attracts void scales from legendary catches.",
+        "requirements": {"level": 85},
+        "triggers_on": ["legendary"],
+        "drops": {"Void Scale": 1 / 245},
+        "special_drops": None,
+    },
 }
 
 # Default user data structure
@@ -771,6 +827,7 @@ DEFAULT_USER_DATA = {
     "inventory_capacity": DEFAULT_INVENTORY_CAPACITY,
     "purchased_gear": [],
     "materials": {},
+    "tools": {},
 }
 
 # Default global settings

@@ -25,6 +25,7 @@ class SimulationMenuView(BaseView):
         self.selected_location = "Pond"
         self.selected_weather = "Sunny"
         self.selected_time = "Day"
+        self.selected_level = 99
         self.duration_hours = 1
         self.catches_per_hour = 360
         self.results = None
@@ -211,7 +212,9 @@ class SimulationMenuView(BaseView):
         # Check if weather affects selected location
         weather_applies = self.selected_location in weather_data.get("affects_locations", [])
 
-        # Calculate total catch chance (with bait effectiveness)
+        # Calculate total catch chance (with bait effectiveness and level bonus)
+        from ..data.fishing_data import level_catch_bonus
+        lvl_bonus = level_catch_bonus(self.selected_level)
         rod_bonus = rod_data["chance"]
         bait_effectiveness = bait_data.get("effectiveness", {}).get(self.selected_location, 1.0)
         bait_bonus = bait_data["catch_bonus"] * bait_effectiveness
@@ -221,7 +224,7 @@ class SimulationMenuView(BaseView):
             weather_bonus += weather_data.get("location_bonus", {}).get(self.selected_location, 0)
             weather_bonus += weather_data.get("time_multiplier", {}).get(self.selected_time, 0)
         time_bonus = time_data.get("catch_bonus", 0)
-        total_chance = rod_bonus + bait_bonus + weather_bonus + time_bonus
+        total_chance = max(0.0, min(1.0, lvl_bonus + rod_bonus + bait_bonus + weather_bonus + time_bonus))
 
         embed = discord.Embed(
             title="Fishing Simulation Setup",
@@ -235,6 +238,7 @@ class SimulationMenuView(BaseView):
         embed.add_field(
             name="Equipment",
             value=(
+                f"Level: **{self.selected_level}** (+{lvl_bonus*100:.1f}%)\n"
                 f"Rod: **{self.selected_rod}** (+{rod_bonus*100:.0f}%)\n"
                 f"{bait_line}\n"
                 f"Location: **{self.selected_location}**"
@@ -260,6 +264,7 @@ class SimulationMenuView(BaseView):
         if bait_effectiveness != 1.0:
             bait_str += f" (base {bait_data['catch_bonus']*100:.0f}% x {bait_effectiveness})"
         breakdown = [
+            f"Level: `{lvl_bonus*100:+.1f}%`",
             f"Rod: `{rod_bonus*100:+.1f}%`",
             bait_str,
         ]
@@ -395,6 +400,7 @@ class SimulationMenuView(BaseView):
         if bait_eff != 1.0:
             bait_mod += f" ({bait_eff}x eff.)"
         mod_lines = [
+            f"Level: `{r['modifiers']['level_bonus']*100:+.1f}%`",
             f"Rod: `{r['modifiers']['rod_bonus']*100:+.1f}%`",
             bait_mod,
         ]
@@ -498,7 +504,8 @@ class SimulationMenuView(BaseView):
                 weather=self.selected_weather,
                 time_of_day=self.selected_time,
                 duration_hours=self.duration_hours,
-                catches_per_hour=self.catches_per_hour
+                catches_per_hour=self.catches_per_hour,
+                level=self.selected_level,
             )
 
             await self.initialize_view()
