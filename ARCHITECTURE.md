@@ -329,10 +329,10 @@ class TimeData(TypedDict):
 | Name | Catch Bonus | Cost | Durability | Level Req |
 |------|-------------|------|------------|-----------|
 | Basic Rod | +0% | 0 | 100 | None |
-| Intermediate Rod | +8% | 250 | 200 | 5 |
-| Advanced Rod | +16% | 500 | 300 | 10 |
-| Expert Rod | +24% | 750 | 400 | 15 |
-| Master Rod | +32% | 1000 | 500 | 20 |
+| Intermediate Rod | +8% | 250 | 200 | 7 |
+| Advanced Rod | +16% | 500 | 300 | 18 |
+| Expert Rod | +24% | 750 | 400 | 32 |
+| Master Rod | +32% | 1000 | 500 | 50 |
 
 **`BAIT_TYPES`** (9 entries — 5 generalist + 4 specialist):
 

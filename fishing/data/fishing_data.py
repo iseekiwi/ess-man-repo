@@ -122,7 +122,7 @@ ROD_TYPES = {
         "durability": 200,
         "description": "Better quality rod with improved catch rates.",
         "requirements": {
-            "level": 5
+            "level": 7
         }
     },
     "Advanced Rod": {
@@ -131,7 +131,7 @@ ROD_TYPES = {
         "durability": 300,
         "description": "Professional grade rod with excellent catch rates.",
         "requirements": {
-            "level": 10
+            "level": 18
         }
     },
     "Expert Rod": {
@@ -140,7 +140,7 @@ ROD_TYPES = {
         "durability": 400,
         "description": "Masterfully crafted rod for serious anglers.",
         "requirements": {
-            "level": 15
+            "level": 32
         }
     },
     "Master Rod": {
@@ -149,7 +149,7 @@ ROD_TYPES = {
         "durability": 500,
         "description": "Legendary rod with exceptional catch rates.",
         "requirements": {
-            "level": 20
+            "level": 50
         }
     }
 }
