@@ -210,6 +210,7 @@ class InventoryView(BaseView):
         """Initialize the view's buttons based on current page"""
         try:
             self.logger.debug(f"Initializing view for page: {self.current_page}")
+            await self._refresh_user_data()
             self.clear_items()
 
             if self.current_page == "main":

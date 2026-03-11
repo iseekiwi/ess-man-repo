@@ -827,6 +827,7 @@ Base class for all views. Discord's built-in `View.timeout` is disabled (`super(
 
 ```python
 async def interaction_check(self, interaction: discord.Interaction) -> bool
+async def _refresh_user_data(self) -> None   # Refresh self.user_data from ConfigManager; syncs parent view
 async def on_timeout(self) -> None           # Delegates to parent for child views; clears items for root views
 async def cleanup(self) -> None              # Disable items, edit message, remove from timeout manager
 async def on_error(self, interaction, error, item) -> None
@@ -836,6 +837,8 @@ async def delete_after_delay(self, message, delay: int = 2) -> None
 # Session management
 def _release_session(self) -> None      # Remove from cog._active_sessions if this view owns slot
 ```
+
+`_refresh_user_data()` is called at the top of `initialize_view()` in all views (menu, shop, inventory) to ensure `self.user_data` reflects the latest database state. This handles external changes such as admin level commands or XP gains from other sessions.
 
 #### `ConfirmView(BaseView)`
 

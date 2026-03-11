@@ -26,6 +26,20 @@ class BaseView(View):
         self._timeout_task = None
         self.logger.debug(f"Initializing BaseView for {ctx.author.name} with timeout {timeout}")
 
+    async def _refresh_user_data(self):
+        """Refresh user_data from ConfigManager to pick up external changes (e.g. admin commands, XP gains)."""
+        if not hasattr(self, 'user_data'):
+            return
+        try:
+            result = await self.cog.config_manager.get_user_data(self.ctx.author.id)
+            if result.success:
+                self.user_data = result.data
+                # Keep parent menu view in sync if this is a child view
+                if hasattr(self, 'parent_menu_view') and self.parent_menu_view:
+                    self.parent_menu_view.user_data = result.data
+        except Exception as e:
+            self.logger.error(f"Error refreshing user data: {e}")
+
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         """Verify interaction and manage timeouts"""
         try:
