@@ -20,6 +20,7 @@ class BaitData(TypedDict):
     description: str
     daily_stock: int
     preferred_by: List[str]
+    preference_bonus: Optional[float]
     effectiveness: Dict[str, float]
     requirements: Union[None, Dict[str, int]]
 
@@ -154,13 +155,14 @@ ROD_TYPES = {
 }
 
 BAIT_TYPES = {
+    # --- Generalist baits: higher catch bonus, no rarity preference ---
     "Worm": {
         "value": 1,
         "catch_bonus": 0.12,
         "cost": 1,
-        "description": "Basic bait that attracts common fish.",
+        "description": "Basic bait that gets the job done.",
         "daily_stock": 1000,
-        "preferred_by": ["Common Fish"],
+        "preferred_by": [],
         "effectiveness": {
             "Pond": 1.2,
             "River": 0.8,
@@ -168,92 +170,152 @@ BAIT_TYPES = {
         },
         "requirements": None
     },
-    "Shrimp": {
-        "value": 2,
-        "catch_bonus": 0.20,
-        "cost": 2,
-        "description": "Medium-grade bait, good for various fish types.",
-        "daily_stock": 500,
-        "preferred_by": ["Uncommon Fish"],
-        "effectiveness": {
-            "Pond": 0.8,
-            "River": 1.2,
-            "Lake": 1.0,
-            "Ocean": 1.2
-        },
-        "requirements": {
-            "level": 5
-        }
-    },
     "Cricket": {
         "value": 4,
-        "catch_bonus": 0.28,
-        "cost": 4,
-        "description": "Premium bait with high catch bonus.",
-        "daily_stock": 250,
-        "preferred_by": ["Rare Fish"],
+        "catch_bonus": 0.22,
+        "cost": 6,
+        "description": "Reliable bait favored by freshwater anglers.",
+        "daily_stock": 400,
+        "preferred_by": [],
         "effectiveness": {
-            "Pond": 1.5,
+            "Pond": 1.4,
             "River": 1.2,
             "Lake": 1.3,
             "Ocean": 0.7
         },
         "requirements": {
-            "level": 10
-        }
-    },
-    "Firefly": {
-        "value": 6,
-        "catch_bonus": 0.32,
-        "cost": 6,
-        "description": "Glowing bait that attracts exotic fish at night.",
-        "daily_stock": 150,
-        "preferred_by": ["Rare Fish", "Legendary Fish"],
-        "effectiveness": {
-            "Pond": 1.8,
-            "River": 1.5,
-            "Lake": 1.6,
-            "Ocean": 0.5
-        },
-        "requirements": {
-            "level": 12
+            "level": 15
         }
     },
     "Nightcrawler": {
-        "value": 8,
-        "catch_bonus": 0.35,
-        "cost": 8,
-        "description": "A fat worm even Legendary fish can't resist.",
-        "daily_stock": 100,
-        "preferred_by": ["Legendary Fish"],
+        "value": 6,
+        "catch_bonus": 0.30,
+        "cost": 15,
+        "description": "A fat worm that works well anywhere.",
+        "daily_stock": 250,
+        "preferred_by": [],
         "effectiveness": {
-            "Pond": 1.5,
-            "River": 1.3,
-            "Lake": 1.4,
-            "Ocean": 0.7,
+            "Pond": 1.2,
+            "River": 1.2,
+            "Lake": 1.2,
+            "Ocean": 1.0,
             "Deep Sea": 1.0
         },
         "requirements": {
-            "level": 15
+            "level": 30
         }
     },
     "Anchovy": {
         "value": 10,
-        "catch_bonus": 0.42,
-        "cost": 10,
-        "description": "Small fish bait perfect for ocean fishing.",
-        "daily_stock": 80,
-        "preferred_by": ["Rare Fish", "Legendary Fish"],
+        "catch_bonus": 0.36,
+        "cost": 30,
+        "description": "Small fish bait that excels in deep waters.",
+        "daily_stock": 150,
+        "preferred_by": [],
         "effectiveness": {
-            "Ocean": 1.8,
-            "Deep Sea": 1.5,
             "Pond": 0.5,
-            "River": 0.5
+            "River": 0.6,
+            "Lake": 0.8,
+            "Ocean": 1.6,
+            "Deep Sea": 1.5
         },
         "requirements": {
-            "level": 18
+            "level": 50
         }
-    }
+    },
+    "Leech": {
+        "value": 12,
+        "catch_bonus": 0.42,
+        "cost": 45,
+        "description": "Premium bait that works in any waters.",
+        "daily_stock": 100,
+        "preferred_by": [],
+        "effectiveness": {
+            "Pond": 1.3,
+            "River": 1.3,
+            "Lake": 1.3,
+            "Ocean": 1.3,
+            "Deep Sea": 1.3
+        },
+        "requirements": {
+            "level": 65
+        }
+    },
+    # --- Specialist baits: lower catch bonus, but boost targeted rarity weight ---
+    "Shrimp": {
+        "value": 2,
+        "catch_bonus": 0.14,
+        "cost": 3,
+        "description": "Common fish can't resist fresh shrimp.",
+        "daily_stock": 600,
+        "preferred_by": ["Common Fish"],
+        "preference_bonus": 2.0,
+        "effectiveness": {
+            "Pond": 1.3,
+            "River": 1.1,
+            "Lake": 1.0,
+            "Ocean": 0.8
+        },
+        "requirements": {
+            "level": 8
+        }
+    },
+    "Firefly": {
+        "value": 5,
+        "catch_bonus": 0.20,
+        "cost": 10,
+        "description": "Glowing bait that lures uncommon species from hiding.",
+        "daily_stock": 300,
+        "preferred_by": ["Uncommon Fish"],
+        "preference_bonus": 2.0,
+        "effectiveness": {
+            "Pond": 1.0,
+            "River": 1.4,
+            "Lake": 1.5,
+            "Ocean": 1.0
+        },
+        "requirements": {
+            "level": 20
+        }
+    },
+    "Squid": {
+        "value": 8,
+        "catch_bonus": 0.26,
+        "cost": 22,
+        "description": "Squid strips that rare fish find irresistible.",
+        "daily_stock": 200,
+        "preferred_by": ["Rare Fish"],
+        "preference_bonus": 2.0,
+        "effectiveness": {
+            "Pond": 0.6,
+            "River": 0.8,
+            "Lake": 1.2,
+            "Ocean": 1.5,
+            "Deep Sea": 1.4
+        },
+        "requirements": {
+            "level": 40
+        }
+    },
+    "Glowworm": {
+        "value": 15,
+        "catch_bonus": 0.32,
+        "cost": 40,
+        "description": "Bioluminescent bait that calls to legendary fish.",
+        "daily_stock": 80,
+        "preferred_by": ["Legendary Fish"],
+        "preference_bonus": 2.5,
+        "effectiveness": {
+            "Pond": 0.7,
+            "River": 0.8,
+            "Lake": 1.2,
+            "Ocean": 1.4,
+            "Deep Sea": 1.8
+        },
+        "requirements": {
+            "level": 75
+        }
+    },
 }
 
 LOCATIONS = {

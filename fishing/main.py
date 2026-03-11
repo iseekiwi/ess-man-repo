@@ -273,29 +273,36 @@ class Fishing(commands.Cog):
         
                     weighted_fish = []
                     weights = []
-                    
+                    bait_data = self.data["bait"][bait_type]
+
                     # Calculate weights for each fish type
                     for fish, data in self.data["fish"].items():
                         if "variants" not in data:
                             self.logger.warning(f"Fish type {fish} missing variants!")
                             continue
-                            
+
                         weight = data["chance"] * location_mods[fish]
-                        
+
                         # Apply weather rare bonus to rare/legendary fish only if location is affected
                         if location in weather_data.get("affects_locations", []):
                             if data["rarity"] in ["rare", "legendary"]:
                                 rare_multiplier = 1 + weather_rare_bonus + time_rare_bonus
                                 weight *= rare_multiplier
                                 self.logger.debug(f"Applied rare bonus to {fish}: {rare_multiplier}x")
-                            
+
                             # Apply specific rarity bonus if exists
                             specific_bonus = weather_data.get("specific_rarity_bonus", {}).get(data["rarity"], 0)
                             if specific_bonus:
                                 specific_multiplier = 1 + specific_bonus
                                 weight *= specific_multiplier
                                 self.logger.debug(f"Applied specific bonus to {fish}: {specific_multiplier}x")
-                        
+
+                        # Apply bait preference bonus for specialist baits
+                        if fish in bait_data.get("preferred_by", []):
+                            preference_bonus = bait_data.get("preference_bonus", 1.0)
+                            weight *= preference_bonus
+                            self.logger.debug(f"Applied preference bonus to {fish}: {preference_bonus}x")
+
                         weighted_fish.append(fish)
                         weights.append(weight)
                         self.logger.debug(f"Fish weight for {fish}: {weight}")

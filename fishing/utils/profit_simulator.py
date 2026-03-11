@@ -78,13 +78,14 @@ class ProfitSimulator:
             "weather_data": weather_data,
         }
 
-    def _build_fish_weights(self, location: str, mods: Dict) -> tuple:
+    def _build_fish_weights(self, location: str, bait: str, mods: Dict) -> tuple:
         """Build weighted fish selection pool. Returns (fish_names, weights)."""
         location_mods = self.data["locations"][location]["fish_modifiers"]
         weather_data = mods["weather_data"]
         weather_applies = mods["weather_applies"]
         weather_rare_bonus = mods["weather_rare_bonus"]
         time_rare_bonus = mods["time_rare_bonus"]
+        bait_data = self.data["bait"][bait]
 
         fish_names = []
         weights = []
@@ -97,6 +98,11 @@ class ProfitSimulator:
                 specific = weather_data.get("specific_rarity_bonus", {}).get(fish, 0)
                 if specific:
                     weight *= 1 + specific
+
+            # Apply bait preference bonus for specialist baits
+            if fish in bait_data.get("preferred_by", []):
+                preference_bonus = bait_data.get("preference_bonus", 1.0)
+                weight *= preference_bonus
 
             fish_names.append(fish)
             weights.append(weight)
@@ -181,7 +187,7 @@ class ProfitSimulator:
         bonus catches, junk stats, and XP estimate.
         """
         mods = self._compute_modifiers(rod, bait, location, weather, time_of_day)
-        fish_names, fish_weights = self._build_fish_weights(location, mods)
+        fish_names, fish_weights = self._build_fish_weights(location, bait, mods)
         junk_names, junk_weights = self._build_junk_weights()
 
         # Compute expected rarity distribution from normalized weights

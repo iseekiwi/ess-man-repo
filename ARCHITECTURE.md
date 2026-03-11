@@ -1212,8 +1212,12 @@ For each fish_type:
         weight *= (1 + weather_rare_bonus + time_rare_bonus)
     if specific_rarity_bonus exists for this rarity:
         weight *= (1 + specific_rarity_bonus)
+    if fish_type in bait.preferred_by:
+        weight *= bait.preference_bonus
 ```
 Final selection via `random.choices(fish_types, weights=weights)`.
+
+**Specialist baits** have a `preferred_by` list (fish type names) and a `preference_bonus` multiplier. When the equipped bait is a specialist, fish in its `preferred_by` list get their selection weight multiplied by `preference_bonus` (e.g., 2.0x or 2.5x). This shifts the rarity distribution toward the specialist's target. There are 4 specialists: Shrimp (Common, 2.0x), Firefly (Uncommon, 2.0x), Squid (Rare, 2.0x), Glowworm (Legendary, 2.5x). Generalist baits have empty `preferred_by` lists and no preference bonus.
 
 ### 8.3 Leveling System
 

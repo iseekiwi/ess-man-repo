@@ -496,7 +496,8 @@ class ShopView(BaseView):
 
                     stats = f"📊 Catch Bonus: `+{bait_data['catch_bonus']*100:.0f}%`"
                     if bait_data.get("preferred_by"):
-                        stats += f" | Preferred by: {', '.join(bait_data['preferred_by'])}"
+                        bonus = bait_data.get("preference_bonus", 1.0)
+                        stats += f"\n⭐ Specialist: `{bonus}x` weight for {', '.join(bait_data['preferred_by'])}"
 
                     eff = bait_data.get("effectiveness", {})
                     if eff:
