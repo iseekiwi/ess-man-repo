@@ -926,15 +926,15 @@ class ShopView(BaseView):
     def __init__(self, cog, ctx, user_data: Dict)
 ```
 
-Pages: `"main"`, `"bait"`, `"rods"`, `"gear"`.
+Pages: `"main"`, `"bait"`, `"rods"`, `"gear"` (gear page is reused for all 3 gear categories via `self.gear_category`).
 
-**Main page**: "Buy Bait", "Buy Rods", "Buy Gear", "Back to Menu" buttons.
+**Main page**: "Buy Bait", "Buy Rods", "Buy Storage", "Buy Outfits", "Buy Tools", "Back to Menu" buttons. Each gear button sets `gear_category` to the corresponding `GEAR_TYPES` key (Inventory/Outfits/Tools) and navigates to the gear page.
 
 **Bait page**: Select dropdown of available baits (stock > 0, user meets level req). Selection opens `BaitQuantityModal`.
 
 **Rods page**: Select dropdown of purchasable rods (not owned, user meets level/fish req, owns previous rod in chain). Embed shows all rods with status: owned, level-locked, prerequisite-locked, or available with price. Selection shows `PurchaseConfirmView`.
 
-**Gear page**: Paginated display (5 items/page) with `<` `>` navigation buttons. Select dropdown lists purchasable gear on the current page (not owned, user meets level req, owns previous gear in category chain). Embed shows prerequisite-locked status for items missing the prior tier. Selection shows `PurchaseConfirmView` then calls `_handle_gear_purchase`. Each inventory item SETs total capacity (not additive).
+**Gear page** (shared by Storage/Outfits/Tools): Per-category paginated display (5 items/page) with `<` `>` navigation buttons. Select dropdown lists purchasable items from the active category (not owned, user meets level req, owns previous item in chain). Embed title and placeholder reflect the active category. Selection shows `PurchaseConfirmView` then calls `_handle_gear_purchase`.
 
 Has `parent_menu_view` attribute set by FishingMenuView for data refresh propagation.
 

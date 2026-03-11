@@ -218,12 +218,25 @@ class PurchaseConfirmView(BaseView):
 class ShopView(BaseView):
     """View for the fishing shop interface"""
 
+    # Map page IDs to GEAR_TYPES category keys
+    CATEGORY_PAGE_MAP = {
+        "gear": "Inventory",
+        "outfits": "Outfits",
+        "tools": "Tools",
+    }
+    CATEGORY_ICONS = {
+        "Inventory": "🎒",
+        "Outfits": "🧥",
+        "Tools": "🔧",
+    }
+
     def __init__(self, cog, ctx, user_data: Dict):
         super().__init__(cog, ctx)
         self.user_data = user_data
         self.current_page = "main"
         self.current_balance = 0
         self.gear_page = 0
+        self.gear_category = "Inventory"  # Active GEAR_TYPES category
         self.logger = get_logger('shop.view')
         self.logger.debug(f"Initializing ShopView for user {ctx.author.name}")
 
@@ -248,17 +261,17 @@ class ShopView(BaseView):
             self.logger.error(f"Error in ShopView setup: {str(e)}", exc_info=True)
             raise
 
-    def _get_all_gear_items(self) -> List[tuple]:
-        """Get a flat list of (gear_name, gear_data, category) for all gear items."""
+    def _get_category_items(self) -> List[tuple]:
+        """Get items from the active gear category as (gear_name, gear_data, category) tuples."""
         items = []
-        for category, category_items in GEAR_TYPES.items():
-            for gear_name, gear_data in category_items.items():
-                items.append((gear_name, gear_data, category))
+        category_items = GEAR_TYPES.get(self.gear_category, {})
+        for gear_name, gear_data in category_items.items():
+            items.append((gear_name, gear_data, self.gear_category))
         return items
 
-    def _get_gear_page_count(self) -> int:
-        """Get total number of gear pages."""
-        total_items = len(self._get_all_gear_items())
+    def _get_category_page_count(self) -> int:
+        """Get total number of pages for the active gear category."""
+        total_items = len(self._get_category_items())
         return max(1, math.ceil(total_items / GEAR_ITEMS_PER_PAGE))
 
     async def initialize_view(self):
@@ -269,7 +282,13 @@ class ShopView(BaseView):
 
             if self.current_page == "main":
                 self.logger.debug("Setting up main page buttons")
-                for label, custom_id in [("Buy Bait", "bait"), ("Buy Rods", "rods"), ("Buy Gear", "gear")]:
+                for label, custom_id in [
+                    ("Buy Bait", "bait"),
+                    ("Buy Rods", "rods"),
+                    ("Buy Storage", "gear"),
+                    ("Buy Outfits", "outfits"),
+                    ("Buy Tools", "tools"),
+                ]:
                     btn = Button(label=label, style=discord.ButtonStyle.blurple, custom_id=custom_id)
                     btn.callback = self.handle_button
                     self.add_item(btn)
@@ -350,15 +369,15 @@ class ShopView(BaseView):
                         self.add_item(rod_select)
 
                 elif self.current_page == "gear":
-                    self.logger.debug("Setting up gear page")
+                    self.logger.debug(f"Setting up gear page for category: {self.gear_category}")
                     user_level = self.user_data.get("level", 1)
                     purchased_gear = self.user_data.get("purchased_gear", [])
 
-                    # Build select options for purchasable gear on the current page
-                    all_items = self._get_all_gear_items()
+                    # Build select options for purchasable items in this category
+                    cat_items = self._get_category_items()
                     start = self.gear_page * GEAR_ITEMS_PER_PAGE
                     end = start + GEAR_ITEMS_PER_PAGE
-                    page_items = all_items[start:end]
+                    page_items = cat_items[start:end]
 
                     options = []
                     for gear_name, gear_data, category in page_items:
@@ -384,8 +403,9 @@ class ShopView(BaseView):
                             ))
 
                     if options:
+                        icon = self.CATEGORY_ICONS.get(self.gear_category, "📦")
                         gear_select = Select(
-                            placeholder="Select gear to purchase...",
+                            placeholder=f"Select {self.gear_category.lower()} to purchase...",
                             options=options,
                             custom_id="gear_select"
                         )
@@ -393,7 +413,7 @@ class ShopView(BaseView):
                         self.add_item(gear_select)
 
                     # Pagination buttons
-                    total_pages = self._get_gear_page_count()
+                    total_pages = self._get_category_page_count()
                     if total_pages > 1:
                         prev_btn = Button(
                             label="<",
@@ -452,7 +472,9 @@ class ShopView(BaseView):
                     value=(
                         "🪱 **Bait** - Various baits for fishing\n"
                         "🎣 **Rods** - Better rods, better catches!\n"
-                        "🛠️ **Gear** - Upgrades and tools"
+                        "🎒 **Storage** - Inventory upgrades\n"
+                        "🧥 **Outfits** - Wearable gear\n"
+                        "🔧 **Tools** - Useful fishing tools"
                     ),
                     inline=False
                 )
@@ -500,28 +522,22 @@ class ShopView(BaseView):
             elif self.current_page == "gear":
                 purchased_gear = self.user_data.get("purchased_gear", [])
                 user_level = self.user_data.get("level", 1)
-                total_pages = self._get_gear_page_count()
+                total_pages = self._get_category_page_count()
 
-                embed.title = f"🛠️ Gear Shop (Page {self.gear_page + 1}/{total_pages})"
+                icon = self.CATEGORY_ICONS.get(self.gear_category, "📦")
+                # Use "Storage" as display name for "Inventory" category
+                display_name = "Storage" if self.gear_category == "Inventory" else self.gear_category
+                page_suffix = f" (Page {self.gear_page + 1}/{total_pages})" if total_pages > 1 else ""
+                embed.title = f"{icon} {display_name} Shop{page_suffix}"
 
-                category_icons = {
-                    "Inventory": "🎒",
-                    "Gear": "🧥",
-                    "Tools": "🔧",
-                }
-
-                # Get items for current page
-                all_items = self._get_all_gear_items()
+                # Get items for current page in this category
+                cat_items = self._get_category_items()
                 start = self.gear_page * GEAR_ITEMS_PER_PAGE
                 end = start + GEAR_ITEMS_PER_PAGE
-                page_items = all_items[start:end]
+                page_items = cat_items[start:end]
 
-                # Group page items by category for display
-                categories_on_page = {}
+                item_entries = []
                 for gear_name, gear_data, category in page_items:
-                    if category not in categories_on_page:
-                        categories_on_page[category] = []
-
                     owned = gear_name in purchased_gear
                     requirements = gear_data.get("requirements", {})
                     level_req = requirements.get("level", 1) if requirements else 1
@@ -532,9 +548,8 @@ class ShopView(BaseView):
                     elif level_req > user_level:
                         status = f"🔒 Requires Level {level_req}"
                     elif not has_prereq:
-                        # Find previous item in same category
-                        cat_items = list(GEAR_TYPES[category].keys())
-                        prev_item = cat_items[cat_items.index(gear_name) - 1]
+                        cat_keys = list(GEAR_TYPES[category].keys())
+                        prev_item = cat_keys[cat_keys.index(gear_name) - 1]
                         status = f"🔒 Requires **{prev_item}**"
                     else:
                         status = f"💰 Cost: {gear_data['cost']} {currency_name}"
@@ -566,18 +581,12 @@ class ShopView(BaseView):
                         entry_lines.append(mat_text)
                     entry_lines.append(status)
 
-                    categories_on_page[category].append("\n".join(entry_lines))
+                    item_entries.append("\n".join(entry_lines))
 
-                for category, lines in categories_on_page.items():
-                    icon = category_icons.get(category, "📦")
-                    embed.add_field(
-                        name=f"{icon} {category}",
-                        value="\n\n".join(lines),
-                        inline=False
-                    )
-
-                if not page_items:
-                    embed.description = "No gear available yet!"
+                if item_entries:
+                    embed.description = "\n\n".join(item_entries)
+                else:
+                    embed.description = f"No {display_name.lower()} items available yet!"
 
             elif self.current_page == "rods":
                 embed.title = "🎣 Rod Shop"
@@ -654,8 +663,9 @@ class ShopView(BaseView):
                 self.current_page = "bait"
             elif custom_id == "rods":
                 self.current_page = "rods"
-            elif custom_id == "gear":
+            elif custom_id in self.CATEGORY_PAGE_MAP:
                 self.current_page = "gear"
+                self.gear_category = self.CATEGORY_PAGE_MAP[custom_id]
                 self.gear_page = 0
             elif custom_id == "back":
                 self.current_page = "main"
@@ -663,7 +673,7 @@ class ShopView(BaseView):
             elif custom_id == "gear_prev":
                 self.gear_page = max(0, self.gear_page - 1)
             elif custom_id == "gear_next":
-                self.gear_page = min(self._get_gear_page_count() - 1, self.gear_page + 1)
+                self.gear_page = min(self._get_category_page_count() - 1, self.gear_page + 1)
 
             await self.initialize_view()
             embed = await self.generate_embed()

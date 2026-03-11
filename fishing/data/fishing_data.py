@@ -609,7 +609,7 @@ GEAR_TYPES = {
             "material_cost": {"Void Scale": 1},
         },
     },
-    "Gear": {},
+    "Outfits": {},
     "Tools": {},
 }
 
