@@ -567,11 +567,9 @@ class ShopView(BaseView):
                         user_materials = self.user_data.get("materials", {})
                         mat_parts = []
                         for mat_name, qty in mat_cost.items():
-                            mat_info = MATERIAL_TYPES.get(mat_name, {})
-                            emoji = mat_info.get("emoji", "")
                             owned_qty = user_materials.get(mat_name, 0)
                             check = "✅" if owned_qty >= qty else "❌"
-                            mat_parts.append(f"{check} {emoji} {mat_name} ({owned_qty}/{qty})")
+                            mat_parts.append(f"{check} {mat_name} ({owned_qty}/{qty})")
                         mat_text = f"🧱 {', '.join(mat_parts)}"
 
                     entry_lines = [f"**{gear_name}**", gear_data['description']]
@@ -806,12 +804,8 @@ class ShopView(BaseView):
             # Build confirmation message with material info
             confirm_text = f"Confirm purchase of **{gear_name}** for {cost} coins?"
             if material_cost:
-                mat_parts = []
-                for mat_name, qty in material_cost.items():
-                    mat_info = MATERIAL_TYPES.get(mat_name, {})
-                    emoji = mat_info.get("emoji", "")
-                    mat_parts.append(f"{emoji} {qty}x {mat_name}")
-                confirm_text += f"\nMaterials consumed: {', '.join(mat_parts)}"
+                mat_parts = [f"{qty}x {mat_name}" for mat_name, qty in material_cost.items()]
+                confirm_text += f"\n🧱 Materials consumed: {', '.join(mat_parts)}"
 
             confirm_view = PurchaseConfirmView(self.cog, self.ctx, gear_name, 1, cost)
             await interaction.response.send_message(

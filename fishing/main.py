@@ -618,11 +618,9 @@ class Fishing(commands.Cog):
         for mat_name, required in material_cost.items():
             owned = user_materials.get(mat_name, 0)
             if owned < required:
-                mat_info = MATERIAL_TYPES.get(mat_name, {})
-                emoji = mat_info.get("emoji", "")
-                missing.append(f"{emoji} {mat_name} ({owned}/{required})")
+                missing.append(f"{mat_name} ({owned}/{required})")
         if missing:
-            return False, f"Missing materials: {', '.join(missing)}"
+            return False, f"🧱 Missing materials: {', '.join(missing)}"
         return True, ""
 
     async def consume_materials(self, user_id: int, material_cost: dict) -> tuple[bool, str]:
