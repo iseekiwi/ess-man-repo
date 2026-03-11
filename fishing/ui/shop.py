@@ -237,6 +237,7 @@ class ShopView(BaseView):
         self.current_balance = 0
         self.gear_page = 0
         self.gear_category = "Inventory"  # Active GEAR_TYPES category
+        self.bait_tab = "normal"  # "normal" or "specialized"
         self.logger = get_logger('shop.view')
         self.logger.debug(f"Initializing ShopView for user {ctx.author.name}")
 
@@ -308,9 +309,15 @@ class ShopView(BaseView):
                     stock_result = await self.cog.config_manager.get_global_setting("bait_stock")
                     bait_stock = stock_result.data if stock_result.success else {}
 
+                    is_specialist = self.bait_tab == "specialized"
                     user_level = self.user_data.get("level", 1)
                     options = []
                     for bait_name, bait_data in self.cog.data["bait"].items():
+                        # Filter by current tab
+                        has_preferred = bool(bait_data.get("preferred_by"))
+                        if is_specialist != has_preferred:
+                            continue
+
                         stock = bait_stock.get(bait_name, 0)
                         requirements = bait_data.get("requirements", {})
                         level_req = requirements.get("level", 1) if requirements else 1
@@ -331,6 +338,34 @@ class ShopView(BaseView):
                         )
                         bait_select.callback = self.handle_bait_select
                         self.add_item(bait_select)
+
+                    # Bait tab navigation buttons
+                    prev_btn = Button(
+                        label="<",
+                        style=discord.ButtonStyle.grey,
+                        custom_id="bait_prev",
+                        disabled=(self.bait_tab == "normal")
+                    )
+                    prev_btn.callback = self.handle_button
+                    self.add_item(prev_btn)
+
+                    tab_label = "Normal" if self.bait_tab == "normal" else "Specialized"
+                    tab_btn = Button(
+                        label=tab_label,
+                        style=discord.ButtonStyle.grey,
+                        custom_id="bait_tab_indicator",
+                        disabled=True
+                    )
+                    self.add_item(tab_btn)
+
+                    next_btn = Button(
+                        label=">",
+                        style=discord.ButtonStyle.grey,
+                        custom_id="bait_next",
+                        disabled=(self.bait_tab == "specialized")
+                    )
+                    next_btn.callback = self.handle_button
+                    self.add_item(next_btn)
 
                 elif self.current_page == "rods":
                     self.logger.debug("Setting up rods page")
@@ -480,12 +515,21 @@ class ShopView(BaseView):
                 )
 
             elif self.current_page == "bait":
-                embed.title = "🪱 Bait Shop"
-                normal_list = []
-                specialist_list = []
+                is_specialist = self.bait_tab == "specialized"
+                if is_specialist:
+                    embed.title = "╔══ ⭐ Specialized Bait ══╗"
+                else:
+                    embed.title = "╔══ 🪱 Normal Bait ══╗"
+
+                bait_list = []
                 user_level = self.user_data.get("level", 1)
 
                 for bait_name, bait_data in self.cog.data["bait"].items():
+                    # Filter by current tab
+                    has_preferred = bool(bait_data.get("preferred_by"))
+                    if is_specialist != has_preferred:
+                        continue
+
                     stock = current_stock.get(bait_name, 0)
                     requirements = bait_data.get("requirements", {})
                     level_req = requirements.get("level", 1) if requirements else 1
@@ -517,18 +561,9 @@ class ShopView(BaseView):
                         f"{stats}\n"
                         f"{status}\n"
                     )
+                    bait_list.append(bait_entry)
 
-                    if bait_data.get("preferred_by"):
-                        specialist_list.append(bait_entry)
-                    else:
-                        normal_list.append(bait_entry)
-
-                sections = []
-                if normal_list:
-                    sections.append("**── Normal ──**\n" + "\n".join(normal_list))
-                if specialist_list:
-                    sections.append("**── Specialized ──**\n" + "\n".join(specialist_list))
-                embed.description = "\n".join(sections) if sections else "No bait available!"
+                embed.description = "\n".join(bait_list) if bait_list else "No bait available!"
 
             elif self.current_page == "gear":
                 purchased_gear = self.user_data.get("purchased_gear", [])
@@ -676,6 +711,10 @@ class ShopView(BaseView):
                 self.current_page = "gear"
                 self.gear_category = self.CATEGORY_PAGE_MAP[custom_id]
                 self.gear_page = 0
+            elif custom_id == "bait_prev":
+                self.bait_tab = "normal"
+            elif custom_id == "bait_next":
+                self.bait_tab = "specialized"
             elif custom_id == "back":
                 self.current_page = "main"
                 self.gear_page = 0

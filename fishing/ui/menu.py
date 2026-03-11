@@ -25,6 +25,7 @@ class FishingMenuView(BaseView):
         self.shop_view = None
         self.inventory_view = None
         self.fishing_in_progress = False
+        self.location_tab = "normal"  # "normal" or "specialized"
         self.stored_buttons = []
         self.correct_action = None
         self._catch_event = asyncio.Event()
@@ -123,14 +124,49 @@ class FishingMenuView(BaseView):
                     self.add_item(stop_btn)
 
             elif self.current_page == "location":
+                specialist_names = {"Shallow Creek", "Marshlands", "Coral Reef", "Abyssal Trench"}
+                is_specialist = self.location_tab == "specialized"
+
                 # Back button
                 back_button = Button(label="Back", custom_id="back", style=discord.ButtonStyle.grey)
                 back_button.callback = self.handle_button
                 self.add_item(back_button)
 
-                # Location select dropdown
+                # Location tab navigation buttons
+                prev_btn = Button(
+                    label="<",
+                    style=discord.ButtonStyle.grey,
+                    custom_id="loc_prev",
+                    disabled=(self.location_tab == "normal")
+                )
+                prev_btn.callback = self.handle_button
+                self.add_item(prev_btn)
+
+                tab_label = "Normal" if self.location_tab == "normal" else "Specialized"
+                tab_btn = Button(
+                    label=tab_label,
+                    style=discord.ButtonStyle.grey,
+                    custom_id="loc_tab_indicator",
+                    disabled=True
+                )
+                self.add_item(tab_btn)
+
+                next_btn = Button(
+                    label=">",
+                    style=discord.ButtonStyle.grey,
+                    custom_id="loc_next",
+                    disabled=(self.location_tab == "specialized")
+                )
+                next_btn.callback = self.handle_button
+                self.add_item(next_btn)
+
+                # Location select dropdown (filtered by tab)
                 location_options = []
                 for loc_name, loc_data in self.cog.data["locations"].items():
+                    # Filter by current tab
+                    if is_specialist != (loc_name in specialist_names):
+                        continue
+
                     requirements = loc_data.get("requirements")
                     is_locked = False
                     if requirements:
@@ -352,17 +388,27 @@ class FishingMenuView(BaseView):
                 return embed
                 
             elif self.current_page == "location":
-                embed = discord.Embed(
-                    title="🗺️ Fishing Locations",
-                    description="Select a location from the dropdown below.",
-                    color=discord.Color.blue()
-                )
-
                 specialist_names = {"Shallow Creek", "Marshlands", "Coral Reef", "Abyssal Trench"}
-                normal_locations = []
-                specialist_locations = []
+                is_specialist = self.location_tab == "specialized"
+
+                if is_specialist:
+                    embed = discord.Embed(
+                        title="╔══ ⭐ Specialized Locations ══╗",
+                        description="Locations that heavily favor one fish rarity.",
+                        color=discord.Color.blue()
+                    )
+                else:
+                    embed = discord.Embed(
+                        title="╔══ 🗺️ Normal Locations ══╗",
+                        description="Balanced locations for general fishing.",
+                        color=discord.Color.blue()
+                    )
 
                 for loc_name, loc_data in self.cog.data["locations"].items():
+                    # Filter by current tab
+                    if is_specialist != (loc_name in specialist_names):
+                        continue
+
                     requirements = loc_data.get("requirements", {})
                     is_locked = False
                     if requirements:
@@ -381,37 +427,15 @@ class FishingMenuView(BaseView):
                     if requirements:
                         req_text = f"\n**Requirements**\n• Level {requirements.get('level', 1)}"
 
-                    field_data = (loc_name, status, loc_data, modifier_text, req_text)
-                    if loc_name in specialist_names:
-                        specialist_locations.append(field_data)
-                    else:
-                        normal_locations.append(field_data)
-
-                if normal_locations:
-                    embed.add_field(name="── Normal ──", value="\u200b", inline=False)
-                    for loc_name, status, loc_data, modifier_text, req_text in normal_locations:
-                        embed.add_field(
-                            name=f"{loc_name} ({status})",
-                            value=(
-                                f"{loc_data['description']}\n\n"
-                                f"**Location Effects**\n{chr(10).join(modifier_text)}"
-                                f"{req_text}"
-                            ),
-                            inline=False
-                        )
-
-                if specialist_locations:
-                    embed.add_field(name="── Specialized ──", value="\u200b", inline=False)
-                    for loc_name, status, loc_data, modifier_text, req_text in specialist_locations:
-                        embed.add_field(
-                            name=f"{loc_name} ({status})",
-                            value=(
-                                f"{loc_data['description']}\n\n"
-                                f"**Location Effects**\n{chr(10).join(modifier_text)}"
-                                f"{req_text}"
-                            ),
-                            inline=False
-                        )
+                    embed.add_field(
+                        name=f"{loc_name} ({status})",
+                        value=(
+                            f"{loc_data['description']}\n\n"
+                            f"**Location Effects**\n{chr(10).join(modifier_text)}"
+                            f"{req_text}"
+                        ),
+                        inline=False
+                    )
 
             elif self.current_page == "weather":
                 weather_result = await self.cog.config_manager.get_global_setting("current_weather")
@@ -604,6 +628,20 @@ class FishingMenuView(BaseView):
                 await interaction.response.edit_message(embed=embed, view=self)
                 self.message = await interaction.original_response()
                 
+            elif custom_id == "loc_prev":
+                self.location_tab = "normal"
+                await self.initialize_view()
+                embed = await self.generate_embed()
+                await interaction.response.edit_message(embed=embed, view=self)
+                self.message = await interaction.original_response()
+
+            elif custom_id == "loc_next":
+                self.location_tab = "specialized"
+                await self.initialize_view()
+                embed = await self.generate_embed()
+                await interaction.response.edit_message(embed=embed, view=self)
+                self.message = await interaction.original_response()
+
             elif custom_id == "back":
                 self.current_page = "main"
                 await self.initialize_view()
