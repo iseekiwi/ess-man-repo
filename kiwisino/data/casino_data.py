@@ -173,11 +173,11 @@ DEFAULT_PAYOUT_MULTIPLIERS = {
 
 DEFAULT_JACKPOT_CONFIG: JackpotConfig = {
     "seed_amount": 1000,
-    "contribution_rate": 0.02,  # 2% of each slots bet feeds the jackpot
+    "contribution_rate": 0.05,  # 2% of each slots bet feeds the jackpot
 }
 
 # Jackpot odds — 1 in N chance per spin (independent of symbol weights)
-JACKPOT_ODDS = 20_000
+JACKPOT_ODDS = 1_800
 
 
 # ---------------------------------------------------------------------------
@@ -275,7 +275,7 @@ DEFAULT_GUILD_SETTINGS = {
     "jackpot": {
         "current_amount": 1000,
         "seed_amount": 1000,
-        "contribution_rate": 0.02,
+        "contribution_rate": 0.05,
     },
     "payout_log": [],
     "payout_log_max": 500,
