@@ -57,7 +57,7 @@ class Kiwisino(commands.Cog):
     # User command
     # ------------------------------------------------------------------
 
-    @commands.command(name="kiwisino", aliases=["casino"])
+    @commands.command(name="casino", aliases=["kiwisino"])
     @commands.guild_only()
     async def kiwisino_cmd(self, ctx: commands.Context):
         """Open the Kiwisino casino hub."""
