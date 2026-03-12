@@ -1,0 +1,13 @@
+{
+    "author": [
+        "iseekiwi"
+    ],
+    "install_msg": "Welcome to the Kiwisino! Type [p]kiwisino to start gambling.",
+    "name": "Kiwisino",
+    "description": "A casino gambling cog with blackjack, slots, and coinflip",
+    "tags": [
+        "game",
+        "casino",
+        "gambling"
+    ]
+}
