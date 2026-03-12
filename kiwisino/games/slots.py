@@ -3,7 +3,7 @@
 import random
 from typing import Dict, List, Tuple
 from .base_game import BaseGame
-from ..data.casino_data import SLOTS_SYMBOLS, SLOTS_REEL_COUNT
+from ..data.casino_data import SLOTS_SYMBOLS, SLOTS_REEL_COUNT, JACKPOT_ODDS
 
 
 class SlotsGame(BaseGame):
@@ -33,9 +33,14 @@ class SlotsGame(BaseGame):
         Returns:
             Dict with reels, match info, payout, and jackpot trigger flag.
         """
-        reels = self._spin_reels()
+        # Jackpot check first — 1/JACKPOT_ODDS per spin, forces 3x Kiwi
+        jackpot_trigger = random.randint(1, JACKPOT_ODDS) == 1
+        if jackpot_trigger:
+            reels = ["Kiwi", "Kiwi", "Kiwi"]
+        else:
+            reels = self._spin_reels()
+
         match_type, base_multiplier = self._evaluate(reels)
-        jackpot_trigger = self._is_jackpot(reels)
 
         if jackpot_trigger:
             # Jackpot payout is handled externally by JackpotManager
@@ -90,7 +95,7 @@ class SlotsGame(BaseGame):
         return "no_match", 0.0
 
     def _is_jackpot(self, reels: List[str]) -> bool:
-        """Check if the spin triggers the progressive jackpot (3x Kiwi)."""
+        """Check if the reels show 3x Kiwi (used by _evaluate to skip payout_3)."""
         return all(s == "Kiwi" for s in reels)
 
     def get_ascii_display(self, emojis: List[str]) -> str:

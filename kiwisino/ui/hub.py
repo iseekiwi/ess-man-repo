@@ -32,7 +32,7 @@ class BetModal(discord.ui.Modal):
             bet = int(self.bet_input.value.replace(",", "").replace("$", "").strip())
         except ValueError:
             await MessageManager.send_temp_message(
-                interaction, "Please enter a valid number.", ephemeral=True
+                interaction, "Please enter a valid number.", ephemeral=False, duration=5
             )
             return
         await self._callback(interaction, bet)
@@ -238,7 +238,7 @@ class CasinoHubView(BaseView):
         games_enabled = guild_settings.get("games_enabled", {})
         if not games_enabled.get(game_id, True):
             await MessageManager.send_temp_message(
-                interaction, f"{game_id.title()} is currently disabled.", ephemeral=True
+                interaction, f"{game_id.title()} is currently disabled.", ephemeral=False, duration=5
             )
             return
 

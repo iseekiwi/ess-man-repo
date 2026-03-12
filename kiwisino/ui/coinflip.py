@@ -178,20 +178,20 @@ class CoinflipView(BaseView):
 
         valid, error = self.coinflip_game.validate_bet(bet, self.min_bet, self.max_bet)
         if not valid:
-            await MessageManager.send_temp_message(interaction, error, ephemeral=True)
+            await MessageManager.send_temp_message(interaction, error, ephemeral=False, duration=5)
             return
 
         try:
             balance = await bank.get_balance(self.ctx.author)
         except Exception:
             await MessageManager.send_temp_message(
-                interaction, "Could not check your balance.", ephemeral=True
+                interaction, "Could not check your balance.", ephemeral=False, duration=5
             )
             return
 
         if balance < bet:
             await MessageManager.send_temp_message(
-                interaction, f"You don't have enough. Balance: **${balance:,}**", ephemeral=True
+                interaction, f"You don't have enough. Balance: **${balance:,}**", ephemeral=False, duration=5
             )
             return
 
@@ -199,7 +199,7 @@ class CoinflipView(BaseView):
             await bank.withdraw_credits(self.ctx.author, bet)
         except Exception as e:
             await MessageManager.send_temp_message(
-                interaction, f"Failed to withdraw bet: {e}", ephemeral=True
+                interaction, f"Failed to withdraw bet: {e}", ephemeral=False, duration=5
             )
             return
 
@@ -267,13 +267,13 @@ class CoinflipView(BaseView):
             balance = await bank.get_balance(self.ctx.author)
         except Exception:
             await MessageManager.send_temp_message(
-                interaction, "Could not check your balance.", ephemeral=True
+                interaction, "Could not check your balance.", ephemeral=False, duration=5
             )
             return
 
         if balance < self.current_bet:
             await MessageManager.send_temp_message(
-                interaction, f"You don't have enough. Balance: **${balance:,}**", ephemeral=True
+                interaction, f"You don't have enough. Balance: **${balance:,}**", ephemeral=False, duration=5
             )
             return
 
@@ -281,7 +281,7 @@ class CoinflipView(BaseView):
             await bank.withdraw_credits(self.ctx.author, self.current_bet)
         except Exception as e:
             await MessageManager.send_temp_message(
-                interaction, f"Failed to withdraw bet: {e}", ephemeral=True
+                interaction, f"Failed to withdraw bet: {e}", ephemeral=False, duration=5
             )
             return
 

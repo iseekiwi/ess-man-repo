@@ -176,6 +176,9 @@ DEFAULT_JACKPOT_CONFIG: JackpotConfig = {
     "contribution_rate": 0.02,  # 2% of each slots bet feeds the jackpot
 }
 
+# Jackpot odds — 1 in N chance per spin (independent of symbol weights)
+JACKPOT_ODDS = 20_000
+
 
 # ---------------------------------------------------------------------------
 # Card constants (for blackjack display)

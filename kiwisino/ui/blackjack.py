@@ -85,11 +85,18 @@ class BlackjackView(BaseView):
 
     def _build_resolved_buttons(self):
         again_btn = discord.ui.Button(
-            label="\U0001F503 Play Again", custom_id="play_again",
+            label=f"\U0001F503 Play Again (${self.current_bet:,})", custom_id="play_again",
             style=discord.ButtonStyle.green, row=0,
         )
         again_btn.callback = self._handle_play_again
         self.add_item(again_btn)
+
+        change_btn = discord.ui.Button(
+            label="\U0001F4B0 Change Bet", custom_id="change_bet",
+            style=discord.ButtonStyle.blurple, row=0,
+        )
+        change_btn.callback = self._handle_change_bet
+        self.add_item(change_btn)
 
         back_btn = discord.ui.Button(
             label="\u25C0 Back to Hub", custom_id="back",
@@ -234,7 +241,7 @@ class BlackjackView(BaseView):
         game = BlackjackGame(self._deck)
         valid, error = game.validate_bet(bet, self.min_bet, self.max_bet)
         if not valid:
-            await MessageManager.send_temp_message(interaction, error, ephemeral=True)
+            await MessageManager.send_temp_message(interaction, error, ephemeral=False, duration=5)
             return
 
         # Check balance
@@ -242,13 +249,13 @@ class BlackjackView(BaseView):
             balance = await bank.get_balance(self.ctx.author)
         except Exception:
             await MessageManager.send_temp_message(
-                interaction, "Could not check your balance.", ephemeral=True
+                interaction, "Could not check your balance.", ephemeral=False, duration=5
             )
             return
 
         if balance < bet:
             await MessageManager.send_temp_message(
-                interaction, f"You don't have enough. Balance: **${balance:,}**", ephemeral=True
+                interaction, f"You don't have enough. Balance: **${balance:,}**", ephemeral=False, duration=5
             )
             return
 
@@ -257,7 +264,7 @@ class BlackjackView(BaseView):
             await bank.withdraw_credits(self.ctx.author, bet)
         except Exception as e:
             await MessageManager.send_temp_message(
-                interaction, f"Failed to withdraw bet: {e}", ephemeral=True
+                interaction, f"Failed to withdraw bet: {e}", ephemeral=False, duration=5
             )
             return
 
@@ -292,13 +299,13 @@ class BlackjackView(BaseView):
                 if balance < self.current_bet:
                     await MessageManager.send_temp_message(
                         interaction, f"Not enough to double. Need **${self.current_bet:,}** more.",
-                        ephemeral=True,
+                        ephemeral=False, duration=5,
                     )
                     return
                 await bank.withdraw_credits(self.ctx.author, self.current_bet)
             except Exception as e:
                 await MessageManager.send_temp_message(
-                    interaction, f"Failed to withdraw for double: {e}", ephemeral=True
+                    interaction, f"Failed to withdraw for double: {e}", ephemeral=False, duration=5
                 )
                 return
 
@@ -310,13 +317,13 @@ class BlackjackView(BaseView):
                 if balance < self.current_bet:
                     await MessageManager.send_temp_message(
                         interaction, f"Not enough to split. Need **${self.current_bet:,}** more.",
-                        ephemeral=True,
+                        ephemeral=False, duration=5,
                     )
                     return
                 await bank.withdraw_credits(self.ctx.author, self.current_bet)
             except Exception as e:
                 await MessageManager.send_temp_message(
-                    interaction, f"Failed to withdraw for split: {e}", ephemeral=True
+                    interaction, f"Failed to withdraw for split: {e}", ephemeral=False, duration=5
                 )
                 return
 
@@ -341,6 +348,46 @@ class BlackjackView(BaseView):
         await interaction.response.edit_message(embed=embed, view=self)
 
     async def _handle_play_again(self, interaction: discord.Interaction):
+        """Play again with the same bet — re-withdraw and deal."""
+        from redbot.core import bank
+
+        try:
+            balance = await bank.get_balance(self.ctx.author)
+        except Exception:
+            await MessageManager.send_temp_message(
+                interaction, "Could not check your balance.", ephemeral=False, duration=5
+            )
+            return
+
+        if balance < self.current_bet:
+            await MessageManager.send_temp_message(
+                interaction, f"You don't have enough. Balance: **${balance:,}**",
+                ephemeral=False, duration=5,
+            )
+            return
+
+        try:
+            await bank.withdraw_credits(self.ctx.author, self.current_bet)
+        except Exception as e:
+            await MessageManager.send_temp_message(
+                interaction, f"Failed to withdraw bet: {e}", ephemeral=False, duration=5
+            )
+            return
+
+        self.game = BlackjackGame(self._deck)
+        self.game_state = self.game.new_hand(self.current_bet)
+
+        if self.game_state["state"] == BlackjackGame.RESOLVED:
+            self._phase = "resolved"
+            await self._process_results()
+        else:
+            self._phase = "playing"
+
+        await self.initialize_view()
+        embed = await self.generate_embed()
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    async def _handle_change_bet(self, interaction: discord.Interaction):
         self._phase = "betting"
         self.game = None
         self.game_state = None
