@@ -8,6 +8,7 @@ This is a **Red-DiscordBot cog repository** by iseekiwi. The cogs are:
 
 - **Fishing** (`fishing/`) — A fishing game for Discord with economy, leveling, inventory, and shop system. Load with `[p]load fishing`.
 - **Kiwisino** (`kiwisino/`) — A casino gambling cog with blackjack, slots, and coinflip. Load with `[p]load kiwisino`. See `kiwisino/CLAUDE.md` for full architecture documentation.
+- **WordCloud** (`wcloud/`) — Generates word cloud images from a user's messages in a channel. Load with `[p]load wcloud`. Simple 4-file cog, no persistent state.
 - **Basewars** (`basewars/`) — Non-functional, not ready for development.
 
 Cogs are installed into a Red-DiscordBot instance via `[p]cog install`. There is no standalone build/test system — cogs run inside a Red bot.

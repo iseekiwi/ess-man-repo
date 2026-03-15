@@ -1,0 +1,15 @@
+{
+    "author": [
+        "iseekiwi"
+    ],
+    "install_msg": "WordCloud installed! Use [p]wordcloud @user to generate a word cloud.",
+    "name": "WordCloud",
+    "description": "Generate word clouds from a user's messages in a channel",
+    "tags": [
+        "utility",
+        "fun"
+    ],
+    "requirements": [
+        "wordcloud"
+    ]
+}
