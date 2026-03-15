@@ -53,6 +53,7 @@ DISCORD_STOP_WORDS = {
     "hes", "shes", "thats", "whats", "heres", "theres",
     "yeah", "yea", "yep", "nah", "nope",
     "ok", "okay", "ya", "ye",
+    "s", "t", "d", "ll", "ve", "re", "m",  # contraction remnants (it's, don't, etc.)
 }
 
 # Combined stop words set
