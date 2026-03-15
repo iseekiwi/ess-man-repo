@@ -15,9 +15,6 @@ try:
 except ImportError:
     HAS_WORDCLOUD = False
 
-# Hard cap on total messages scanned to prevent the bot from hanging
-MAX_MESSAGES_SCANNED = 10_000
-
 # Timeframe pattern for years (e.g. "1y", "2y")
 YEAR_PATTERN = re.compile(r"^(\d+)y$", re.IGNORECASE)
 
@@ -70,7 +67,7 @@ class WordCloudCog(commands.Cog):
 
         # Show typing indicator while scanning
         async with ctx.typing():
-            words, messages_scanned, hit_cap = await self._collect_words(
+            words, messages_scanned = await self._collect_words(
                 channel, user, cutoff
             )
 
@@ -93,15 +90,10 @@ class WordCloudCog(commands.Cog):
         )
         embed.set_image(url="attachment://wordcloud.png")
 
-        footer_parts = [
-            f"Channel: #{channel.name}",
-            f"Timeframe: {timeframe_display}",
-            f"{messages_scanned:,} messages scanned",
-            f"{len(words):,} words collected",
-        ]
-        if hit_cap:
-            footer_parts.append(f"(scan limit: {MAX_MESSAGES_SCANNED:,} messages)")
-        embed.set_footer(text=" | ".join(footer_parts))
+        embed.set_footer(
+            text=f"#{channel.name} | {timeframe_display} | "
+                 f"{messages_scanned:,} messages scanned | {len(words):,} words collected"
+        )
 
         file = discord.File(image_buffer, filename="wordcloud.png")
         await ctx.send(embed=embed, file=file)
@@ -122,17 +114,12 @@ class WordCloudCog(commands.Cog):
         """
         words = []
         messages_scanned = 0
-        hit_cap = False
 
         try:
             async for message in channel.history(
                 limit=None, after=cutoff, oldest_first=False
             ):
                 messages_scanned += 1
-
-                if messages_scanned >= MAX_MESSAGES_SCANNED:
-                    hit_cap = True
-                    break
 
                 if message.author.id != user.id:
                     continue
@@ -146,7 +133,7 @@ class WordCloudCog(commands.Cog):
         except discord.Forbidden:
             pass  # No permission — return what we have (likely empty)
 
-        return words, messages_scanned, hit_cap
+        return words, messages_scanned
 
     # ------------------------------------------------------------------
     # Image generation
